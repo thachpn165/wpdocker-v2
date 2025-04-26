@@ -1,0 +1,6 @@
+# Private folders
+./config/
+./data/
+
+# Config files
+core/core.env

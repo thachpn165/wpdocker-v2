@@ -1,0 +1,9 @@
+name: ${PROJECT_NAME} 
+services:
+  python-runtime:
+    image: ${CORE_RUNTIME_IMAGES}
+    container_name: ${CORE_RUNTIME_CONTAINER_NAME}
+    volumes:
+      - ${RUNTIME_MOUNT_SOURCE_DIR}:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
