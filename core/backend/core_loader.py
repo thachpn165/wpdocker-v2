@@ -73,7 +73,7 @@ def load_core_env():
 
 def init():
 
-    #check_and_update_pip()
+    # check_and_update_pip()
     check_and_install_modules()
     source_core_env()
     get_secret_key()
