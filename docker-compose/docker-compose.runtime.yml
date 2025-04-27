@@ -1,9 +1,0 @@
-name: wpdocker 
-services:
-  python-runtime:
-    image: python:3.10-slim
-    container_name: wpdocker-python-runtime
-    volumes:
-      - /Users/thachpham/Coding/wpdocker-v2:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: sleep infinity
