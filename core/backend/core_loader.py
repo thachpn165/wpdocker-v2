@@ -76,5 +76,12 @@ def init():
     # check_and_update_pip()
     check_and_install_modules()
     source_core_env()
+
+    # 🔄 Import debug module sau khi env đã có
+    import logging
+    from core.backend.utils import debug as debug_module
+    from core.backend.utils.debug import debug, enable_exception_hook
+    debug_module.logger.setLevel(logging.DEBUG if os.environ.get("DEBUG_MODE", "false").lower() == "true" else logging.INFO)
+    debug_module.enable_exception_hook()
     get_secret_key()
     return load_core_env()

@@ -16,6 +16,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/init_python.sh"
 init_python_env
 
 # Chạy backend
-echo "🚀 Launching WP Docker backend..."
+#echo "🚀 Launching WP Docker backend..."
 
 "$PYTHON_EXEC" "$MAIN_FILE"

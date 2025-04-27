@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${mysql_root_passwd}
     volumes:
       - ${MYSQL_VOLUME_NAME}:/var/lib/mysql
-      - ./mysql.cnf:/etc/mysql/conf.d/mysql.cnf:ro
+      - /opt/wp-docker/config/mysql.conf:/etc/mysql/conf.d/mysql.cnf:ro
     networks:
       - ${DOCKER_NETWORK} 
 

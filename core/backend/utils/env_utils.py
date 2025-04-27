@@ -1,6 +1,9 @@
 import os
 import sys
+from core.backend.utils.debug import log_call
 
+
+@log_call
 def env_required(keys):
     env = {}
     missing = []
