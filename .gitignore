@@ -2,5 +2,14 @@
 ./config/
 ./data/
 
+# Cache
+__pycache__/
 # Config files
+.venv
 core/core.env
+config.json
+
+# Docker compose
+docker-compose/*.yml
+docker-compose/docker-compose.runtime.yml
+docker-compose.override.yml

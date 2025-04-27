@@ -26,9 +26,10 @@ env_sample="$env_dir/core.env.sample"
 if ! _is_file_exist "$env_file"; then
     if _is_file_exist "$env_sample"; then
         copy_file "$env_sample" "$env_file" || exit 1
-        echo "📋 Đã tạo file core.env từ mẫu"
+        print_msg success "📋 Đã tạo file core.env từ mẫu"
     else
-        echo "❌ Không tìm thấy core.env.sample!"
+        print_msg error "Không tìm thấy core.env.sample!"
+    
         exit 1
     fi
 fi
@@ -38,4 +39,6 @@ fi
 # ============================================
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/init_python_runtime.sh"
 _init_python_runtime || exit 1
-echo "✅ Đã khởi động Python Runtime Container thành công."
+print_msg success "Đã khởi động Python Runtime Container thành công."
+
+wpdocker_py "/app/core/backend/menu_main.py" || exit 1

@@ -6,4 +6,6 @@ services:
     volumes:
       - ${RUNTIME_MOUNT_SOURCE_DIR}:/app
       - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PYTHONPATH=/app
     command: sleep infinity
