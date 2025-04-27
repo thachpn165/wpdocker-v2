@@ -22,6 +22,23 @@ def ensure_core_lang(config: Config):
     config.save()
     print(f"✅ Đã lưu ngôn ngữ: {lang}")
 
+def ensure_core_channel(config: Config):
+    if config.get("core.channel"):
+        return  # Đã có rồi
+
+    channel = questionary.select(
+        "🚀 Chọn kênh phiên bản (release channel):",
+        choices=[
+            "stable",
+            "beta",
+            "dev"
+        ]
+    ).ask()
+
+    config.set("core.channel", channel)
+    config.save()
+    print(f"✅ Đã lưu kênh phiên bản: {channel}")
+
 def ensure_core_timezone(config: Config):
     if config.get("core.timezone"):
         return  # Đã có rồi
@@ -51,4 +68,5 @@ def ensure_core_timezone(config: Config):
 def run_system_bootstrap():
     config = Config()  # Mặc định load từ /app/config/config.json
     ensure_core_lang(config)
+    ensure_core_channel(config)
     ensure_core_timezone(config)

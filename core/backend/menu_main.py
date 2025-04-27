@@ -1,6 +1,7 @@
 # File: core/backend/menu_main.py
 
 from core_loader import init
+from system_bootstrap import run_system_bootstrap
 env = init()
 import sys
 import questionary
@@ -57,27 +58,10 @@ def ssl_menu():
 # ⚙️ Menu Hệ thống
 # ==============================
 def system_menu():
-    from system_bootstrap import run_system_bootstrap
-
-    while True:
-        choice = questionary.select(
-            "⚙️ Hệ thống:",
-            choices=[
-                "🔄 Khởi động lại hệ thống",
-                "🛠 Thiết lập cấu hình (Bootstrap)",
-                "⬅️ Quay lại"
-            ]
-        ).ask()
-
-        if choice == "🔄 Khởi động lại hệ thống":
-            print("👉 Chức năng khởi động lại hệ thống đang được phát triển.")
-        elif choice == "🛠 Thiết lập cấu hình (Bootstrap)":
-            run_system_bootstrap()
-        elif choice == "⬅️ Quay lại":
-            break
-
+    ...
 # ==============================
 # 🚀 Chạy chương trình
 # ==============================
 if __name__ == "__main__":
+    run_system_bootstrap()
     main_menu()
