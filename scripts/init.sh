@@ -1,44 +1,21 @@
 #!/bin/bash
 
-# =============================================
-# 🚀 WP Docker v2 - Init Script
-# ---------------------------------------------
-# - Load core.env & tiện ích bash
-# - Tạo docker-compose.runtime.yml từ template
-# - Hỗ trợ chế độ DEV với mount thư mục thực
-# =============================================
+set -e
 
-# Gọi file load_config.sh
-source "$(dirname "${BASH_SOURCE[0]}")/../core/bash-utils/load_config.sh"
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VENV_DIR="$INSTALL_DIR/.venv"
+PYTHON_EXEC="$VENV_DIR/bin/python"
+MAIN_FILE="$INSTALL_DIR/core/backend/menu_main.py"
 
-# Load core.env và các hàm tiện ích
-load_core_env || exit 1
-load_core_utils
+# Kiểm tra python3
+source "$(dirname "${BASH_SOURCE[0]}")/install_python.sh"
+install_python
 
-# =============================================
-# 🧾 Kiểm tra file core.env, nếu chưa có thì copy từ sample
-# =============================================
+# Khởi tạo venv cho Python (tại thư mục .venv)
+source "$(dirname "${BASH_SOURCE[0]}")/init_python.sh"
+init_python_env
 
-env_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../core" && pwd)"
-env_file="$env_dir/core.env"
-env_sample="$env_dir/core.env.sample"
+# Chạy backend
+echo "🚀 Launching WP Docker backend..."
 
-if ! _is_file_exist "$env_file"; then
-    if _is_file_exist "$env_sample"; then
-        copy_file "$env_sample" "$env_file" || exit 1
-        print_msg success "📋 Đã tạo file core.env từ mẫu"
-    else
-        print_msg error "Không tìm thấy core.env.sample!"
-    
-        exit 1
-    fi
-fi
-
-# =============================================
-# Khởi động Python Runtime Container
-# ============================================
-source "$(dirname "${BASH_SOURCE[0]}")/../scripts/init_python_runtime.sh"
-_init_python_runtime || exit 1
-print_msg success "Đã khởi động Python Runtime Container thành công."
-
-wpdocker_py "/app/core/backend/menu_main.py" || exit 1
+"$PYTHON_EXEC" "$MAIN_FILE"

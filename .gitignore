@@ -8,10 +8,12 @@
 
 # Cache
 __pycache__/
+
 # Config files
 .venv
 core/core.env
 config.json
+.secret_key
 
 # Docker compose
 docker-compose/*.yml

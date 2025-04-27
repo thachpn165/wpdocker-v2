@@ -33,5 +33,6 @@ load_core_utils() {
     source "$this_dir/core/bash-utils/get_path.sh"
     source "$this_dir/core/bash-utils/file_operations.sh"
     source "$this_dir/core/bash-utils/messages_utils.sh" 
-    source "$this_dir/core/bash-utils/runtime_utils.sh"
+    source "$this_dir/core/bash-utils/runtime_utils.sh" 
+    source "$this_dir/core/bash-utils/docker_utils.sh"
 }

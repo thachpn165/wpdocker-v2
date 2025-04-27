@@ -8,6 +8,8 @@ import questionary
 # Load bootstrap modules
 from bootstraps.config_bootstrap import run_config_bootstrap
 from bootstraps.system_bootstrap import run_system_bootstrap
+from bootstraps.mysql_bootstrap import run_mysql_bootstrap
+from bootstraps.webserver_bootstrap import run_webserver_bootstrap
 install_dir = env["INSTALL_DIR"]
 
 # ==============================
@@ -69,4 +71,6 @@ def system_menu():
 if __name__ == "__main__":
     run_config_bootstrap()
     run_system_bootstrap()
+    run_mysql_bootstrap()
+    run_webserver_bootstrap()
     main_menu()

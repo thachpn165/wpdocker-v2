@@ -1,8 +1,11 @@
 import os
 import json
-
+from core.backend.utils.env_utils import env_required
+env = env_required([
+    "INSTALL_DIR",
+])
 class Config:
-    def __init__(self, config_path="/app/config/config.json"):
+    def __init__(self, config_path=env["INSTALL_DIR"] + "/config/config.json"):
         self.config_path = config_path
         self.data = {}
         self.load()

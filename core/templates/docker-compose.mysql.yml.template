@@ -1,0 +1,22 @@
+name: ${PROJECT_NAME} 
+
+services:
+  mariadb:
+    container_name: ${MYSQL_CONTAINER_NAME}
+    image: ${MYSQL_IMAGE}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${mysql_root_passwd}
+    volumes:
+      - ${MYSQL_VOLUME_NAME}:/var/lib/mysql
+      - ./mysql.cnf:/etc/mysql/conf.d/mysql.cnf:ro
+    networks:
+      - ${DOCKER_NETWORK} 
+
+volumes:
+    ${MYSQL_VOLUME_NAME}:
+      name: ${MYSQL_VOLUME_NAME} 
+
+networks:
+  ${DOCKER_NETWORK}:
+    external: true
