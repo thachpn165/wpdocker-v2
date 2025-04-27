@@ -1,11 +1,13 @@
 # File: core/backend/menu_main.py
 
 from core_loader import init
-from system_bootstrap import run_system_bootstrap
 env = init()
 import sys
 import questionary
 
+# Load bootstrap modules
+from bootstraps.config_bootstrap import run_config_bootstrap
+from bootstraps.system_bootstrap import run_system_bootstrap
 install_dir = env["INSTALL_DIR"]
 
 # ==============================
@@ -59,9 +61,12 @@ def ssl_menu():
 # ==============================
 def system_menu():
     ...
+
 # ==============================
 # 🚀 Chạy chương trình
 # ==============================
+
 if __name__ == "__main__":
+    run_config_bootstrap()
     run_system_bootstrap()
     main_menu()

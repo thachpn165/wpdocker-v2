@@ -1,3 +1,7 @@
+# Vscode
+.vscode/
+.vscode-test/
+
 # Private folders
 ./config/
 ./data/
