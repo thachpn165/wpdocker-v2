@@ -1,7 +1,7 @@
 import questionary
 from core.backend.objects.config import Config
 import importlib
-from core.backend.utils.debug import debug, info, warn, error, log_call
+from core.backend.utils.debug import debug, info, warn, error, log_call, success
 
 
 @log_call
@@ -27,7 +27,7 @@ def run_webserver_bootstrap():
         webserver = label_to_key[webserver_label]
         config.set("core.webserver", webserver)
         config.save()
-        print(f"✅ Đã lưu Webserver: {webserver}")
+        success(f"Đã lưu Webserver: {webserver}")
 
     # Luôn khởi tạo webserver nếu đã có tên
     if webserver in available_webservers:
@@ -36,4 +36,4 @@ def run_webserver_bootstrap():
         mod.run_bootstrap()
     else:
         error(
-            f"❌ Webserver `{webserver}` không nằm trong danh sách được hỗ trợ.")
+            f"Webserver `{webserver}` không nằm trong danh sách được hỗ trợ.")

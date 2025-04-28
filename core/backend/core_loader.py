@@ -8,6 +8,8 @@ import subprocess
 
 # ====== Danh sách thư viện bắt buộc ======
 REQUIRED_MODULES = {
+    # import_name: pip_name
+    
     "questionary": "questionary",
     "rich": "rich",
     "json": "json",
@@ -17,8 +19,7 @@ REQUIRED_MODULES = {
     "sys": "sys",
     "base64": "base64",
     "password_generator": "random-password-generator",
-    "python-on-whales": "python-on-whales"
-
+    "python_on_whales": "python-on-whales"
 }
 
 # ====== Kiểm tra và cập nhật pip ======

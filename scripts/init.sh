@@ -5,7 +5,7 @@ set -e
 INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="$INSTALL_DIR/.venv"
 PYTHON_EXEC="$VENV_DIR/bin/python"
-MAIN_FILE="$INSTALL_DIR/core/backend/menu_main.py"
+MAIN_FILE="$INSTALL_DIR/core/backend/init.py"
 
 # Kiểm tra python3
 source "$(dirname "${BASH_SOURCE[0]}")/install_python.sh"

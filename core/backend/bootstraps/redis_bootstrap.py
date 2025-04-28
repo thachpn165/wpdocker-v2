@@ -5,7 +5,7 @@ from core.backend.objects.container import Container
 
 @log_call
 def run_redis_bootstrap():
-    info("🚀 Đang khởi tạo Redis container...")
+    info("Đang khởi tạo Redis container...")
 
     # Bắt buộc các biến cần có
     env_required([

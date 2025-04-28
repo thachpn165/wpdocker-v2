@@ -4,8 +4,9 @@ from core.backend.utils.debug import info, debug
 import shutil
 import os
 
+
 def run_bootstrap():
-    info("🚀 Khởi tạo hệ thống Webserver NGINX...")
+    info("Khởi tạo hệ thống Webserver NGINX...")
 
     # Lấy biến cần thiết từ môi trường
     env = env_required([
@@ -23,7 +24,7 @@ def run_bootstrap():
 
     if not os.path.exists(nginx_conf_path):
         debug(
-            f"⚠️ Thiếu file cấu hình NGINX: {nginx_conf_path} → tạo từ template.")
+            f"Thiếu file cấu hình NGINX: {nginx_conf_path} → tạo từ template.")
         shutil.copyfile(nginx_conf_template, nginx_conf_path)
     # Khởi tạo Container object
     container = Container(
