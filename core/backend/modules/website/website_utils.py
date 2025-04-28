@@ -1,25 +1,27 @@
+from core.backend.utils.system_info import get_total_cpu_cores, get_total_ram_mb
 import os
 from core.backend.utils.env_utils import env
 from core.backend.objects.config import Config
 from core.backend.utils.debug import log_call, debug, error
+
 
 @log_call
 def _is_website_exists(domain: str) -> bool:
     config = Config()
     sites_dir = env["SITES_DIR"]
     site_dir = os.path.join(sites_dir, domain)
-
-    # Kiểm tra thư mục site và config trong .config.json
     site_dir_exists = os.path.isdir(site_dir)
-    config_exists = config.get(f"site.{domain}") is not None
+
+    site_data = config.get("site", {})  # lấy nguyên block site {}
+    config_exists = domain in site_data  # check domain có nằm trong site_data không
+
     debug(f"site_dir_exists: {site_dir_exists}, config_exists: {config_exists}")
     return site_dir_exists and config_exists
 
-    
-from core.backend.utils.system_info import get_total_cpu_cores, get_total_ram_mb
 
 # Tính toán các thông số PHP-FPM dựa trên tài nguyên server
 # và nhóm tài nguyên (thấp, trung bình, cao)
+
 def website_calculate_php_fpm_values():
     total_ram = get_total_ram_mb()  # MB
     total_cpu = get_total_cpu_cores()  # Số core
@@ -75,8 +77,17 @@ def website_calculate_php_fpm_values():
     }
 
 # Lấy danh sách các website đã được tạo
-# Return: array danh sách tên miền
+
+
 def website_list():
     config = Config()
-    sites = config.get("site", {})
-    return [domain for domain in sites if _is_website_exists(domain)]
+    raw_sites = config.get("site", {})
+    debug(f"Website raw config: {raw_sites}")
+
+    valid_domains = []
+    for domain in raw_sites.keys():
+        if _is_website_exists(domain):
+            valid_domains.append(domain)
+
+    debug(f"Website valid domains: {valid_domains}")
+    return valid_domains

@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from core.backend.modules.website.prompts.create_prompt import prompt_create_website
-
+from core.backend.modules.website.prompts.delete_prompt import prompt_delete_website
 console = Console()
 
 menu_items = [
@@ -85,6 +85,8 @@ def website_menu():
             return  # Quay lại menu chính
         elif answer == choices[0]:  # Tạo website
             prompt_create_website()
+        elif answer == choices[1]:  # Xóa website
+            prompt_delete_website()
         else:
             console.print("🚧 Chức năng đang được phát triển...")
 
