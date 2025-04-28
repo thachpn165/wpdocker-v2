@@ -1,11 +1,15 @@
+from core.backend.utils.env_utils import env_required, env
 import os
 import sys
 import logging
 import functools
 
+# ===== Lấy biến môi trường bắt buộc =====
+env_required(["DEBUG_MODE"])
+
 # ===== Tạo logger chuẩn cho toàn hệ thống =====
 logger = logging.getLogger("wpdocker")
-logger.setLevel(logging.DEBUG if os.environ.get("DEBUG_MODE", "false").lower() == "true" else logging.INFO)
+logger.setLevel(logging.DEBUG if env["DEBUG_MODE"].lower() == "true" else logging.INFO)
 
 formatter = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(message)s",

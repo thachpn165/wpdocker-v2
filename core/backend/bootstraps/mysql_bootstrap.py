@@ -1,6 +1,6 @@
 from core.backend.utils.system_info import get_total_ram_mb, get_total_cpu_cores
 from core.backend.objects.container import Container
-from core.backend.utils.env_utils import env_required
+from core.backend.utils.env_utils import env, env_required
 from core.backend.utils.crypto import encrypt, decrypt
 from core.backend.objects.config import Config
 from core.backend.utils.password import strong_password
@@ -10,13 +10,14 @@ from core.backend.utils.debug import debug, info, warn, error, log_call
 def run_mysql_bootstrap():
     config = Config()
 
-    env = env_required([
+    env_required([
         "PROJECT_NAME",
         "MYSQL_CONTAINER_NAME",
         "MYSQL_IMAGE",
         "MYSQL_VOLUME_NAME",
         "DOCKER_NETWORK",
         "INSTALL_DIR",
+        "CONFIG_DIR",
     ])
 
     mysql_container = env["MYSQL_CONTAINER_NAME"]
@@ -35,7 +36,7 @@ def run_mysql_bootstrap():
         debug("Plain password:", passwd)
         debug("Encrypted password (in config):", config.get("mysql.root_passwd")) 
     import os
-    config_dir = os.environ["CONFIG_DIR"]
+    config_dir = env["CONFIG_DIR"]
     os.makedirs(config_dir, exist_ok=True)
 
     config_path = os.path.join(config_dir, "mysql.conf")
@@ -79,7 +80,4 @@ thread_cache_size = {thread_cache_size}
         sensitive_env={"mysql_root_passwd": passwd}
     )
 
-    if not container.exists():
-        print("📦 MySQL chưa tồn tại. Đang triển khai...")
-        container.generate_compose_file()
-    container.up()
+    container.ensure_ready()

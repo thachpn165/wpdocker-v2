@@ -1,0 +1,26 @@
+name: ${PROJECT_NAME} 
+
+services:
+  nginx:
+    image: ${NGINX_IMAGE_NAME}
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${INSTALL_DIR}/data/nginx/conf.d:/etc/nginx/conf.d
+      - ${INSTALL_DIR}/core/backend/modules/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${INSTALL_DIR}/core/backend/modules/nginx/globals:/etc/nginx/globals
+      - ${INSTALL_DIR}/core/backend/modules/nginx/waf:/etc/nginx/waf
+      - wpdocker_fastcgi_cache_data:/usr/local/openresty/nginx/fastcgi_cache
+    networks:
+      - ${DOCKER_NETWORK} 
+
+networks:
+  ${DOCKER_NETWORK}:
+    external: true
+
+volumes:
+  wpdocker_fastcgi_cache_data:
+    external: true

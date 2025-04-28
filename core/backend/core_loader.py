@@ -17,6 +17,7 @@ REQUIRED_MODULES = {
     "sys": "sys",
     "base64": "base64",
     "password_generator": "random-password-generator",
+    "python-on-whales": "python-on-whales"
 
 }
 
