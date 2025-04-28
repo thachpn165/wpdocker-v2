@@ -4,6 +4,7 @@ import sys
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from core.backend.modules.website.prompts.create_prompt import prompt_create_website
 
 console = Console()
 
@@ -50,8 +51,41 @@ def show_main_menu():
         console.print("👋 Tạm biệt!", style="bold green")
         sys.exit(0)
 
-    console.print(f"👉 [yellow]Bạn chọn:[/] {menu_items[selected_index][0]}")
-    console.print("🚧 Chức năng đang được phát triển...")
+    if selected_key == "website_menu":
+        website_menu()
+        show_main_menu()
+    else:
+        console.print(f"👉 [yellow]Bạn chọn:[/] {menu_items[selected_index][0]}")
+        console.print("🚧 Chức năng đang được phát triển...")
 
-    input("\n⏎ Nhấn Enter để quay lại menu...")
-    show_main_menu()
+        input("\n⏎ Nhấn Enter để quay lại menu...")
+        show_main_menu()
+
+def website_menu():
+    while True:
+        choices = [
+            "[1] Tạo website",
+            "[2] Xóa website",
+            "[3] Xem danh sách website",
+            "[4] Restart lại website",
+            "[5] Xem logs website",
+            "[6] Xem thông tin website",
+            "[7] Migrate dữ liệu về WP Docker",
+            "[8] Quay lại menu chính"
+        ]
+        answer = questionary.select(
+            "\n🌐 Quản lý Website:",
+            choices=choices
+        ).ask()
+
+        selected_index = choices.index(answer)
+        console.print(f"👉 [yellow]Bạn chọn:[/] {choices[selected_index][4:]}")
+
+        if answer == choices[-1]:
+            return  # Quay lại menu chính
+        elif answer == choices[0]:  # Tạo website
+            prompt_create_website()
+        else:
+            console.print("🚧 Chức năng đang được phát triển...")
+
+        input("\n⏎ Nhấn Enter để quay lại menu...")

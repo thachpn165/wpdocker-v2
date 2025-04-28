@@ -4,25 +4,18 @@ from core.backend.utils.env_utils import env_required
 env = env_required([
     "INSTALL_DIR",
 ])
+
+
 class Config:
     def __init__(self, config_path=env["INSTALL_DIR"] + "/config/config.json"):
         self.config_path = config_path
-        self.data = {}
-        self.load()
+        self.data = self.load()
 
     def load(self):
-        if not os.path.exists(self.config_path):
-            self.data = {}
-            return
         with open(self.config_path, "r") as f:
-            try:
-                self.data = json.load(f)
-            except json.JSONDecodeError:
-                print(f"⚠️ File config bị lỗi định dạng JSON: {self.config_path}")
-                self.data = {}
+            return json.load(f)
 
     def save(self):
-        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
         with open(self.config_path, "w") as f:
             json.dump(self.data, f, indent=2)
 
@@ -30,15 +23,18 @@ class Config:
         keys = path.split(".")
         current = self.data
         for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
-            else:
+            if not isinstance(current, dict):
                 return fallback
+            current = current.get(key, fallback)
         return current
 
-    def set(self, path, value):
-        keys = path.split(".")
-        current = self.data
-        for key in keys[:-1]:
-            current = current.setdefault(key, {})
-        current[keys[-1]] = value
+    def set(self, path, value, split_path=True):
+        if split_path:
+            keys = path.split(".")
+            current = self.data
+            for key in keys[:-1]:
+                current = current.setdefault(key, {})
+            current[keys[-1]] = value
+        else:
+            self.data[path] = value
+        self.save()

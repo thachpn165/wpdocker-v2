@@ -1,9 +1,7 @@
 from core.backend.objects.container import Container
 from core.backend.utils.env_utils import env_required
 from core.backend.utils.debug import info, debug
-import shutil
 import os
-
 
 def run_bootstrap():
     info("Khởi tạo hệ thống Webserver NGINX...")
@@ -14,18 +12,27 @@ def run_bootstrap():
         "PROJECT_NAME",
         "NGINX_CONTAINER_NAME",
         "NGINX_IMAGE_NAME",
-        "DOCKER_NETWORK"
+        "DOCKER_NETWORK",
+        "NGINX_CONTAINER_PATH",
+        "NGINX_CONTAINER_CONF_PATH"
     ])
 
-    nginx_conf_path = os.path.join(
-        env["INSTALL_DIR"], "core/backend/modules/nginx/nginx.conf")
-    nginx_conf_template = os.path.join(
-        env["INSTALL_DIR"], "core/templates/nginx.conf.template")
+    nginx_conf_path = os.path.join(env["INSTALL_DIR"], "core/backend/modules/nginx/nginx.conf")
+    nginx_conf_template = os.path.join(env["INSTALL_DIR"], "core/templates/nginx.conf.template")
 
+    # Tạo nginx.conf nếu chưa tồn tại
     if not os.path.exists(nginx_conf_path):
-        debug(
-            f"Thiếu file cấu hình NGINX: {nginx_conf_path} → tạo từ template.")
-        shutil.copyfile(nginx_conf_template, nginx_conf_path)
+        debug(f"Thiếu file cấu hình NGINX: {nginx_conf_path} → tạo từ template.")
+
+        with open(nginx_conf_template, "r") as f:
+            content = f.read()
+
+        content = content.replace("${NGINX_CONTAINER_PATH}", env["NGINX_CONTAINER_PATH"])
+        content = content.replace("${NGINX_CONTAINER_CONF_PATH}", env["NGINX_CONTAINER_CONF_PATH"])
+
+        with open(nginx_conf_path, "w") as f:
+            f.write(content)
+
     # Khởi tạo Container object
     container = Container(
         name=env["NGINX_CONTAINER_NAME"],
@@ -36,11 +43,10 @@ def run_bootstrap():
             "PROJECT_NAME": env["PROJECT_NAME"],
             "NGINX_CONTAINER_NAME": env["NGINX_CONTAINER_NAME"],
             "NGINX_IMAGE_NAME": env["NGINX_IMAGE_NAME"],
-            "DOCKER_NETWORK": env["DOCKER_NETWORK"]
+            "DOCKER_NETWORK": env["DOCKER_NETWORK"],
+            "NGINX_CONTAINER_PATH": env["NGINX_CONTAINER_PATH"],
+            "NGINX_CONTAINER_CONF_PATH": env["NGINX_CONTAINER_CONF_PATH"]
         }
     )
 
-    # Kiểm tra đảm bảo đã tồn tại đủ docker-compose file và container
-    # Nếu thiếu docker-compose thì tạo mới
-    # Nếu container chưa tồn tại thì up
     container.ensure_ready()

@@ -19,7 +19,8 @@ REQUIRED_MODULES = {
     "sys": "sys",
     "base64": "base64",
     "password_generator": "random-password-generator",
-    "python_on_whales": "python-on-whales"
+    "python_on_whales": "python-on-whales",
+    "requests": "requests",
 }
 
 # ====== Kiểm tra và cập nhật pip ======
@@ -84,6 +85,6 @@ def init():
     from core.backend.utils import debug as debug_module
     from core.backend.utils.debug import debug, enable_exception_hook
     debug_module.logger.setLevel(logging.DEBUG if os.environ.get("DEBUG_MODE", "false").lower() == "true" else logging.INFO)
-    debug_module.enable_exception_hook()
+    #debug_module.enable_exception_hook()
     get_secret_key()
     return load_core_env()
