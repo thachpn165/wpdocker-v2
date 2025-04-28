@@ -1,0 +1,12 @@
+name: ${PROJECT_NAME} 
+services:
+  redis:
+    image: ${REDIS_IMAGE}
+    container_name: ${REDIS_CONTAINER_NAME}
+    restart: unless-stopped
+    networks:
+      - ${DOCKER_NETWORK} 
+    command: redis-server --appendonly yes
+networks:
+  ${DOCKER_NETWORK}:
+    external: true

@@ -10,7 +10,10 @@ from bootstraps.config_bootstrap import run_config_bootstrap
 from bootstraps.system_bootstrap import run_system_bootstrap
 from bootstraps.mysql_bootstrap import run_mysql_bootstrap
 from bootstraps.webserver_bootstrap import run_webserver_bootstrap
+from bootstraps.redis_bootstrap import run_redis_bootstrap
+
 install_dir = env["INSTALL_DIR"]
+
 
 # ==============================
 # 📋 Menu chính
@@ -73,4 +76,5 @@ if __name__ == "__main__":
     run_system_bootstrap()
     run_mysql_bootstrap()
     run_webserver_bootstrap()
+    run_redis_bootstrap()
     main_menu()

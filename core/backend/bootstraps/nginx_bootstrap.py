@@ -1,6 +1,8 @@
 from core.backend.objects.container import Container
 from core.backend.utils.env_utils import env_required
 from core.backend.utils.debug import info, debug
+import shutil
+import os
 
 def run_bootstrap():
     info("🚀 Khởi tạo hệ thống Webserver NGINX...")
@@ -14,6 +16,15 @@ def run_bootstrap():
         "DOCKER_NETWORK"
     ])
 
+    nginx_conf_path = os.path.join(
+        env["INSTALL_DIR"], "core/backend/modules/nginx/nginx.conf")
+    nginx_conf_template = os.path.join(
+        env["INSTALL_DIR"], "core/templates/nginx.conf.template")
+
+    if not os.path.exists(nginx_conf_path):
+        debug(
+            f"⚠️ Thiếu file cấu hình NGINX: {nginx_conf_path} → tạo từ template.")
+        shutil.copyfile(nginx_conf_template, nginx_conf_path)
     # Khởi tạo Container object
     container = Container(
         name=env["NGINX_CONTAINER_NAME"],
