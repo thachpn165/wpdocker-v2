@@ -3,8 +3,7 @@
 from core_loader import init
 env = init()
 
-import sys
-import questionary
+
 
 # Load bootstrap modules
 from bootstraps.config_bootstrap import run_config_bootstrap

@@ -3,7 +3,7 @@ name: ${PROJECT_NAME}
 services:
   mariadb:
     container_name: ${MYSQL_CONTAINER_NAME}
-    image: ${MYSQL_IMAGE}
+    image: ${MYSQL_IMAGE} # <-- injected từ config["mysql.version"] 
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${mysql_root_passwd}

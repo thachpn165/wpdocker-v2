@@ -5,6 +5,7 @@ from core.backend.utils.crypto import encrypt, decrypt
 from core.backend.objects.config import Config
 from core.backend.utils.password import strong_password
 from core.backend.utils.debug import debug, info, warn, error, log_call, success
+import questionary
 
 @log_call
 def run_mysql_bootstrap():
@@ -13,7 +14,6 @@ def run_mysql_bootstrap():
     env_required([
         "PROJECT_NAME",
         "MYSQL_CONTAINER_NAME",
-        "MYSQL_IMAGE",
         "MYSQL_VOLUME_NAME",
         "DOCKER_NETWORK",
         "INSTALL_DIR",
@@ -21,10 +21,27 @@ def run_mysql_bootstrap():
     ])
 
     mysql_container = env["MYSQL_CONTAINER_NAME"]
-    mysql_image = env["MYSQL_IMAGE"]
     volume_name = env["MYSQL_VOLUME_NAME"]
     docker_network = env["DOCKER_NETWORK"]
     project_name = env["PROJECT_NAME"]
+
+    # Hỏi chọn phiên bản nếu chưa có
+    if not config.get("mysql.version"):
+        version_choices = [
+            {"name": "MariaDB Latest", "value": "mariadb:latest"},
+            {"name": "MariaDB 10.5", "value": "mariadb:10.5"},
+            {"name": "MariaDB 10.6", "value": "mariadb:10.6"},
+            {"name": "MariaDB 10.11", "value": "mariadb:10.11"},
+        ]
+        selected = questionary.select(
+            "📦 Chọn phiên bản MariaDB muốn sử dụng:",
+            choices=version_choices
+        ).ask()
+        config.set("mysql.version", selected)
+        config.save()
+        success(f"✅ Đã lưu phiên bản MariaDB: {selected}")
+
+    mysql_image = config.get("mysql.version") or "mariadb:10.11"
 
     if config.get("mysql.root_passwd"):
         passwd = decrypt(config.get("mysql.root_passwd"))
