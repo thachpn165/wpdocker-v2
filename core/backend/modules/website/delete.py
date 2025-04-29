@@ -1,13 +1,18 @@
+from core.backend.modules.website.website_actions import WEBSITE_CLEANUP_ACTIONS
+from core.backend.modules.nginx.nginx import reload as nginx_reload
 
 
 def delete_website(domain):
     """
-    Xoá website với tên miền đã cho.
+    Xoá website với tên miền đã cho, sử dụng WEBSITE_CLEANUP_ACTIONS.
     """
     try:
-        # Giả lập việc xoá website
-        print(f"Đang xoá website '{domain}'...")
-        # Thực hiện các thao tác xoá ở đây
-        print(f"Website '{domain}' đã được xoá thành công.")
+        for action in WEBSITE_CLEANUP_ACTIONS:
+            action(domain)
+
+        # Reload NGINX sau khi xoá site
+        nginx_reload()
+
+        print(f"✅ Website '{domain}' đã được xoá thành công.")
     except Exception as e:
-        print(f"Lỗi khi xoá website '{domain}': {e}")
+        print(f"❌ Lỗi khi xoá website '{domain}': {e}")

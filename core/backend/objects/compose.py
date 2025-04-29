@@ -52,7 +52,9 @@ class Compose:
             self.docker.compose.up(
                 detach=detach,
                 force_recreate=force_recreate,
-                no_build=no_build
+                no_build=no_build,
+                remove_orphans=False,
+                quiet=True
             )
         except Exception as e:
             error(f"❌ Lỗi khi khởi động container {self.name}: {e}")
