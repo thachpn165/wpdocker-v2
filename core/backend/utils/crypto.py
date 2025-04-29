@@ -31,8 +31,20 @@ def encrypt(plain_text):
 @log_call
 def decrypt(encoded_text):
     key = get_secret_key()
-    decoded = base64.b64decode(encoded_text.encode()).decode()
-    stored_key, plain = decoded.split(":", 1)
+    try:
+        decoded = base64.b64decode(encoded_text.encode()).decode()
+    except Exception as e:
+        raise ValueError(f"Lỗi base64 decode: {str(e)}")
+
+    if ":" not in decoded:
+        raise ValueError("Định dạng chuỗi giải mã không hợp lệ.")
+
+    try:
+        stored_key, plain = decoded.split(":", 1)
+    except ValueError:
+        raise ValueError("Không thể tách khóa và dữ liệu từ chuỗi giải mã.")
+
     if stored_key != key:
-        raise ValueError("Sai khóa giải mã.")
+        raise ValueError("Khóa giải mã không khớp với .secret_key hiện tại.")
+
     return plain

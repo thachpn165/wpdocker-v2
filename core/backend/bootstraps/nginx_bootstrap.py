@@ -1,4 +1,5 @@
 from core.backend.objects.compose import Compose
+from core.backend.objects.container import Container
 from core.backend.utils.env_utils import env_required
 from core.backend.utils.debug import info, debug
 import os
@@ -50,3 +51,16 @@ def run_bootstrap():
     )
 
     compose.ensure_ready()
+
+    # Khởi tạo Container object để kiểm tra và phân quyền
+    container = Container(name=env["NGINX_CONTAINER_NAME"])
+
+    # Danh sách thư mục cần kiểm tra phân quyền
+    paths_to_check = [
+        env["NGINX_CONTAINER_CONF_PATH"],
+        "/var/www"
+    ]
+
+    for path in paths_to_check:
+        container.exec(["chown", "-R", "www-data:www-data", path], user="root")
+        debug(f"Đã chown {path} về www-data:www-data")

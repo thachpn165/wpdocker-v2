@@ -12,6 +12,7 @@ from bootstraps.system_bootstrap import run_system_bootstrap
 from bootstraps.docker_bootstrap import run_docker_bootstrap
 from bootstraps.mysql_bootstrap import run_mysql_bootstrap
 from bootstraps.webserver_bootstrap import run_webserver_bootstrap
+from bootstraps.wpcli_bootstrap import run_wpcli_bootstrap
 from bootstraps.redis_bootstrap import run_redis_bootstrap
 from bootstraps.misc_bootstrap import run_misc_bootstrap
 from menu.main import show_main_menu
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     run_docker_bootstrap()
     run_mysql_bootstrap()
     run_webserver_bootstrap()
+    run_wpcli_bootstrap()
     run_redis_bootstrap()
     run_misc_bootstrap()
     # Chạy menu chính 

@@ -66,6 +66,7 @@ class Container:
                 user=user,
                 interactive=True,
                 tty=True,
+                
             )
             debug(f"✅ Đã thực thi lệnh: {' '.join(command)} trong container {self.name}")
             return result

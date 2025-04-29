@@ -11,7 +11,7 @@ services:
     volumes:
       - ${CONFIG_DIR}/conf.d:${NGINX_CONTAINER_CONF_PATH}/conf.d
       - ${INSTALL_DIR}/data/sites/:/var/www
-      - ${INSTALL_DIR}/core/backend/modules/nginx/nginx.conf:${NGINX_CONTAINER_CONF_PATH}/nginx.conf:ro
+      - ${INSTALL_DIR}/core/backend/modules/nginx/nginx.conf:${NGINX_CONTAINER_CONF_PATH}/nginx.conf
       - ${INSTALL_DIR}/core/backend/modules/nginx/globals:${NGINX_CONTAINER_CONF_PATH}/globals
       - ${INSTALL_DIR}/core/backend/modules/nginx/waf:${NGINX_CONTAINER_CONF_PATH}/waf
       - wpdocker_fastcgi_cache_data:${NGINX_CONTAINER_PATH}/fastcgi_cache

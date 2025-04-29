@@ -1,3 +1,4 @@
+from core.backend.modules.mysql.database import setup_database_for_website, delete_database, delete_database_user
 from core.backend.utils.debug import info, warn, error
 from core.backend.utils.env_utils import env
 from core.backend.objects.config import Config
@@ -6,6 +7,7 @@ from core.backend.modules.ssl.install import install_selfsigned_ssl
 from core.backend.modules.nginx.nginx import restart as nginx_restart
 import os
 import shutil
+
 
 def setup_directories(domain):
     """Tạo cấu trúc thư mục cơ bản cho website"""
@@ -23,6 +25,14 @@ def setup_directories(domain):
         open(log_path, "a").close()
         os.chmod(log_path, 0o666)
 
+    # Phân quyền www-data cho toàn bộ thư mục site_dir và trong container PHP
+    from core.backend.objects.container import Container
+    php_container = f"{domain}-php"
+    container = Container(name=php_container)
+    container.exec(["chown", "-R", "www-data:www-data", "/var/www"])
+    info(f"✅ Đã phân quyền www-data cho thư mục website {domain}")
+
+
 def cleanup_directories(domain):
     """Xóa toàn bộ thư mục website"""
     sites_dir = env["SITES_DIR"]
@@ -30,6 +40,7 @@ def cleanup_directories(domain):
     if os.path.isdir(site_dir):
         shutil.rmtree(site_dir)
         info(f"🗑️ Đã xóa thư mục {site_dir}")
+
 
 def setup_config(domain, php_version):
     """Ghi cấu hình website vào config.json"""
@@ -55,6 +66,7 @@ def setup_config(domain, php_version):
     config.save()
     info(f"✅ Đã lưu thông tin website {domain} vào config.json")
 
+
 def cleanup_config(domain):
     """Xóa cấu hình website khỏi config.json"""
     config = Config()
@@ -65,12 +77,14 @@ def cleanup_config(domain):
         config.save()
         info(f"🗑️ Đã xóa config website {domain} khỏi config.json")
 
+
 def setup_php_configs(domain, php_version):
     """Tạo file php.ini và php-fpm.conf"""
     sites_dir = env["SITES_DIR"]
     site_dir = os.path.join(sites_dir, domain)
     install_dir = env["INSTALL_DIR"]
-    php_ini_template = os.path.join(install_dir, "core", "templates", "php.ini.template")
+    php_ini_template = os.path.join(
+        install_dir, "core", "templates", "php.ini.template")
     timezone = Config().get("core.timezone", "UTC")
 
     php_ini_target = os.path.join(site_dir, "php", "php.ini")
@@ -85,8 +99,8 @@ def setup_php_configs(domain, php_version):
     php_fpm_conf_path = os.path.join(site_dir, "php", "php-fpm.conf")
     with open(php_fpm_conf_path, "w") as f:
         f.write(f"""[www]
-user = nobody
-group = nogroup
+user = www-data
+group = www-data
 listen = 9000
 pm = {fpm_values['pm_mode']}
 pm.max_children = {fpm_values['max_children']}
@@ -100,8 +114,10 @@ request_slowlog_timeout = 10
 request_terminate_timeout = 60
 """)
 
+
 def cleanup_php_configs(domain):
     """Không cần riêng vì xóa thư mục là đã xóa rồi"""
+
 
 def setup_compose_php(domain, php_version):
     """Tạo docker-compose cho PHP"""
@@ -120,7 +136,8 @@ def setup_compose_php(domain, php_version):
         content = content.replace("${php_container}", php_container)
         content = content.replace("${php_version}", php_version)
         content = content.replace("${PROJECT_NAME}", env["PROJECT_NAME"])
-        content = content.replace("${CORE_DIR}", os.path.join(install_dir, "core"))
+        content = content.replace(
+            "${CORE_DIR}", os.path.join(install_dir, "core"))
         content = content.replace("${DOCKER_NETWORK}", env["DOCKER_NETWORK"])
         content = content.replace("${domain}", domain)
 
@@ -142,21 +159,26 @@ def setup_compose_php(domain, php_version):
     )
     compose.ensure_ready()
 
+
 def cleanup_compose_php(domain):
     """Xóa docker-compose PHP"""
-    docker_compose_target = os.path.join(env["SITES_DIR"], domain, "docker-compose.php.yml")
+    docker_compose_target = os.path.join(
+        env["SITES_DIR"], domain, "docker-compose.php.yml")
     if os.path.isfile(docker_compose_target):
         os.remove(docker_compose_target)
         info(f"🗑️ Đã xóa docker-compose PHP của {domain}")
+
 
 def setup_ssl(domain):
     """Cài SSL tự ký"""
     install_selfsigned_ssl(domain)
 
+
 def setup_nginx_vhost(domain):
     """Copy NGINX vhost config"""
     install_dir = env["INSTALL_DIR"]
-    nginx_template = os.path.join(install_dir, "core", "templates", "nginx-vhost.conf.template")
+    nginx_template = os.path.join(
+        install_dir, "core", "templates", "nginx-vhost.conf.template")
     nginx_target_dir = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d")
     nginx_target_path = os.path.join(nginx_target_dir, f"{domain}.conf")
 
@@ -170,9 +192,11 @@ def setup_nginx_vhost(domain):
             f.write(content)
         nginx_restart()
 
+
 def cleanup_nginx_vhost(domain):
     """Xóa NGINX vhost config"""
-    nginx_target_path = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d", f"{domain}.conf")
+    nginx_target_path = os.path.join(
+        env["CONFIG_DIR"], "nginx", "conf.d", f"{domain}.conf")
     if os.path.isfile(nginx_target_path):
         os.remove(nginx_target_path)
         info(f"🗑️ Đã xóa file NGINX vhost {domain}")
@@ -181,11 +205,25 @@ def cleanup_nginx_vhost(domain):
 # Danh sách actions
 # =========================
 
+
+def setup_database(domain, php_version):
+    """Tạo database và user cho website"""
+    setup_database_for_website(domain)
+
+
+def cleanup_database(domain):
+    """Xóa database và user cho website"""
+    delete_database(domain)
+    delete_database_user(domain)
+
+
 WEBSITE_SETUP_ACTIONS = [
     (setup_directories, cleanup_directories),
     (setup_config, cleanup_config),
-    (setup_php_configs, None),  # cleanup_php_configs đã gộp trong cleanup_directories
+    # cleanup_php_configs đã gộp trong cleanup_directories
+    (setup_php_configs, None),
     (setup_compose_php, cleanup_compose_php),
+    (setup_database, cleanup_database),
     (setup_ssl, None),  # SSL nằm trong thư mục site nên cleanup_directories sẽ xoá luôn
     (setup_nginx_vhost, cleanup_nginx_vhost),
 ]
@@ -193,6 +231,7 @@ WEBSITE_SETUP_ACTIONS = [
 WEBSITE_CLEANUP_ACTIONS = [
     cleanup_nginx_vhost,
     cleanup_compose_php,
+    cleanup_database,
     cleanup_config,
     cleanup_directories
 ]

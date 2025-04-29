@@ -1,0 +1,16 @@
+name: ${PROJECT_NAME}
+
+services:
+  wpcli:
+    image: wordpress:cli
+    container_name: ${WPCLI_CONTAINER_NAME}
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - ${SITES_DIR}:/var/www/html
+    networks:
+      - ${DOCKER_NETWORK}
+    working_dir: /var/www/html
+
+networks:
+  ${DOCKER_NETWORK}:
+    external: true
