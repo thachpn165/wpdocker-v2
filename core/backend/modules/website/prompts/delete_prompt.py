@@ -11,19 +11,19 @@ def prompt_delete_website():
     websites = website_list()
     debug(f"Websites: {websites}")
     if not websites:
-        warn("❌ Không tìm thấy website nào để xoá.")
+        warn("Không tìm thấy website nào để xoá.")
         return
 
     domain = select("Chọn website cần xoá:", choices=websites).ask()
     if domain is None:
-        info("❌ Đã huỷ thao tác xoá.")
+        info("Đã huỷ thao tác xoá.")
         return
 
     confirm_delete = confirm(
         f"⚠️ Bạn có chắc chắn muốn xoá website '{domain}' không?", default=False).ask()
 
     if not confirm_delete:
-        info("❌ Đã huỷ thao tác xoá.")
+        info("Đã huỷ thao tác xoá.")
         return
 
     delete_website(domain)

@@ -13,7 +13,7 @@ load_core_env() {
     local env_file="$this_dir/core/core.env"
 
     if [[ ! -f "$env_file" ]]; then
-        echo "❌ Config file not found: $env_file"
+        echo "Config file not found: $env_file"
         return 1
     fi
 

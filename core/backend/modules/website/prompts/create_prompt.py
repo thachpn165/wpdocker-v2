@@ -9,14 +9,14 @@ def prompt_create_website():
         while not domain:
             domain = text("Nhập tên domain website:").ask()
             if domain is None:
-                print("❌ Đã huỷ thao tác.")
+                print("Đã huỷ thao tác.")
                 return
             if not domain:
                 error("Domain không được để trống.")
                 domain = ""
                 continue
             if not _is_valid_domain(domain):
-                error("❌ Tên miền không hợp lệ. Vui lòng nhập đúng định dạng (ví dụ: example.com)")
+                error("Tên miền không hợp lệ. Vui lòng nhập đúng định dạng (ví dụ: example.com)")
                 domain = ""
                 continue
         debug(f"Domain: {domain}")
@@ -29,11 +29,11 @@ def prompt_create_website():
                 default="8.2"
             ).ask()
             if php_version is None:
-                print("❌ Đã huỷ thao tác.")
+                print("Đã huỷ thao tác.")
                 return
 
         create_website(domain, php_version)
 
     except (KeyboardInterrupt, EOFError):
-        print("\n❌ Đã huỷ thao tác.")
+        print("\nĐã huỷ thao tác.")
         return

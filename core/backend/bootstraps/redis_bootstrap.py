@@ -1,7 +1,7 @@
 import os
 from core.backend.utils.env_utils import env_required, env
 from core.backend.utils.debug import log_call, info, debug
-from core.backend.objects.container import Container
+from core.backend.objects.compose import Compose
 
 @log_call
 def run_redis_bootstrap():
@@ -16,8 +16,8 @@ def run_redis_bootstrap():
         "DOCKER_NETWORK"
     ])
 
-    # Tạo container object
-    container = Container(
+    # Tạo compose object
+    compose = Compose(
         name=env["REDIS_CONTAINER_NAME"],
         template_path=f"{env['INSTALL_DIR']}/core/templates/docker-compose.redis.yml.template",
         output_path=f"{env['INSTALL_DIR']}/docker-compose/docker-compose.redis.yml",
@@ -30,4 +30,4 @@ def run_redis_bootstrap():
     )
 
     # Khởi động nếu cần
-    container.ensure_ready()
+    compose.ensure_ready()

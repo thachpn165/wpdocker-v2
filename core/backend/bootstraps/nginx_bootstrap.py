@@ -1,4 +1,4 @@
-from core.backend.objects.container import Container
+from core.backend.objects.compose import Compose
 from core.backend.utils.env_utils import env_required
 from core.backend.utils.debug import info, debug
 import os
@@ -33,8 +33,8 @@ def run_bootstrap():
         with open(nginx_conf_path, "w") as f:
             f.write(content)
 
-    # Khởi tạo Container object
-    container = Container(
+    # Khởi tạo Compose object
+    compose = Compose(
         name=env["NGINX_CONTAINER_NAME"],
         template_path=f"{env['INSTALL_DIR']}/core/templates/docker-compose.nginx.yml.template",
         output_path=f"{env['INSTALL_DIR']}/docker-compose/docker-compose.nginx.yml",
@@ -49,4 +49,4 @@ def run_bootstrap():
         }
     )
 
-    container.ensure_ready()
+    compose.ensure_ready()

@@ -10,4 +10,4 @@ def delete_website(domain):
         # Thực hiện các thao tác xoá ở đây
         print(f"Website '{domain}' đã được xoá thành công.")
     except Exception as e:
-        print(f"❌ Lỗi khi xoá website '{domain}': {e}")
+        print(f"Lỗi khi xoá website '{domain}': {e}")

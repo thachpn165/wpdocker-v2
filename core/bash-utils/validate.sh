@@ -15,17 +15,17 @@ _is_file_exist() {
     local file="$1"
 
     if [[ ! -e "$file" ]]; then
-        echo "❌ File không tồn tại: $file"
+        echo "File không tồn tại: $file"
         return 1
     fi
 
     if [[ ! -f "$file" ]]; then
-        echo "❌ Không phải là file hợp lệ: $file"
+        echo "Không phải là file hợp lệ: $file"
         return 1
     fi
 
     if [[ ! -r "$file" ]]; then
-        echo "❌ Không có quyền đọc file: $file"
+        echo "Không có quyền đọc file: $file"
         return 1
     fi
 
@@ -45,7 +45,7 @@ _is_dir_exist() {
     local dir="$1"
 
     if [[ ! -d "$dir" ]]; then
-        echo "❌ Thư mục không tồn tại: $dir"
+        echo "Thư mục không tồn tại: $dir"
         return 1
     fi
 

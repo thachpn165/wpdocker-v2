@@ -7,7 +7,7 @@ def load_core_env():
     env_file = os.path.join(base_path, "core.env")
 
     if not os.path.isfile(env_file):
-        print(f"❌ Không tìm thấy file cấu hình: {env_file}")
+        print(f"Không tìm thấy file cấu hình: {env_file}")
         return {}
 
     result = {}
@@ -37,7 +37,7 @@ def env_required(keys):
             result[key] = value
 
     if missing:
-        print(f"❌ Thiếu biến môi trường: {', '.join(missing)}")
+        print(f"Thiếu biến môi trường: {', '.join(missing)}")
         sys.exit(1)
 
     return result

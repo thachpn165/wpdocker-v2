@@ -1,10 +1,11 @@
 from core.backend.modules.website.website_utils import _is_website_exists
+from core.backend.modules.ssl.install import install_selfsigned_ssl
 import os
 from core.backend.utils.env_utils import env
 from core.backend.utils.debug import log_call, info, warn, error, success
 from core.backend.objects.config import Config
-from core.backend.objects.container import Container
-
+from core.backend.objects.compose import Compose
+from core.backend.modules.nginx.nginx import restart as nginx_restart
 
 @log_call
 def create_website(domain: str, php_version: str):
@@ -64,7 +65,8 @@ def create_website(domain: str, php_version: str):
         info(f"✅ Đã ghi cấu hình website {domain} vào config.json")
 
         # Copy php.ini và cấu hình PHP-FPM
-        php_ini_template = os.path.join(env["INSTALL_DIR"], "core", "templates", "php.ini.template")
+        php_ini_template = os.path.join(
+            env["INSTALL_DIR"], "core", "templates", "php.ini.template")
         php_ini_target = os.path.join(site_dir, "php", "php.ini")
         timezone = config.get("core.timezone", "UTC")
 
@@ -73,9 +75,11 @@ def create_website(domain: str, php_version: str):
                 content = f.read().replace("${TIMEZONE}", timezone)
             with open(php_ini_target, "w") as f:
                 f.write(content)
-            info(f"✅ Đã tạo file php.ini cho {domain} với timezone: {timezone}")
+            info(
+                f"✅ Đã tạo file php.ini cho {domain} với timezone: {timezone}")
         else:
-            warn(f"⚠️ Không tìm thấy file template php.ini: {php_ini_template}")
+            warn(
+                f"⚠️ Không tìm thấy file template php.ini: {php_ini_template}")
 
         from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
         fpm_values = website_calculate_php_fpm_values()
@@ -105,8 +109,10 @@ request_terminate_timeout = 60
 
         # Copy docker-compose PHP template
         php_container = f"{domain}-php"
-        docker_compose_template = os.path.join(env["INSTALL_DIR"], "core", "templates", "docker-compose.php.yml.template")
-        docker_compose_target = os.path.join(site_dir, "docker-compose.php.yml")
+        docker_compose_template = os.path.join(
+            env["INSTALL_DIR"], "core", "templates", "docker-compose.php.yml.template")
+        docker_compose_target = os.path.join(
+            site_dir, "docker-compose.php.yml")
 
         if os.path.isfile(docker_compose_template):
             with open(docker_compose_template, "r") as f:
@@ -114,8 +120,10 @@ request_terminate_timeout = 60
             content = content.replace("${php_container}", php_container)
             content = content.replace("${php_version}", php_version)
             content = content.replace("${PROJECT_NAME}", env["PROJECT_NAME"])
-            content = content.replace("${CORE_DIR}", os.path.join(env["INSTALL_DIR"], "core"))
-            content = content.replace("${DOCKER_NETWORK}", env["DOCKER_NETWORK"])
+            content = content.replace(
+                "${CORE_DIR}", os.path.join(env["INSTALL_DIR"], "core"))
+            content = content.replace(
+                "${DOCKER_NETWORK}", env["DOCKER_NETWORK"])
             content = content.replace("${domain}", domain)
 
             with open(docker_compose_target, "w") as f:
@@ -123,11 +131,11 @@ request_terminate_timeout = 60
 
             info(f"✅ Đã tạo file docker-compose.yml cho {domain}")
         else:
-            warn(f"⚠️ Không tìm thấy template docker-compose PHP: {docker_compose_template}")
+            warn(
+                f"⚠️ Không tìm thấy template docker-compose PHP: {docker_compose_template}")
 
-        # Khởi tạo container PHP cho website
-        container = Container(
-            name=php_container,
+        # Khởi tạo compose PHP cho website
+        compose = Compose(
             template_path=docker_compose_template,
             output_path=docker_compose_target,
             env_map={
@@ -137,12 +145,17 @@ request_terminate_timeout = 60
                 "domain": domain,
                 "php_container": php_container,
                 "php_version": php_version
-            }
+            },
+            name=php_container
         )
-        container.ensure_ready()
+        compose.ensure_ready()
+
+        # Tạo SSL tự ký cho domain
+        install_selfsigned_ssl(domain)
 
         # Copy NGINX vhost template
-        nginx_template = os.path.join(env["INSTALL_DIR"], "core", "templates", "nginx-vhost.conf.template")
+        nginx_template = os.path.join(
+            env["INSTALL_DIR"], "core", "templates", "nginx-vhost.conf.template")
         nginx_target_dir = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d")
         nginx_target_path = os.path.join(nginx_target_dir, f"{domain}.conf")
 
@@ -155,13 +168,15 @@ request_terminate_timeout = 60
             with open(nginx_target_path, "w") as f:
                 f.write(content)
             info(f"✅ Đã tạo file cấu hình NGINX vhost cho {domain}")
+            
+            nginx_restart()
         else:
             warn(f"⚠️ Không tìm thấy template NGINX vhost: {nginx_template}")
 
         success(f"✅ Website {domain} đã được khởi tạo tại {site_dir}")
 
     except Exception as e:
-        error(f"❌ Lỗi khi tạo website: {e}")
+        error(f"Lỗi khi tạo website: {e}")
         if os.path.isdir(site_dir):
             os.system(f"rm -rf {site_dir}")
         return

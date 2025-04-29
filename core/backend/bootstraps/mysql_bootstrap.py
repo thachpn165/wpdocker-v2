@@ -1,5 +1,5 @@
 from core.backend.utils.system_info import get_total_ram_mb, get_total_cpu_cores
-from core.backend.objects.container import Container
+from core.backend.objects.compose import Compose
 from core.backend.utils.env_utils import env, env_required
 from core.backend.utils.crypto import encrypt, decrypt
 from core.backend.objects.config import Config
@@ -83,7 +83,7 @@ thread_cache_size = {thread_cache_size}
     else:
         debug(f"File cấu hình MySQL đã tồn tại: {config_path}")
 
-    container = Container(
+    compose = Compose(
         name=mysql_container,
         template_path=env["INSTALL_DIR"] + "/core/templates/docker-compose.mysql.yml.template",
         output_path=env["INSTALL_DIR"] + "/docker-compose/docker-compose.mysql.yml",
@@ -97,4 +97,4 @@ thread_cache_size = {thread_cache_size}
         sensitive_env={"mysql_root_passwd": passwd}
     )
 
-    container.ensure_ready()
+    compose.ensure_ready()

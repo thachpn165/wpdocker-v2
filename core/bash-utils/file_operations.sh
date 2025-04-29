@@ -17,13 +17,13 @@ copy_file() {
     local dest="$2"
 
     if ! _is_file_exist "$src"; then
-        echo "❌ Không thể copy, file nguồn không hợp lệ: $src"
+        echo "Không thể copy, file nguồn không hợp lệ: $src"
         return 1
     fi
 
     cp "$src" "$dest"
     if [[ $? -ne 0 ]]; then
-        echo "❌ Lỗi khi sao chép file từ $src đến $dest"
+        echo "Lỗi khi sao chép file từ $src đến $dest"
         return 1
     fi
 

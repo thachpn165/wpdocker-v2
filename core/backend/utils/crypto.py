@@ -34,5 +34,5 @@ def decrypt(encoded_text):
     decoded = base64.b64decode(encoded_text.encode()).decode()
     stored_key, plain = decoded.split(":", 1)
     if stored_key != key:
-        raise ValueError("❌ Sai khóa giải mã.")
+        raise ValueError("Sai khóa giải mã.")
     return plain

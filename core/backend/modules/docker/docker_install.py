@@ -34,7 +34,7 @@ def install_docker_almalinux():
 
         info("✅ Docker installed and service started.")
     except Exception as e:
-        error(f"❌ Failed to install Docker: {e}")
+        error(f"Failed to install Docker: {e}")
         return False
 
     return verify_docker()
@@ -52,7 +52,7 @@ def install_docker_general():
         subprocess.run(["sh", tmp_script], check=True)
         os.remove(tmp_script)
     except Exception as e:
-        error(f"❌ Docker installation script failed: {e}")
+        error(f"Docker installation script failed: {e}")
         return False
 
     return verify_docker()

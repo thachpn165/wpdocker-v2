@@ -10,7 +10,7 @@ print_msg() {
     info) echo -e "\033[1;36mℹ️  $msg\033[0m" ;;
     success) echo -e "\033[1;32m✅ $msg\033[0m" ;;
     warning) echo -e "\033[1;33m⚠️  $msg\033[0m" ;;
-    error) echo -e "\033[1;31m❌ $msg\033[0m" ;;
+    error) echo -e "\033[1;31m$msg\033[0m" ;;
     esac
 }
 

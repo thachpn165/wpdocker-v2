@@ -5,7 +5,7 @@ def get_current_webserver():
     config = Config()
     webserver = config.get("core.webserver")
     if not webserver:
-        raise ValueError("❌ Chưa thiết lập webserver.")
+        raise ValueError("Chưa thiết lập webserver.")
     return webserver
 
 def get_webserver_module():

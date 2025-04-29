@@ -31,7 +31,7 @@ def check_and_update_pip():
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
     except subprocess.CalledProcessError as e:
-        print(f"❌ Không thể cập nhật pip: {e}")
+        print(f"Không thể cập nhật pip: {e}")
         sys.exit(1)
 # ====== Cài đặt nếu thiếu module ======
 
@@ -54,7 +54,7 @@ def source_core_env():
     env_file = os.path.join(base_path, "core.env")
 
     if not os.path.isfile(env_file):
-        print(f"❌ Không tìm thấy file cấu hình: {env_file}")
+        print(f"Không tìm thấy file cấu hình: {env_file}")
         sys.exit(1)
 
     with open(env_file) as f:

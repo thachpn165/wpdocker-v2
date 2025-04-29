@@ -19,7 +19,7 @@ def run_docker_bootstrap():
         info("Docker is installed and running.")
     except Exception:
         error(
-            "❌ Docker is not installed or not running. Please start Docker and try again.")
+            "Docker is not installed or not running. Please start Docker and try again.")
         return
 
     # Tạo Docker network nếu chưa có

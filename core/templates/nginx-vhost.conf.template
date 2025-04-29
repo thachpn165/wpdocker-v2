@@ -14,7 +14,7 @@ server {
 
     # 🔐 SSL Certificate
     ssl_certificate /var/www/${DOMAIN}/ssl/cert.crt;
-    ssl_certificate_key /var/www/${DOMAIN}/priv.key;
+    ssl_certificate_key /var/www/${DOMAIN}/ssl/priv.key;
 
     # 🚀 Include some optimized Nginx files
     include /usr/local/openresty/nginx/conf/globals/security.conf;
