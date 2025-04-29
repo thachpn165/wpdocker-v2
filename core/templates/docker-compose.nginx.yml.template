@@ -9,7 +9,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ${INSTALL_DIR}/data/nginx/conf.d:${NGINX_CONTAINER_CONF_PATH}/conf.d
+      - ${CONFIG_DIR}/conf.d:${NGINX_CONTAINER_CONF_PATH}/conf.d
       - ${INSTALL_DIR}/data/sites/:/var/www
       - ${INSTALL_DIR}/core/backend/modules/nginx/nginx.conf:${NGINX_CONTAINER_CONF_PATH}/nginx.conf:ro
       - ${INSTALL_DIR}/core/backend/modules/nginx/globals:${NGINX_CONTAINER_CONF_PATH}/globals

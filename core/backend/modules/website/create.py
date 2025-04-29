@@ -17,7 +17,6 @@ def create_website(domain: str, php_version: str):
         os.makedirs(sites_dir, exist_ok=True)
         info(f"📁 Đã tạo thư mục SITES_DIR: {sites_dir}")
 
-
     if _is_website_exists(domain):
         warn(f"⚠️ Website {domain} đã tồn tại.")
         return
@@ -25,10 +24,10 @@ def create_website(domain: str, php_version: str):
     try:
         # Tạo thư mục cấu trúc website
         os.makedirs(os.path.join(site_dir, "php"), exist_ok=True)
-        os.makedirs(os.path.join(site_dir, "mariadb", "conf.d"), exist_ok=True)
         os.makedirs(os.path.join(site_dir, "wordpress"), exist_ok=True)
         os.makedirs(os.path.join(site_dir, "logs"), exist_ok=True)
         os.makedirs(os.path.join(site_dir, "backups"), exist_ok=True)
+        os.makedirs(os.path.join(site_dir, "ssl"), exist_ok=True)
 
         for log_file in ["access.log", "error.log", "php_error.log", "php_slow.log"]:
             log_path = os.path.join(site_dir, "logs", log_file)
@@ -53,7 +52,6 @@ def create_website(domain: str, php_version: str):
             "domain": domain,
             "php_version": php_version
         }
-        # Ghi đường dẫn các file log vào cấu hình
         logs_dir = os.path.join(site_dir, "logs")
         current_sites[domain]["logs"] = {
             "access": os.path.join(logs_dir, "access.log"),
@@ -79,7 +77,6 @@ def create_website(domain: str, php_version: str):
         else:
             warn(f"⚠️ Không tìm thấy file template php.ini: {php_ini_template}")
 
-        # Sinh file php-fpm.conf
         from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
         fpm_values = website_calculate_php_fpm_values()
         pm_mode = fpm_values["pm_mode"]
@@ -144,8 +141,22 @@ request_terminate_timeout = 60
         )
         container.ensure_ready()
 
-        # TODO: setup NGINX mount và config, SSL, ...
-        warn("🚧 Đang chờ phát triển: cấu hình NGINX, SSL...")
+        # Copy NGINX vhost template
+        nginx_template = os.path.join(env["INSTALL_DIR"], "core", "templates", "nginx-vhost.conf.template")
+        nginx_target_dir = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d")
+        nginx_target_path = os.path.join(nginx_target_dir, f"{domain}.conf")
+
+        if not os.path.exists(nginx_target_dir):
+            os.makedirs(nginx_target_dir, exist_ok=True)
+
+        if os.path.isfile(nginx_template):
+            with open(nginx_template, "r") as f:
+                content = f.read().replace("${DOMAIN}", domain)
+            with open(nginx_target_path, "w") as f:
+                f.write(content)
+            info(f"✅ Đã tạo file cấu hình NGINX vhost cho {domain}")
+        else:
+            warn(f"⚠️ Không tìm thấy template NGINX vhost: {nginx_template}")
 
         success(f"✅ Website {domain} đã được khởi tạo tại {site_dir}")
 

@@ -3,8 +3,8 @@
 .vscode-test/
 
 # Private folders
-./config/
-./data/
+config/
+data/
 
 # Cache
 __pycache__/
