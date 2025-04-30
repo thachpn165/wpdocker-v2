@@ -9,19 +9,39 @@ class Container:
         self.docker = DockerClient()
 
     def get(self):
-        containers = self.docker.container.list(all=True, filters={"name": self.name})
-        return containers[0] if containers else None
+        try:
+            container = self.docker.container.inspect(self.name)
+            return container
+        except Exception:
+            return None
 
     def exists(self):
         return self.get() is not None
 
+    @log_call(log_vars=["self.name"])
     def running(self):
-        container = self.get()
-        return container is not None and container.state == "running"
+        try:
+            container = self.get()
+            if not container:
+                return False
+            is_running = container.state.running
+            debug(f"⚙️ Trạng thái container {self.name}: Running = {is_running}")
+            return is_running
+        except Exception as e:
+            error(f"❌ Không kiểm tra được trạng thái container {self.name}: {e}")
+            return False
+        
+        return {
+            "self.name": self.name,
+        }
 
     def not_running(self):
-        container = self.get()
-        return container is not None and container.state != "running"
+        try:
+            container = self.get()
+            return not container.state.running if container else False
+        except Exception as e:
+            error(f"❌ Không kiểm tra được trạng thái container {self.name}: {e}")
+            return False
 
     @log_call
     def start(self):
@@ -56,22 +76,25 @@ class Container:
             error(f"❌ Lỗi khi xóa container {self.name}: {e}")
 
     @log_call
-    def exec(self, command, workdir=None, environment=None, user=None):
+    def exec(self, cmd, workdir=None, user=None):
+        from colorama import Fore, Style
+        """
+        Thực thi lệnh trong container và trả về kết quả.
+        Nếu có lỗi, in ra lỗi chi tiết từ container.
+        Hỗ trợ tùy chọn user để chạy lệnh với quyền cụ thể.
+        """
         try:
-            result = self.docker.container.execute(
+            # Thêm tùy chọn user nếu được truyền
+            exec_result = self.docker.container.execute(
                 self.name,
-                command,
+                command=cmd,
                 workdir=workdir,
-                envs=environment or {},
-                user=user,
-                interactive=True,
-                tty=True,
-                
+                tty=True,  # Đảm bảo hỗ trợ đầu ra tương tác
+                user=user,  # Truyền user nếu có
             )
-            debug(f"✅ Đã thực thi lệnh: {' '.join(command)} trong container {self.name}")
-            return result
+            return exec_result
         except Exception as e:
-            error(f"❌ Lỗi khi thực thi lệnh {' '.join(command)} trong container {self.name}: {e}")
+            error(f"Lỗi khi thực thi lệnh trong container {self.name}. Đọc lỗi ở trên")
             return None
 
     @log_call

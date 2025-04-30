@@ -4,14 +4,16 @@ import questionary
 from core.backend.objects.config import Config
 from core.backend.utils.debug import log_call, info, success, warn, error
 def ensure_core_timezone(config: Config):
-    if config.get("core.timezone"):
+    if config.get().get("core", {}).get("timezone"):
         return
 
     timezone = questionary.text(
         "🕒 Nhập tên múi giờ (theo TZ database, ví dụ: Asia/Ho_Chi_Minh):"
     ).ask()
 
-    config.set("core.timezone", timezone)
+    core_data = config.get().get("core", {})
+    core_data["timezone"] = timezone
+    config.update_key("core", core_data)
     config.save()
 
     system_type = platform.system()

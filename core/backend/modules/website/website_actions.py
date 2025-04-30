@@ -1,12 +1,14 @@
 from core.backend.modules.mysql.database import setup_database_for_website, delete_database, delete_database_user
 from core.backend.utils.debug import info, warn, error, debug, log_call
 from core.backend.utils.env_utils import env
-from core.backend.objects.config import Config
 from core.backend.objects.compose import Compose
 from core.backend.modules.ssl.install import install_selfsigned_ssl
 from core.backend.modules.nginx.nginx import restart as nginx_restart
 from core.backend.objects.container import Container
 from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
+from core.backend.models.config import SiteConfig, SiteLogs
+from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
+from core.backend.objects.config import Config
 
 import os
 import shutil
@@ -39,47 +41,40 @@ def cleanup_directories(domain):
 
 @log_call
 def setup_config(domain, php_version):
-    """Ghi cấu hình website vào config.json"""
-    config = Config()
     sites_dir = env["SITES_DIR"]
     logs_dir = os.path.join(sites_dir, domain, "logs")
 
-    # Lấy dữ liệu hiện tại (sẽ luôn là dict)
-    current_sites = config.get("site", {}) or {}
-
-    # Lấy container ID của PHP
     php_container_name = f"{domain}-php"
     container = Container(name=php_container_name)
     container_id = container.get().id if container.get() else None
 
-    # Chèn hoặc cập nhật đúng domain
-    site_data = current_sites.get(domain, {})
-    site_data["domain"] = domain
-    site_data["php_version"] = php_version
-    site_data["logs"] = {
-        "access": os.path.join(logs_dir, "access.log"),
-        "error": os.path.join(logs_dir, "error.log"),
-        "php_error": os.path.join(logs_dir, "php_error.log"),
-        "php_slow": os.path.join(logs_dir, "php_slow.log")
-    }
-    if container_id:
-        site_data["php_container_id"] = container_id
+    site_logs = SiteLogs(
+        access=os.path.join(logs_dir, "access.log"),
+        error=os.path.join(logs_dir, "error.log"),
+        php_error=os.path.join(logs_dir, "php_error.log"),
+        php_slow=os.path.join(logs_dir, "php_slow.log")
+    )
 
-    current_sites[domain] = site_data
-    config.set("site", current_sites, split_path=False)
-    config.save()
+    site_config = get_site_config(domain) or SiteConfig(
+        domain=domain,
+        php_version=php_version,
+        logs=site_logs,
+        cache="no-cache",
+        php_container_id=container_id
+    )
+
+    # Cập nhật lại logs, container_id, php_version nếu thay đổi
+    site_config.logs = site_logs
+    site_config.php_container_id = container_id
+    site_config.php_version = php_version
+
+    set_site_config(domain, site_config)
     info(f"✅ Đã lưu thông tin website {domain} vào config.json")
 
 
 def cleanup_config(domain):
-    """Xóa cấu hình website khỏi config.json"""
-    config = Config()
-    current_sites = config.get("site", {})
-    if domain in current_sites:
-        del current_sites[domain]
-        config.set("site", current_sites, split_path=False)
-        config.save()
-        info(f"🗑️ Đã xóa config website {domain} khỏi config.json")
+    delete_site_config(domain, subkey=None)
+    info(f"🗑️ Đã xóa config website {domain} khỏi config.json")
 
 
 def setup_php_configs(domain, php_version):
@@ -89,7 +84,7 @@ def setup_php_configs(domain, php_version):
     install_dir = env["INSTALL_DIR"]
     php_ini_template = os.path.join(
         install_dir, "core", "templates", "php.ini.template")
-    timezone = Config().get("core.timezone", "UTC")
+    timezone = Config().get().get("core", {}).get("timezone", "UTC")
 
     php_ini_target = os.path.join(site_dir, "php", "php.ini")
     if os.path.isfile(php_ini_template):
@@ -167,14 +162,17 @@ def setup_compose_php(domain, php_version):
     container.exec(["chown", "-R", "www-data:www-data", f"/var/www/html"], user="root")
     debug(f"✅ Đã phân quyền www-data cho thư mục /var/www/html trong container {php_container}")
 
+    return {
+        "container_id": php_container,
+        "container_name": php_container,
+        "domain": domain,
+    }
 
-
-@log_call(log_vars=["domain", "site_data", "container_id"])
+@log_call(log_vars=["domain"])
 def cleanup_compose_php(domain):
     """Xóa docker-compose PHP và container PHP tương ứng"""
-    config = Config()
-    site_data = config.get("site", {}, split_path=False).get(domain)
-    container_id = site_data.get("php_container_id") if site_data else None
+    site_config = get_site_config(domain)
+    container_id = site_config.php_container_id if site_config else None
     if container_id:
         container = Container(name=container_id)
         if container.exists():
@@ -188,11 +186,6 @@ def cleanup_compose_php(domain):
         os.remove(docker_compose_target)
         info(f"🗑️ Đã xóa docker-compose PHP của {domain}")
 
-    return {
-        "container_id": container_id,
-        "site_data": site_data,
-        "domain": domain,
-    }
 
 def setup_ssl(domain):
     """Cài SSL tự ký"""

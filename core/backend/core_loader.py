@@ -21,6 +21,8 @@ REQUIRED_MODULES = {
     "password_generator": "random-password-generator",
     "python_on_whales": "python-on-whales",
     "requests": "requests",
+    "colorama": "colorama",
+    "jsons": "jsons",
 }
 
 # ====== Kiểm tra và cập nhật pip ======

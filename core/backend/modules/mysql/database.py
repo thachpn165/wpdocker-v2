@@ -3,6 +3,8 @@ from core.backend.utils.crypto import encrypt
 from core.backend.utils.debug import log_call, info, warn, error, debug, success 
 from core.backend.modules.mysql.utils import get_mysql_root_password
 from core.backend.utils.env_utils import env
+from core.backend.models.config import SiteMySQL
+from core.backend.modules.website.website_utils import get_site_config, set_site_config
 import subprocess
 import random
 import string
@@ -81,18 +83,17 @@ def setup_database_for_website(domain):
 
     # Cập nhật vào config đúng block
     config = Config()
-    site_config = config.get("site", {})
-    if domain not in site_config:
-        site_config[domain] = {}
+    site_config = get_site_config(domain)
+    if not site_config:
+        error(f"❌ Không tìm thấy cấu hình website {domain} để cập nhật MySQL.")
+        return False
 
-    site_config[domain]["mysql"] = {
-        "db_name": db_name,
-        "db_user": db_user,
-        "db_pass": encrypt(db_pass)
-    }
-
-    config.set("site", site_config, split_path=False)
-    config.save()
+    site_config.mysql = SiteMySQL(
+        db_name=db_name,
+        db_user=db_user,
+        db_pass=encrypt(db_pass)
+    )
+    set_site_config(domain, site_config)
     success(f"✅ Đã thiết lập database cho website {domain}")
     return True
 

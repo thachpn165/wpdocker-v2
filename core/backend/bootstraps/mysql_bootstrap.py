@@ -25,8 +25,10 @@ def run_mysql_bootstrap():
     docker_network = env["DOCKER_NETWORK"]
     project_name = env["PROJECT_NAME"]
 
+    config_data = config.get()
+
     # Hỏi chọn phiên bản nếu chưa có
-    if not config.get("mysql.version"):
+    if not config_data.get("mysql", {}).get("version"):
         version_choices = [
             {"name": "MariaDB Latest", "value": "mariadb:latest"},
             {"name": "MariaDB 10.5", "value": "mariadb:10.5"},
@@ -37,21 +39,24 @@ def run_mysql_bootstrap():
             "📦 Chọn phiên bản MariaDB muốn sử dụng:",
             choices=version_choices
         ).ask()
-        config.set("mysql.version", selected)
+        mysql_data = config_data.get("mysql", {})
+        mysql_data["version"] = selected
+        config.update_key("mysql", mysql_data)
         config.save()
         success(f"✅ Đã lưu phiên bản MariaDB: {selected}")
 
-    mysql_image = config.get("mysql.version") or "mariadb:10.11"
+    config_data = config.get()
+    mysql_image = config_data.get("mysql", {}).get("version") or "mariadb:10.11"
 
-    if config.get("mysql.root_passwd"):
-        passwd = decrypt(config.get("mysql.root_passwd"))
+    if config_data.get("mysql", {}).get("root_passwd"):
+        passwd = decrypt(config_data["mysql"]["root_passwd"])
     else:
         passwd = strong_password()
-        config.set("mysql.root_passwd", encrypt(passwd))
+        mysql_data = config_data.get("mysql", {})
+        mysql_data["root_passwd"] = encrypt(passwd)
+        config.update_key("mysql", mysql_data)
         config.save()
         debug("Đã lưu mật khẩu MySQL vào config.")
-        debug("Plain password:", passwd)
-        debug("Encrypted password (in config):", config.get("mysql.root_passwd")) 
     import os
     config_dir = env["CONFIG_DIR"]
     os.makedirs(config_dir, exist_ok=True)

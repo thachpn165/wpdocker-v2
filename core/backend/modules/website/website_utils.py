@@ -2,7 +2,11 @@ from core.backend.utils.system_info import get_total_cpu_cores, get_total_ram_mb
 import os
 from core.backend.utils.env_utils import env
 from core.backend.objects.config import Config
-from core.backend.utils.debug import log_call, debug, error
+from core.backend.utils.debug import log_call, debug, error, info
+from core.backend.objects.container import Container
+import jsons
+from typing import Optional
+from core.backend.models.config import SiteConfig
 
 
 @log_call
@@ -12,10 +16,11 @@ def _is_website_exists(domain: str) -> bool:
     site_dir = os.path.join(sites_dir, domain)
     site_dir_exists = os.path.isdir(site_dir)
 
-    site_data = config.get("site", {})  # lấy nguyên block site {}
+    site_data = config.get().get("site", {})
     config_exists = domain in site_data  # check domain có nằm trong site_data không
 
-    debug(f"site_dir_exists: {site_dir_exists}, config_exists: {config_exists}")
+    debug(
+        f"site_dir_exists: {site_dir_exists}, config_exists: {config_exists}")
     return site_dir_exists and config_exists
 
 
@@ -81,7 +86,7 @@ def website_calculate_php_fpm_values():
 
 def website_list():
     config = Config()
-    raw_sites = config.get("site", {})
+    raw_sites = config.get().get("site", {})
     debug(f"Website raw config: {raw_sites}")
 
     valid_domains = []
@@ -91,3 +96,57 @@ def website_list():
 
     debug(f"Website valid domains: {valid_domains}")
     return valid_domains
+
+# Kiểm tra phân quyền www-data cho thư mục trong container
+
+
+def ensure_www_data_ownership(container_name, path_in_container):
+    container = Container(name=container_name)
+    debug(
+        f"🔍 Kiểm tra quyền sở hữu tại {path_in_container} trong container {container_name}")
+    container.exec(["chown", "-R", "www-data:www-data",
+                   path_in_container], user="root")
+    info(
+        f"✅ Đã đảm bảo phân quyền www-data cho {path_in_container} trong container {container_name}")
+
+
+def get_site_config(domain: str) -> Optional[SiteConfig]:
+    config = Config()
+    raw_sites = config.get().get("site", {})
+    site_raw = raw_sites.get(domain)
+    if not site_raw:
+        return None
+    try:
+        return jsons.load(site_raw, SiteConfig)
+    except Exception as e:
+        debug(f"❌ Lỗi khi load SiteConfig cho {domain}: {e}")
+        return None
+
+
+def set_site_config(domain: str, site_config: SiteConfig) -> None:
+    config = Config()
+    site_data = config.get().get("site", {})
+    site_data[domain] = jsons.dump(site_config)
+    config.update_key("site", site_data)
+    config.save()
+
+
+def delete_site_config(domain: str, subkey: Optional[str] = None) -> bool:
+    config = Config()
+    site_data = config.get().get("site", {})
+    if domain not in site_data:
+        return False
+
+    if subkey:
+        if subkey in site_data[domain]:
+            del site_data[domain][subkey]
+            config.update_key("site", site_data)
+            config.save()
+            return True
+        return False
+    else:
+        # Xóa toàn bộ domain
+        del site_data[domain]
+        config.update_key("site", site_data)
+        config.save()
+        return True

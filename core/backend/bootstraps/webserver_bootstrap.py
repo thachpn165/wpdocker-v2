@@ -7,7 +7,7 @@ from core.backend.utils.debug import debug, info, warn, error, log_call, success
 @log_call
 def run_webserver_bootstrap():
     config = Config()
-    webserver = config.get("core.webserver")
+    webserver = config.get().get("core", {}).get("webserver")
 
     available_webservers = {
         "nginx": {
@@ -25,7 +25,9 @@ def run_webserver_bootstrap():
             choices=list(label_to_key.keys())
         ).ask()
         webserver = label_to_key[webserver_label]
-        config.set("core.webserver", webserver)
+        core_data = config.get().get("core", {})
+        core_data["webserver"] = webserver
+        config.update_key("core", core_data)
         config.save()
         success(f"Đã lưu Webserver: {webserver}")
 
