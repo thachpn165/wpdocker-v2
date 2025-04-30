@@ -70,17 +70,31 @@ def success(msg):
 # ===== Decorator để tự log các lời gọi hàm =====
 
 
-def log_call(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        frame = inspect.currentframe()
-        caller_file = os.path.basename(frame.f_back.f_code.co_filename)
+def log_call(_func=None, *, log_vars=None):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            frame = inspect.currentframe()
+            caller_file = os.path.basename(frame.f_back.f_code.co_filename)
+            logger.debug(f"{DIM}CALL {func.__name__}() [{caller_file}]{RESET}")
 
-        logger.debug(f"{DIM}CALL {func.__name__}() [{caller_file}]{RESET}")
-        result = func(*args, **kwargs)
-        logger.debug(f"{DIM}DONE {func.__name__} → {result} [{caller_file}]{RESET}")
-        return result
-    return wrapper
+            result = func(*args, **kwargs)
+
+            # Log thêm các biến cụ thể nếu được chỉ định
+            if log_vars and isinstance(result, dict):
+                for var_name in log_vars:
+                    value = result.get(var_name, "❓ not found")
+                    logger.debug(f"{DIM}  ↳ {var_name} = {value}{RESET}")
+
+            logger.debug(f"{DIM}DONE {func.__name__} → {result} [{caller_file}]{RESET}")
+            return result
+        return wrapper
+
+    # Nếu gọi trực tiếp @log_call không đối số
+    if callable(_func):
+        return decorator(_func)
+
+    return decorator
 
 # ===== Hook để log các exception chưa được bắt =====
 

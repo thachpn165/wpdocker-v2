@@ -167,15 +167,14 @@ def setup_compose_php(domain, php_version):
     container.exec(["chown", "-R", "www-data:www-data", f"/var/www/html"], user="root")
     debug(f"✅ Đã phân quyền www-data cho thư mục /var/www/html trong container {php_container}")
 
-@log_call
+
+
+@log_call(log_vars=["domain", "site_data", "container_id"])
 def cleanup_compose_php(domain):
     """Xóa docker-compose PHP và container PHP tương ứng"""
     config = Config()
     site_data = config.get("site", {}, split_path=False).get(domain)
     container_id = site_data.get("php_container_id") if site_data else None
-    debug(f"Site data: {site_data}")
-    debug(f"Domain: {domain}")
-    debug(f"Container ID: {container_id}")
     if container_id:
         container = Container(name=container_id)
         if container.exists():
@@ -189,6 +188,11 @@ def cleanup_compose_php(domain):
         os.remove(docker_compose_target)
         info(f"🗑️ Đã xóa docker-compose PHP của {domain}")
 
+    return {
+        "container_id": container_id,
+        "site_data": site_data,
+        "domain": domain,
+    }
 
 def setup_ssl(domain):
     """Cài SSL tự ký"""
