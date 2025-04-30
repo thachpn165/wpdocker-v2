@@ -1,13 +1,17 @@
 from core.backend.objects.config import Config
 from core.backend.utils.crypto import encrypt
 from core.backend.utils.debug import log_call, info, warn, error, debug, success 
-from core.backend.modules.mysql.utils import get_mysql_root_password
+from core.backend.modules.mysql.utils import get_mysql_root_password, detect_mysql_client
 from core.backend.utils.env_utils import env
 from core.backend.models.config import SiteMySQL
 from core.backend.modules.website.website_utils import get_site_config, set_site_config
 import subprocess
 import random
 import string
+from core.backend.modules.docker.container import Container
+
+mysql_container = Container(name=env["MYSQL_CONTAINER_NAME"])
+mysql_client = detect_mysql_client(mysql_container)
 
 @log_call
 def create_database(domain):
@@ -19,7 +23,7 @@ def create_database(domain):
     try:
         cmd = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
-            "mysql", "-uroot", f"-p{mysql_root_pass}",
+            mysql_client, "-uroot", f"-p{mysql_root_pass}",
             "-e", f"CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
         ]
         subprocess.run(cmd, check=True)
@@ -41,7 +45,7 @@ def create_database_user(domain):
     try:
         cmd_create_user = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
-            "mysql", "-uroot", f"-p{mysql_root_pass}",
+            mysql_client, "-uroot", f"-p{mysql_root_pass}",
             "-e", f"CREATE USER IF NOT EXISTS '{db_user}'@'%' IDENTIFIED BY '{db_pass}';"
         ]
         subprocess.run(cmd_create_user, check=True)
@@ -60,7 +64,7 @@ def grant_privileges(db_name, db_user):
     try:
         cmd_grant = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
-            "mysql", "-uroot", f"-p{mysql_root_pass}",
+            mysql_client, "-uroot", f"-p{mysql_root_pass}",
             "-e", f"GRANT ALL PRIVILEGES ON `{db_name}`.* TO '{db_user}'@'%'; FLUSH PRIVILEGES;"
         ]
         subprocess.run(cmd_grant, check=True)
@@ -107,7 +111,7 @@ def delete_database(domain):
     try:
         cmd = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
-            "mysql", "-uroot", f"-p{mysql_root_pass}",
+            mysql_client, "-uroot", f"-p{mysql_root_pass}",
             "-e", f"DROP DATABASE IF EXISTS `{db_name}`;"
         ]
         subprocess.run(cmd, check=True)
@@ -127,7 +131,7 @@ def delete_database_user(domain):
     try:
         cmd = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
-            "mysql", "-uroot", f"-p{mysql_root_pass}",
+            mysql_client, "-uroot", f"-p{mysql_root_pass}",
             "-e", f"DROP USER IF EXISTS '{db_user}'@'%'; FLUSH PRIVILEGES;"
         ]
         subprocess.run(cmd, check=True)

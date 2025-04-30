@@ -4,6 +4,12 @@ from core.backend.utils.debug import debug, error
 from core.backend.modules.website.website_utils import get_site_config
 from core.backend.models.config import SiteMySQL
 
+# For type hinting
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from core.backend.objects.container import Container
+
+
 def get_mysql_root_password():
     """
     Lấy mật khẩu root MySQL đã giải mã từ config.json
@@ -41,3 +47,15 @@ def get_domain_db_pass(domain):
     except Exception as e:
         error(f"Lỗi giải mã mật khẩu database cho domain {domain}: {e}")
         return None
+
+
+def detect_mysql_client(container: Container) -> str:
+    """
+    Trả về tên lệnh client: 'mariadb' hoặc 'mysql' nếu có trong container.
+    Ưu tiên 'mariadb' nếu tồn tại.
+    """
+    if container.exec(["which", "mariadb"]) is not None:
+        return "mariadb"
+    if container.exec(["which", "mysql"]) is not None:
+        return "mysql"
+    raise RuntimeError("❌ Không tìm thấy lệnh mariadb hoặc mysql trong container.")
