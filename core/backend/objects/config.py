@@ -38,6 +38,10 @@ class Config:
         return ref
 
     def set(self, key, value, split_path=True):
+        if not split_path or ('.' in key and key in self.config):
+            self.config[key] = value
+            return
+
         keys = key.split('.') if split_path else [key]
         ref = self.config
         for k in keys[:-1]:

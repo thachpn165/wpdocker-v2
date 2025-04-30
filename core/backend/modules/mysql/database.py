@@ -1,5 +1,3 @@
-# File: core/backend/modules/mysql/database.py
-
 from core.backend.objects.config import Config
 from core.backend.utils.crypto import encrypt
 from core.backend.utils.debug import log_call, info, warn, error, debug, success 
@@ -11,16 +9,11 @@ import string
 
 @log_call
 def create_database(domain):
-    """
-    Tạo database cho website.
-    Ví dụ: domain = hello.dev → database = hello_dev_wpdb
-    """
     db_name = f"{domain.replace('.', '_')}_wpdb"
     mysql_root_pass = get_mysql_root_password()
     if not mysql_root_pass:
         error("❌ Không lấy được mật khẩu root MySQL.")
         return None
-
     try:
         cmd = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
@@ -36,10 +29,6 @@ def create_database(domain):
 
 @log_call
 def create_database_user(domain):
-    """
-    Tạo database user cho website.
-    Ví dụ: domain = hello.dev → user = hello_dev_wpuser
-    """
     db_user = f"{domain.replace('.', '_')}_wpuser"
     db_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
@@ -47,7 +36,6 @@ def create_database_user(domain):
     if not mysql_root_pass:
         error("❌ Không lấy được mật khẩu root MySQL.")
         return None, None
-
     try:
         cmd_create_user = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
@@ -63,14 +51,10 @@ def create_database_user(domain):
 
 @log_call
 def grant_privileges(db_name, db_user):
-    """
-    Gán toàn quyền cho user vào database.
-    """
     mysql_root_pass = get_mysql_root_password()
     if not mysql_root_pass:
         error("❌ Không lấy được mật khẩu root MySQL.")
         return False
-
     try:
         cmd_grant = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
@@ -86,46 +70,39 @@ def grant_privileges(db_name, db_user):
 
 @log_call
 def setup_database_for_website(domain):
-    """
-    Hàm tổng: Tạo database, user, gán quyền và lưu vào config.json
-    """
     db_name = create_database(domain)
     if not db_name:
         return False
-
     db_user, db_pass = create_database_user(domain)
     if not db_user or not db_pass:
         return False
-
     if not grant_privileges(db_name, db_user):
         return False
 
-    # Cập nhật vào config
+    # Cập nhật vào config đúng block
     config = Config()
-    site_data = config.get(f"site.{domain}", {})
-    site_data["mysql"] = {
+    site_config = config.get("site", {})
+    if domain not in site_config:
+        site_config[domain] = {}
+
+    site_config[domain]["mysql"] = {
         "db_name": db_name,
         "db_user": db_user,
-        "db_pass": encrypt(db_pass)  # Lưu mật khẩu đã mã hóa
+        "db_pass": encrypt(db_pass)
     }
-    config.set(f"site.{domain}", site_data)
-    config.save()
 
+    config.set("site", site_config, split_path=False)
+    config.save()
     success(f"✅ Đã thiết lập database cho website {domain}")
     return True
 
 @log_call
 def delete_database(domain):
-    """
-    Xóa database của website.
-    Ví dụ: domain = hello.dev → database = hello_dev_wpdb
-    """
     db_name = f"{domain.replace('.', '_')}_wpdb"
     mysql_root_pass = get_mysql_root_password()
     if not mysql_root_pass:
         error("❌ Không lấy được mật khẩu root MySQL.")
         return False
-
     try:
         cmd = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],
@@ -141,16 +118,11 @@ def delete_database(domain):
 
 @log_call
 def delete_database_user(domain):
-    """
-    Xóa database user của website.
-    Ví dụ: domain = hello.dev → user = hello_dev_wpuser
-    """
     db_user = f"{domain.replace('.', '_')}_wpuser"
     mysql_root_pass = get_mysql_root_password()
     if not mysql_root_pass:
         error("❌ Không lấy được mật khẩu root MySQL.")
         return False
-
     try:
         cmd = [
             "docker", "exec", "-i", env["MYSQL_CONTAINER_NAME"],

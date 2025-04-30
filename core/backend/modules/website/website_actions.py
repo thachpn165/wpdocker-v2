@@ -1,14 +1,17 @@
 from core.backend.modules.mysql.database import setup_database_for_website, delete_database, delete_database_user
-from core.backend.utils.debug import info, warn, error
+from core.backend.utils.debug import info, warn, error, debug, log_call
 from core.backend.utils.env_utils import env
 from core.backend.objects.config import Config
 from core.backend.objects.compose import Compose
 from core.backend.modules.ssl.install import install_selfsigned_ssl
 from core.backend.modules.nginx.nginx import restart as nginx_restart
+from core.backend.objects.container import Container
+from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
+
 import os
 import shutil
 
-
+@log_call
 def setup_directories(domain):
     """Tạo cấu trúc thư mục cơ bản cho website"""
     sites_dir = env["SITES_DIR"]
@@ -25,13 +28,6 @@ def setup_directories(domain):
         open(log_path, "a").close()
         os.chmod(log_path, 0o666)
 
-    # Phân quyền www-data cho toàn bộ thư mục site_dir và trong container PHP
-    from core.backend.objects.container import Container
-    php_container = f"{domain}-php"
-    container = Container(name=php_container)
-    container.exec(["chown", "-R", "www-data:www-data", "/var/www"])
-    info(f"✅ Đã phân quyền www-data cho thư mục website {domain}")
-
 
 def cleanup_directories(domain):
     """Xóa toàn bộ thư mục website"""
@@ -41,27 +37,35 @@ def cleanup_directories(domain):
         shutil.rmtree(site_dir)
         info(f"🗑️ Đã xóa thư mục {site_dir}")
 
-
+@log_call
 def setup_config(domain, php_version):
     """Ghi cấu hình website vào config.json"""
     config = Config()
-    if config.get("site") is None:
-        config.set("site", {}, split_path=False)
-
-    current_sites = config.get("site")
     sites_dir = env["SITES_DIR"]
     logs_dir = os.path.join(sites_dir, domain, "logs")
 
-    current_sites[domain] = {
-        "domain": domain,
-        "php_version": php_version,
-        "logs": {
-            "access": os.path.join(logs_dir, "access.log"),
-            "error": os.path.join(logs_dir, "error.log"),
-            "php_error": os.path.join(logs_dir, "php_error.log"),
-            "php_slow": os.path.join(logs_dir, "php_slow.log")
-        }
+    # Lấy dữ liệu hiện tại (sẽ luôn là dict)
+    current_sites = config.get("site", {}) or {}
+
+    # Lấy container ID của PHP
+    php_container_name = f"{domain}-php"
+    container = Container(name=php_container_name)
+    container_id = container.get().id if container.get() else None
+
+    # Chèn hoặc cập nhật đúng domain
+    site_data = current_sites.get(domain, {})
+    site_data["domain"] = domain
+    site_data["php_version"] = php_version
+    site_data["logs"] = {
+        "access": os.path.join(logs_dir, "access.log"),
+        "error": os.path.join(logs_dir, "error.log"),
+        "php_error": os.path.join(logs_dir, "php_error.log"),
+        "php_slow": os.path.join(logs_dir, "php_slow.log")
     }
+    if container_id:
+        site_data["php_container_id"] = container_id
+
+    current_sites[domain] = site_data
     config.set("site", current_sites, split_path=False)
     config.save()
     info(f"✅ Đã lưu thông tin website {domain} vào config.json")
@@ -94,7 +98,6 @@ def setup_php_configs(domain, php_version):
         with open(php_ini_target, "w") as f:
             f.write(content)
 
-    from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
     fpm_values = website_calculate_php_fpm_values()
     php_fpm_conf_path = os.path.join(site_dir, "php", "php-fpm.conf")
     with open(php_fpm_conf_path, "w") as f:
@@ -118,7 +121,7 @@ request_terminate_timeout = 60
 def cleanup_php_configs(domain):
     """Không cần riêng vì xóa thư mục là đã xóa rồi"""
 
-
+@log_call
 def setup_compose_php(domain, php_version):
     """Tạo docker-compose cho PHP"""
     install_dir = env["INSTALL_DIR"]
@@ -159,9 +162,27 @@ def setup_compose_php(domain, php_version):
     )
     compose.ensure_ready()
 
+    # Chown thư mục /var/www/<domain> trong container PHP
+    container = Container(name=php_container)
+    container.exec(["chown", "-R", "www-data:www-data", f"/var/www/html"], user="root")
+    debug(f"✅ Đã phân quyền www-data cho thư mục /var/www/html trong container {php_container}")
 
+@log_call
 def cleanup_compose_php(domain):
-    """Xóa docker-compose PHP"""
+    """Xóa docker-compose PHP và container PHP tương ứng"""
+    config = Config()
+    site_data = config.get("site", {}, split_path=False).get(domain)
+    container_id = site_data.get("php_container_id") if site_data else None
+    debug(f"Site data: {site_data}")
+    debug(f"Domain: {domain}")
+    debug(f"Container ID: {container_id}")
+    if container_id:
+        container = Container(name=container_id)
+        if container.exists():
+            debug(f"Đang dừng và xóa container {container_id}...")
+            container.stop()
+            container.remove()
+
     docker_compose_target = os.path.join(
         env["SITES_DIR"], domain, "docker-compose.php.yml")
     if os.path.isfile(docker_compose_target):
@@ -173,7 +194,7 @@ def setup_ssl(domain):
     """Cài SSL tự ký"""
     install_selfsigned_ssl(domain)
 
-
+@log_call
 def setup_nginx_vhost(domain):
     """Copy NGINX vhost config"""
     install_dir = env["INSTALL_DIR"]
@@ -219,13 +240,12 @@ def cleanup_database(domain):
 
 WEBSITE_SETUP_ACTIONS = [
     (setup_directories, cleanup_directories),
-    (setup_config, cleanup_config),
-    # cleanup_php_configs đã gộp trong cleanup_directories
     (setup_php_configs, None),
     (setup_compose_php, cleanup_compose_php),
     (setup_database, cleanup_database),
-    (setup_ssl, None),  # SSL nằm trong thư mục site nên cleanup_directories sẽ xoá luôn
+    (setup_ssl, None),
     (setup_nginx_vhost, cleanup_nginx_vhost),
+    (setup_config, cleanup_config),  # Cần để cuối cùng
 ]
 
 WEBSITE_CLEANUP_ACTIONS = [
