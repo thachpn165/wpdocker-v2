@@ -5,6 +5,7 @@ services:
     image: wordpress:cli
     container_name: ${WPCLI_CONTAINER_NAME}
     entrypoint: ["tail", "-f", "/dev/null"]
+    restart: unless-stopped
     volumes:
       - ${SITES_DIR}:/var/www/html
       - ${CONFIG_DIR}/wpcli-custom.ini:/usr/local/etc/php/conf.d/wpcli-custom.ini:ro
