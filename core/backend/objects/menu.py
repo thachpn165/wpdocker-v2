@@ -10,7 +10,7 @@ class MenuItem:
         self.action = action
 
     def __str__(self):
-        return f"[{self.id}] {self.label}"
+        return f"⏎ {self.label}" if self.id == "0" else f"[{self.id}] {self.label}"
 
 class Menu:
     def __init__(self, title: str, items: list[MenuItem], back_id: str = "0"):
