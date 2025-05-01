@@ -8,7 +8,7 @@ import jsons
 from typing import Optional
 from core.backend.models.config import SiteConfig
 
-
+# Kiểm tra website có tồn tại hay không
 @log_call
 def _is_website_exists(domain: str) -> bool:
     config = Config()
@@ -23,6 +23,22 @@ def _is_website_exists(domain: str) -> bool:
         f"site_dir_exists: {site_dir_exists}, config_exists: {config_exists}")
     return site_dir_exists and config_exists
 
+# Kiểm tra website có đang chạy hay không
+# Trả về lý do cụ thể cho từng trường hợp
+@log_call
+def _is_website_running(domain: str) -> str:
+    if not _is_website_exists(domain):
+        return "❌ Không hợp lệ (thiếu thư mục hoặc config)"
+
+    php_container = Container(f"{domain}-php")
+    if not php_container.running():
+        return "❌ Container PHP không hoạt động"
+
+    nginx_conf = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d", f"{domain}.conf")
+    if not os.path.isfile(nginx_conf):
+        return "❌ Thiếu cấu hình NGINX"
+
+    return "✅ Đang chạy"
 
 # Tính toán các thông số PHP-FPM dựa trên tài nguyên server
 # và nhóm tài nguyên (thấp, trung bình, cao)
