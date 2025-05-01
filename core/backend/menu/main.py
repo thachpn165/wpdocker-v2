@@ -9,6 +9,7 @@ from core.backend.modules.website.prompts.delete_prompt import prompt_delete_web
 from core.backend.modules.website.prompts.list_prompt import prompt_list_website
 from core.backend.modules.website.prompts.restart_prompt import prompt_restart_website
 from core.backend.modules.website.prompts.logs_prompt import prompt_watch_logs
+from core.backend.modules.website.prompts.info_prompt import prompt_info_website
 console = Console()
 
 menu_items = [
@@ -96,6 +97,8 @@ def website_menu():
             prompt_restart_website()
         elif answer == choices[4]:  # Xem logs website
             prompt_watch_logs()
+        elif answer == choices[5]:  # Xem thông tin website
+            prompt_info_website()
         else:
             console.print("🚧 Chức năng đang được phát triển...")
 
