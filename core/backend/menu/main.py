@@ -10,96 +10,100 @@ from core.backend.modules.website.prompts.list_prompt import prompt_list_website
 from core.backend.modules.website.prompts.restart_prompt import prompt_restart_website
 from core.backend.modules.website.prompts.logs_prompt import prompt_watch_logs
 from core.backend.modules.website.prompts.info_prompt import prompt_info_website
+from core.backend.modules.ssl.prompts.install_prompt import prompt_install_ssl
+from core.backend.modules.ssl.prompts.check_prompt import prompt_check_ssl
 console = Console()
-
-menu_items = [
-    ("Website Management", "website_menu"),
-    ("SSL Certificate Management", "ssl_menu"),
-    ("System Tools", "system_tools_menu"),
-    ("RClone Management", "rclone_menu"),
-    ("WordPress Tools", "wordpress_tools_menu"),
-    ("Backup Management", "backup_menu"),
-    ("WordPress Cache Setup", "wp_cache_menu"),
-    ("PHP Management", "php_menu"),
-    ("Database Management", "db_menu"),
-    ("Check & Update WP Docker", "update_menu"),
-    ("Exit", "exit")
-]
 
 def display_header():
     header = Text("""
-    ============================================
+
     ██╗    ██╗██████╗     ██████╗  ██████╗  ██████╗██╗  ██╗███████╗██████╗ 
     ██║    ██║██╔══██╗    ██╔══██╗██╔═══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗
     ██║ █╗ ██║██████╔╝    ██████╔╝██║   ██║██║     █████╔╝ █████╗  ██████╔╝
     ██║███╗██║██╔═══╝     ██╔═══╝ ██║   ██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗
     ╚███╔███╔╝██║         ██║     ╚██████╔╝╚██████╗██║  ██╗███████╗██║  ██║
      ╚══╝╚══╝ ╚═╝         ╚═╝      ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
-    ============================================
-    """, style="bold cyan")
+    ═══════════════════════════════════════════════════════════════════════════════
+    """, style="cyan")
     console.print(header)
 
 def show_main_menu():
     display_header()
 
-    choices = [f"[{i+1}] {item[0]}" for i, item in enumerate(menu_items)]
-    answer = questionary.select(
-        "\n🔧 Enter the corresponding menu option number:",
-        choices=choices
-    ).ask()
+    main_options = {
+        "[1] Quản lý Website": website_menu,
+        "[2] Quản lý Chứng chỉ SSL": ssl_menu,
+        "[3] Công cụ hệ thống": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[4] Quản lý RClone": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[5] Công cụ WordPress": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[6] Quản lý Backup": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[7] Cài đặt Cache WP": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[8] Quản lý PHP": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[9] Quản lý Database": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[10] Kiểm tra & cập nhật WP Docker": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[11] Thoát": lambda: sys.exit(console.print("👋 Tạm biệt!", style="bold green"))
+    }
 
-    selected_index = choices.index(answer)
-    selected_key = menu_items[selected_index][1]
-
-    if selected_key == "exit":
-        console.print("👋 Tạm biệt!", style="bold green")
-        sys.exit(0)
-
-    if selected_key == "website_menu":
-        website_menu()
-        show_main_menu()
-    else:
-        console.print(f"👉 [yellow]Bạn chọn:[/] {menu_items[selected_index][0]}")
-        console.print("🚧 Chức năng đang được phát triển...")
-
-        input("\n⏎ Nhấn Enter để quay lại menu...")
-        show_main_menu()
-
-def website_menu():
     while True:
-        choices = [
-            "[1] Tạo website",
-            "[2] Xóa website",
-            "[3] Xem danh sách website",
-            "[4] Restart lại website",
-            "[5] Xem logs website",
-            "[6] Xem thông tin website",
-            "[7] Migrate dữ liệu về WP Docker",
-            "[8] Quay lại menu chính"
-        ]
         answer = questionary.select(
-            "\n🌐 Quản lý Website:",
-            choices=choices
+            "\n Chọn chức năng cần sử dụng:",
+            choices=list(main_options.keys())
         ).ask()
 
-        selected_index = choices.index(answer)
-        console.print(f"👉 [yellow]Bạn chọn:[/] {choices[selected_index][4:]}")
+        console.print(f"👉 [yellow]Bạn chọn:[/] {answer[4:]}")
+        action = main_options.get(answer)
+        if action:
+            action()
+            input("\n⏎ Nhấn Enter để quay lại menu...")
 
-        if answer == choices[-1]:
-            return  # Quay lại menu chính
-        elif answer == choices[0]:  # Tạo website
-            prompt_create_website()
-        elif answer == choices[1]:  # Xóa website
-            prompt_delete_website()
-        elif answer == choices[2]:  # Xem danh sách website
-            prompt_list_website()
-        elif answer == choices[3]:  # Restart lại website
-            prompt_restart_website()
-        elif answer == choices[4]:  # Xem logs website
-            prompt_watch_logs()
-        elif answer == choices[5]:  # Xem thông tin website
-            prompt_info_website()
-        else:
-            console.print("🚧 Chức năng đang được phát triển...")
+def website_menu():
+    website_options = {
+        "[1] Tạo website": prompt_create_website,
+        "[2] Xóa website": prompt_delete_website,
+        "[3] Xem danh sách website": prompt_list_website,
+        "[4] Restart lại website": prompt_restart_website,
+        "[5] Xem logs website": prompt_watch_logs,
+        "[6] Xem thông tin website": prompt_info_website,
+        "[7] Migrate dữ liệu về WP Docker": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[8] Quay lại menu chính": None
+    }
 
-        input("\n⏎ Nhấn Enter để quay lại menu...")
+    while True:
+        answer = questionary.select(
+            "\n🌐 Quản lý Website:",
+            choices=list(website_options.keys())
+        ).ask()
+
+        if answer == "[8] Quay lại menu chính":
+            return
+
+        console.print(f"👉 [yellow]Bạn chọn:[/] {answer[4:]}")
+        action = website_options.get(answer)
+        if action:
+            action()
+            input("\n⏎ Nhấn Enter để quay lại menu...")
+
+def ssl_menu():
+    ssl_options = {
+        "[1] Tạo chứng chỉ tự ký": lambda: prompt_install_ssl("selfsigned"),
+        "[2] Tạo chứng chỉ Lets Encrypt (Miễn phí)": lambda: prompt_install_ssl("letsencrypt"),
+        "[3] Cài chứng chỉ thủ công (trả phí)": lambda: prompt_install_ssl("manual"),
+        "[4] Kiểm tra thông tin chứng chỉ": prompt_check_ssl,
+        "[5] Sửa chứng chỉ hiện tại": lambda: console.print("🚧 Chức năng đang được phát triển..."),
+        "[6] Quay lại menu chính": None
+    }
+
+    while True:
+        answer = questionary.select(
+            "\n🔒 Quản lý Chứng chỉ SSL:",
+            choices=list(ssl_options.keys())
+        ).ask()
+
+        if answer == "[6] Quay lại menu chính":
+            return
+
+        console.print(f"👉 [yellow]Bạn chọn:[/] {answer[4:]}")
+        action = ssl_options.get(answer)
+        if action:
+            action()
+            input("\n⏎ Nhấn Enter để quay lại menu...")
