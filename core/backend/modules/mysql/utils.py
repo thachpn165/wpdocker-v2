@@ -3,11 +3,7 @@ from core.backend.utils.crypto import decrypt
 from core.backend.utils.debug import debug, error
 from core.backend.modules.website.website_utils import get_site_config
 from core.backend.models.config import SiteMySQL
-
-# For type hinting
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from core.backend.objects.container import Container
+from core.backend.objects.container import Container
 
 
 def get_mysql_root_password():

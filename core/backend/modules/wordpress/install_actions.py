@@ -3,6 +3,7 @@ from core.backend.utils.debug import debug, info, warn, error, success, log_call
 from core.backend.objects.container import Container
 from core.backend.modules.website.website_utils import ensure_www_data_ownership, get_site_config, set_site_config, delete_site_config
 from core.backend.modules.mysql.utils import get_domain_db_pass
+from core.backend.modules.mysql.utils import detect_mysql_client
 from core.backend.models.config import SiteConfig
 from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
 
@@ -38,18 +39,21 @@ def wordpress_check_containers(domain):
 
 @log_call
 def wordpress_download_core(domain):
+    import os
+
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
-    wordpress_path = f"/var/www/html/{domain}/wordpress"
+    sites_dir = env["SITES_DIR"]
+    wordpress_path = os.path.join(sites_dir, domain, "wordpress")
 
-    # Kiểm tra xem WordPress đã được cài đặt chưa
-    result = wpcli.exec(["wp", "core", "is-installed"], workdir=wordpress_path)
+    # Kiểm tra thư mục trên host có rỗng không
+    is_empty = not os.path.exists(wordpress_path) or not os.listdir(wordpress_path)
 
-    if result is None:  # Nếu WordPress chưa được cài đặt
+    if is_empty:
         debug(f"📥 Tải WordPress vào {wordpress_path}...")
-        wpcli.exec(["wp", "core", "download"], workdir=wordpress_path)
+        wpcli.exec(["wp", "core", "download"], workdir=f"/var/www/html/{domain}/wordpress")
     else:
         warn(f"📂 WordPress đã được cài đặt tại {wordpress_path}. Bỏ qua bước tải xuống.")
-    
+
     return True
 
 
@@ -123,7 +127,8 @@ def wordpress_check_database(domain):
         return False
 
     mysql = Container(env["MYSQL_CONTAINER_NAME"])
-    check_cmd = ["mysql", "-u", db_user, f"-p{db_pass}", "-e", f"USE {db_name};"]
+    client_cmd = detect_mysql_client(mysql)
+    check_cmd = [client_cmd, "-u", db_user, f"-p{db_pass}", "-e", f"USE {db_name};"]
     if mysql.exec(check_cmd) is None:
         error("❌ Kết nối đến database thất bại.")
         return False
@@ -172,24 +177,18 @@ def wordpress_verify_installation(domain):
 @log_call
 def wordpress_save_post_install_config(domain):
     """
-    Lưu cấu hình sau khi cài đặt WordPress vào config.json,
-    bao gồm key site.<domain>.cache = "no-cache"
-    """
-    config = Config()
-    key_path = f"site.{domain}.cache"
-    config.set(key_path, "no-cache", split_path=True)
-    debug(f"📝 Đã lưu config site.{domain}.cache = 'no-cache'")
-    return True
-
-
-@log_call
-def wordpress_save_post_install_config(domain):
-    """
     Lưu các key cấu hình sau khi cài đặt WordPress (dùng chung CONFIG_KEYS_AFTER_INSTALL)
     """
+    site_config = get_site_config(domain)
+    if not site_config:
+        error(f"❌ Không tìm thấy cấu hình site {domain} để cập nhật.")
+        return False
+
     for subkey, value in CONFIG_KEYS_AFTER_INSTALL.items():
-        set_site_config(domain, subkey, value)
-        debug(f"📝 Đã lưu config site.{domain}.{subkey} = {value}")
+        setattr(site_config, subkey, value)
+        debug(f"📝 Đã gán site_config.{subkey} = {value}")
+
+    set_site_config(domain, site_config)
     return True
 
 
@@ -199,6 +198,9 @@ def wordpress_delete_post_install_config(domain):
     Xóa các key cấu hình được tạo sau khi cài đặt WordPress
     """
     for subkey in CONFIG_KEYS_AFTER_INSTALL.keys():
-        delete_site_config(domain, subkey)
-        debug(f"🗑️ Đã xóa config site.{domain}.{subkey}")
+        deleted = delete_site_config(domain, subkey=subkey)
+        if deleted:
+            debug(f"🗑️ Đã xóa config site.{domain}.{subkey}")
+        else:
+            warn(f"⚠️ Không tìm thấy site.{domain}.{subkey} để xóa")
     return True

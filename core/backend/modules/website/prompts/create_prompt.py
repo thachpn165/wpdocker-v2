@@ -1,8 +1,12 @@
-from questionary import text, select
+from questionary import text, select, confirm, password
 from core.backend.modules.website.create import create_website
+from core.backend.modules.wordpress.install import install_wordpress
 from core.backend.utils.debug import log_call, info, warn, error, success, debug
 from core.backend.utils.validate import _is_valid_domain
+import random
+import string
 
+@log_call
 def prompt_create_website():
     try:
         domain = ""
@@ -33,6 +37,32 @@ def prompt_create_website():
                 return
 
         create_website(domain, php_version)
+
+        # ==== Hỏi thông tin cài đặt WordPress ====
+        auto_generate = confirm("🔐 Tạo tài khoản WordPress ngẫu nhiên?").ask()
+        if auto_generate:
+            admin_user = "admin" + ''.join(random.choices(string.ascii_lowercase, k=4))
+            admin_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+        else:
+            admin_user = text("👤 Nhập tên đăng nhập WordPress:").ask()
+            admin_pass = password("🔑 Nhập mật khẩu WordPress:").ask()
+
+        default_email = f"contact@{domain}"
+        admin_email = text("📧 Nhập email quản trị:", default=default_email).ask()
+
+        site_title_guess = domain.split(".")[0].capitalize()
+        site_title = text("📛 Nhập tiêu đề website:", default=site_title_guess).ask()
+
+        site_url = f"https://{domain}"
+
+        install_wordpress(
+            domain=domain,
+            site_url=site_url,
+            title=site_title,
+            admin_user=admin_user,
+            admin_pass=admin_pass,
+            admin_email=admin_email
+        )
 
     except (KeyboardInterrupt, EOFError):
         print("\nĐã huỷ thao tác.")

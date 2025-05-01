@@ -126,7 +126,7 @@ def get_site_config(domain: str) -> Optional[SiteConfig]:
 def set_site_config(domain: str, site_config: SiteConfig) -> None:
     config = Config()
     site_data = config.get().get("site", {})
-    site_data[domain] = jsons.dump(site_config)
+    site_data[domain] = jsons.dump(site_config, strict=True) 
     config.update_key("site", site_data)
     config.save()
 

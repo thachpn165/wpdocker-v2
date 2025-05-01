@@ -8,7 +8,7 @@ from core.backend.modules.website.website_utils import get_site_config, set_site
 import subprocess
 import random
 import string
-from core.backend.modules.docker.container import Container
+from core.backend.objects.container import Container
 
 mysql_container = Container(name=env["MYSQL_CONTAINER_NAME"])
 mysql_client = detect_mysql_client(mysql_container)
@@ -78,28 +78,18 @@ def grant_privileges(db_name, db_user):
 def setup_database_for_website(domain):
     db_name = create_database(domain)
     if not db_name:
-        return False
+        return None
     db_user, db_pass = create_database_user(domain)
     if not db_user or not db_pass:
-        return False
+        return None
     if not grant_privileges(db_name, db_user):
-        return False
+        return None
 
-    # Cập nhật vào config đúng block
-    config = Config()
-    site_config = get_site_config(domain)
-    if not site_config:
-        error(f"❌ Không tìm thấy cấu hình website {domain} để cập nhật MySQL.")
-        return False
-
-    site_config.mysql = SiteMySQL(
-        db_name=db_name,
-        db_user=db_user,
-        db_pass=encrypt(db_pass)
-    )
-    set_site_config(domain, site_config)
-    success(f"✅ Đã thiết lập database cho website {domain}")
-    return True
+    return {
+        "db_name": db_name,
+        "db_user": db_user,
+        "db_pass": db_pass
+    }
 
 @log_call
 def delete_database(domain):

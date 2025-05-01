@@ -6,10 +6,10 @@ from core.backend.modules.ssl.install import install_selfsigned_ssl
 from core.backend.modules.nginx.nginx import restart as nginx_restart
 from core.backend.objects.container import Container
 from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
-from core.backend.models.config import SiteConfig, SiteLogs
+from core.backend.models.config import SiteConfig, SiteLogs, SiteMySQL
 from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
 from core.backend.objects.config import Config
-
+from core.backend.utils.crypto import encrypt
 import os
 import shutil
 
@@ -61,6 +61,19 @@ def setup_config(domain, php_version):
         logs=site_logs,
         cache="no-cache",
         php_container_id=container_id
+    )
+
+
+
+    db_info = setup_database_for_website(domain)
+    if not db_info:
+        error("❌ Không thể tạo database cho website.")
+        return
+
+    site_config.mysql = SiteMySQL(
+        db_name=db_info["db_name"],
+        db_user=db_info["db_user"],
+        db_pass=encrypt(db_info["db_pass"])
     )
 
     # Cập nhật lại logs, container_id, php_version nếu thay đổi
@@ -224,11 +237,6 @@ def cleanup_nginx_vhost(domain):
 # =========================
 
 
-def setup_database(domain, php_version):
-    """Tạo database và user cho website"""
-    setup_database_for_website(domain)
-
-
 def cleanup_database(domain):
     """Xóa database và user cho website"""
     delete_database(domain)
@@ -239,7 +247,6 @@ WEBSITE_SETUP_ACTIONS = [
     (setup_directories, cleanup_directories),
     (setup_php_configs, None),
     (setup_compose_php, cleanup_compose_php),
-    (setup_database, cleanup_database),
     (setup_ssl, None),
     (setup_nginx_vhost, cleanup_nginx_vhost),
     (setup_config, cleanup_config),  # Cần để cuối cùng
