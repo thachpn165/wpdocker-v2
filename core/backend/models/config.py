@@ -33,4 +33,4 @@ class SiteConfig:
     logs: SiteLogs 
     cache: Optional[str] = None
     mysql: Optional[SiteMySQL] = None
-    php_container_id: Optional[str] = None
+    container_php: Optional[str] = None

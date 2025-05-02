@@ -1,21 +1,15 @@
 # File: core/backend/modules/website/prompts/delete_prompt.py
 
-from questionary import select, confirm
-from core.backend.modules.website.website_utils import website_list
+from questionary import confirm
+from core.backend.modules.website.website_utils import select_website
 from core.backend.modules.website.delete import delete_website
-from core.backend.utils.debug import log_call, info, warn, error, debug
+from core.backend.utils.debug import log_call, info, warn
 
 
 @log_call
 def prompt_delete_website():
-    websites = website_list()
-    debug(f"Websites: {websites}")
-    if not websites:
-        warn("Không tìm thấy website nào để xoá.")
-        return
-
-    domain = select("Chọn website cần xoá:", choices=websites).ask()
-    if domain is None:
+    domain = select_website("Chọn website cần xoá:")
+    if not domain:
         info("Đã huỷ thao tác xoá.")
         return
 

@@ -5,7 +5,7 @@ from python_on_whales import docker
 import questionary
 from core.backend.utils.validate import _is_arm
 from core.backend.utils.debug import debug
-
+from core.backend.modules.php.init_client import init_php_client
 
 # Get PHP container ID by name
 def get_php_container_id_by_name(container_name: str) -> str:
@@ -23,6 +23,14 @@ def get_php_container_id(domain: str) -> str:
         raise ValueError(f"Không tìm thấy Container ID PHP cho website {domain}")
     return site_config.php_container_id
 
+def get_php_container_name(domain: str) -> str:
+    c = init_php_client(domain)
+    if not c.exists():
+        raise ValueError(f"Không tìm thấy Container PHP cho website {domain}")
+    container_name = c.get().name
+    if not container_name:
+        raise ValueError(f"Không tìm thấy tên Container PHP cho website {domain}")
+    return container_name
 
 # Choose PHP version
 AVAILABLE_PHP_VERSIONS = [

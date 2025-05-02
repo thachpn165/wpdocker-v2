@@ -10,6 +10,7 @@ from core.backend.models.config import SiteConfig, SiteLogs, SiteMySQL
 from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
 from core.backend.objects.config import Config
 from core.backend.utils.crypto import encrypt
+from core.backend.modules.php.init_client import init_php_client
 import os
 import shutil
 
@@ -45,8 +46,7 @@ def setup_config(domain, php_version):
     logs_dir = os.path.join(sites_dir, domain, "logs")
 
     php_container_name = f"{domain}-php"
-    container = Container(name=php_container_name)
-    container_id = container.get().id if container.get() else None
+    container = init_php_client(domain)
 
     site_logs = SiteLogs(
         access=os.path.join(logs_dir, "access.log"),
@@ -60,7 +60,7 @@ def setup_config(domain, php_version):
         php_version=php_version,
         logs=site_logs,
         cache="no-cache",
-        php_container_id=container_id
+        container_php=container.name
     )
 
 
@@ -78,7 +78,7 @@ def setup_config(domain, php_version):
 
     # Cập nhật lại logs, container_id, php_version nếu thay đổi
     site_config.logs = site_logs
-    site_config.php_container_id = container_id
+    site_config.container_php = container.name
     site_config.php_version = php_version
 
     set_site_config(domain, site_config)

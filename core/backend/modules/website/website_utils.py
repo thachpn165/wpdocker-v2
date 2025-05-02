@@ -2,12 +2,12 @@ from core.backend.utils.system_info import get_total_cpu_cores, get_total_ram_mb
 import os
 from core.backend.utils.env_utils import env
 from core.backend.objects.config import Config
-from core.backend.utils.debug import log_call, debug, error, info
+from core.backend.utils.debug import log_call, debug, error, info, warn
 from core.backend.objects.container import Container
 import jsons
 from typing import Optional
 from core.backend.models.config import SiteConfig
-
+from questionary import select
 # Kiểm tra website có tồn tại hay không
 @log_call
 def _is_website_exists(domain: str) -> bool:
@@ -166,3 +166,21 @@ def delete_site_config(domain: str, subkey: Optional[str] = None) -> bool:
         config.update_key("site", site_data)
         config.save()
         return True
+
+# Chọn website từ danh sách
+def select_website(message: str = "Chọn website:", default: Optional[str] = None) -> Optional[str]:
+    """Hiển thị danh sách website và cho phép chọn. Trả về None nếu người dùng huỷ thao tác."""
+    websites = website_list()
+    if not websites:
+        warn("Không tìm thấy website nào.")
+        return None
+
+    try:
+        return select(
+            message,
+            choices=websites,
+            default=default if default in websites else None
+        ).ask()
+    except (KeyboardInterrupt, EOFError):
+        info("Đã huỷ thao tác.")
+        return None

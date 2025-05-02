@@ -6,6 +6,7 @@ from core.backend.modules.mysql.utils import get_domain_db_pass
 from core.backend.modules.mysql.utils import detect_mysql_client
 from core.backend.models.config import SiteConfig
 from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
+from core.backend.modules.php.init_client import init_php_client
 
 # Danh sách các key cần lưu vào config.json sau khi cài đặt WordPress
 # Chúng ta có thể thêm các key khác vào đây nếu cần thiết
@@ -24,7 +25,7 @@ def wordpress_check_containers(domain):
         error(f"❌ Container WP-CLI ({wpcli.name}) không hoạt động.")
         return False
 
-    php = Container(f"{domain}-php")
+    php = init_php_client(domain)
     if not php.running():
         error(f"❌ Container PHP {php.name} không chạy.")
         return False
@@ -162,7 +163,7 @@ def wordpress_uninstall(domain):
 
 @log_call
 def wordpress_fix_permissions(domain):
-    php = Container(f"{domain}-php")
+    php = init_php_client(domain)
     ensure_www_data_ownership(php.name, "/var/www/html/")
     return True
 

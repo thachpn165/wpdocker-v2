@@ -11,7 +11,7 @@ from core.backend.modules.website.prompts.logs_prompt import prompt_watch_logs
 from core.backend.modules.website.prompts.info_prompt import prompt_info_website
 from core.backend.modules.ssl.prompts.install_prompt import prompt_install_ssl
 from core.backend.modules.ssl.prompts.check_prompt import prompt_check_ssl
-
+from core.backend.modules.php.prompts.prompt_change_version import prompt_change_php_version
 console = Console()
 
 def display_header():
@@ -39,7 +39,7 @@ def show_main_menu():
             MenuItem("5", "Công cụ WordPress", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("6", "Quản lý Backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("7", "Cài đặt Cache WP", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("8", "Quản lý PHP", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("8", "Quản lý PHP", php_menu),
             MenuItem("9", "Quản lý Database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("10", "Kiểm tra & cập nhật WP Docker", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("0", "Thoát", lambda: sys.exit(console.print("👋 Tạm biệt!", style="bold green")))
@@ -127,7 +127,7 @@ def php_menu():
     menu = Menu(
         title="\n🐘 Quản lý PHP:",
         items=[
-            MenuItem("1", "Thay đổi phiên bản PHP", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("1", "Thay đổi phiên bản PHP", prompt_change_php_version),
             MenuItem("2", "Sửa PHP.INI", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("3", "Sửa PHP-FPM Pool", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("0", "Quay lại menu chính", None)
