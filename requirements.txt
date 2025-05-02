@@ -1,0 +1,7 @@
+colorama
+jsons
+python-on-whales
+questionary
+random-password-generator
+requests
+rich
