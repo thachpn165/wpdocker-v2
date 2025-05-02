@@ -16,6 +16,7 @@ from core.backend.modules.php.prompts.prompt_edit_config import prompt_edit_conf
 from core.backend.modules.php.prompts.prompt_install_extension import prompt_install_php_extension
 from core.backend.modules.mysql.edit_config import edit_mysql_config
 from core.backend.modules.mysql.prompts.prompt_restore_database import prompt_restore_database
+from core.backend.modules.ssl.prompts.edit_prompt import prompt_edit_ssl
 console = Console()
 
 def display_header():
@@ -77,7 +78,7 @@ def ssl_menu():
             MenuItem("2", "Tạo chứng chỉ Lets Encrypt (Miễn phí)", lambda: prompt_install_ssl("letsencrypt")),
             MenuItem("3", "Cài chứng chỉ thủ công (trả phí)", lambda: prompt_install_ssl("manual")),
             MenuItem("4", "Kiểm tra thông tin chứng chỉ", prompt_check_ssl),
-            MenuItem("5", "Sửa chứng chỉ hiện tại", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("5", "Sửa chứng chỉ hiện tại", prompt_edit_ssl), 
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"
@@ -146,8 +147,6 @@ def database_menu():
         items=[
             MenuItem("1", "Sửa cấu hình MySQL", edit_mysql_config),
             MenuItem("2", "Phục hồi database", prompt_restore_database),
-            MenuItem("3", "Xem danh sách database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("4", "Reset database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"
