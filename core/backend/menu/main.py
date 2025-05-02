@@ -15,6 +15,7 @@ from core.backend.modules.php.prompts.prompt_change_version import prompt_change
 from core.backend.modules.php.prompts.prompt_edit_config import prompt_edit_config
 from core.backend.modules.php.prompts.prompt_install_extension import prompt_install_php_extension
 from core.backend.modules.mysql.edit_config import edit_mysql_config
+from core.backend.modules.mysql.prompts.prompt_restore_database import prompt_restore_database
 console = Console()
 
 def display_header():
@@ -144,7 +145,7 @@ def database_menu():
         title="\n🗄️ Quản lý Database:",
         items=[
             MenuItem("1", "Sửa cấu hình MySQL", edit_mysql_config),
-            MenuItem("2", "Phục hồi database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Phục hồi database", prompt_restore_database),
             MenuItem("3", "Xem danh sách database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("4", "Reset database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("0", "Quay lại menu chính", None)
