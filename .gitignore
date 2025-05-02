@@ -26,3 +26,10 @@ docker-compose.override.yml
 
 # WP CLI
 core/wp/wp-cli.phar
+
+# Archive and backup files
+*.tar.gz
+*.zip
+*.tar
+.sql
+*.sql.gz
