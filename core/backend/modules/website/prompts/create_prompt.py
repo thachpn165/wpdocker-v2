@@ -2,28 +2,18 @@ from questionary import text, select, confirm, password
 from core.backend.modules.website.create import create_website
 from core.backend.modules.wordpress.install import install_wordpress
 from core.backend.utils.debug import log_call, info, warn, error, success, debug
-from core.backend.utils.validate import _is_valid_domain
 import random
 import string
 from core.backend.modules.php.utils import php_choose_version
+from core.backend.modules.website.website_utils import select_website
 
 @log_call
 def prompt_create_website():
     try:
-        domain = ""
-        while not domain:
-            domain = text("Nhập tên domain website:").ask()
-            if domain is None:
-                print("Đã huỷ thao tác.")
-                return
-            if not domain:
-                error("Domain không được để trống.")
-                domain = ""
-                continue
-            if not _is_valid_domain(domain):
-                error("Tên miền không hợp lệ. Vui lòng nhập đúng định dạng (ví dụ: example.com)")
-                domain = ""
-                continue
+        domain = select_website("Nhập tên domain website:")
+        if not domain:
+            info("Đã huỷ thao tác.")
+            return
         debug(f"Domain: {domain}")
 
         php_version = php_choose_version()

@@ -1,18 +1,12 @@
-from core.backend.modules.website.website_utils import website_list
+from core.backend.modules.website.website_utils import select_website
 from core.backend.utils.debug import log_call, info, warn, error, debug
 from core.backend.modules.website.logs import watch_logs_website
 from questionary import select
 
 @log_call
 def prompt_watch_logs():
-    websites = website_list()
-    debug(f"Websites: {websites}")
-    if not websites:
-        warn("Không tìm thấy website nào để xem log.")
-        return
-
-    domain = select("Chọn website cần xem log:", choices=websites).ask()
-    if domain is None:
+    domain = select_website("Chọn website cần xem log:")
+    if not domain:
         info("Đã huỷ thao tác xem log.")
         return
 

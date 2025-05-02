@@ -1,4 +1,4 @@
-from core.backend.modules.website.website_utils import website_list
+from core.backend.modules.website.website_utils import select_website
 from core.backend.utils.debug import log_call, info, warn, error, debug
 from core.backend.modules.ssl.install import install_selfsigned_ssl, install_letsencrypt_ssl, install_manual_ssl
 from questionary import select, text
@@ -10,14 +10,8 @@ def prompt_install_ssl(ssl_type):
     """
     Hiển thị danh sách các website đã được tạo và cho phép người dùng chọn một website để cài đặt SSL.
     """
-    websites = website_list()
-    debug(f"Websites: {websites}")
-    if not websites:
-        warn("Không tìm thấy website nào để cài đặt SSL.")
-        return
-
-    domain = select("Chọn website cần cài đặt SSL:", choices=websites).ask()
-    if domain is None:
+    domain = select_website("Chọn website cần cài đặt SSL:")
+    if not domain:
         info("Đã huỷ thao tác cài đặt SSL.")
         return
 
