@@ -14,6 +14,7 @@ from core.backend.modules.ssl.prompts.check_prompt import prompt_check_ssl
 from core.backend.modules.php.prompts.prompt_change_version import prompt_change_php_version
 from core.backend.modules.php.prompts.prompt_edit_config import prompt_edit_config
 from core.backend.modules.php.prompts.prompt_install_extension import prompt_install_php_extension
+from core.backend.modules.mysql.edit_config import edit_mysql_config
 console = Console()
 
 def display_header():
@@ -42,7 +43,7 @@ def show_main_menu():
             MenuItem("6", "Quản lý Backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("7", "Cài đặt Cache WP", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("8", "Quản lý PHP", php_menu),
-            MenuItem("9", "Quản lý Database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("9", "Quản lý MySQL", database_menu),
             MenuItem("10", "Kiểm tra & cập nhật WP Docker", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("0", "Thoát", lambda: sys.exit(console.print("👋 Tạm biệt!", style="bold green")))
         ],
@@ -142,7 +143,7 @@ def database_menu():
     menu = Menu(
         title="\n🗄️ Quản lý Database:",
         items=[
-            MenuItem("1", "Sửa cấu hình MySQL", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("1", "Sửa cấu hình MySQL", edit_mysql_config),
             MenuItem("2", "Phục hồi database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("3", "Xem danh sách database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("4", "Reset database", lambda: console.print("🚧 Chức năng đang được phát triển...")),

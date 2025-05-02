@@ -76,7 +76,7 @@ class Container:
             error(f"❌ Lỗi khi xóa container {self.name}: {e}")
 
     @log_call
-    def exec(self, cmd, workdir=None, user=None):
+    def exec(self, cmd, workdir=None, user=None, envs=None):
         from colorama import Fore, Style
         """
         Thực thi lệnh trong container và trả về kết quả.
@@ -89,12 +89,19 @@ class Container:
                 self.name,
                 command=cmd,
                 workdir=workdir,
-                tty=True,  # Đảm bảo hỗ trợ đầu ra tương tác
-                user=user,  # Truyền user nếu có
+                tty=False,
+                interactive=False,
+                user=user,
+                envs=envs or {}
             )
+            from core.backend.utils.debug import debug
+            debug(f"📤 Output từ container.exec: {exec_result!r}")
+
             return exec_result
         except Exception as e:
-            error(f"Lỗi khi thực thi lệnh trong container {self.name}. Đọc lỗi ở trên")
+            # In lỗi chi tiết từ container
+            error(f"Error: {e}") 
+            #error(f"Lỗi khi thực thi lệnh trong container {self.name}. Đọc lỗi ở trên. {e}")
             return None
 
     @log_call
@@ -119,7 +126,7 @@ class Container:
     @log_call
     def copy_to(self, src_path, dest_path_in_container):
         try:
-            self.docker.container.cp(src_path, f"{self.name}:{dest_path_in_container}")
+            self.docker.container.copy(src_path, f"{self.name}:{dest_path_in_container}")
             info(f"📁 Đã copy {src_path} vào container {self.name}:{dest_path_in_container}")
         except Exception as e:
             error(f"❌ Lỗi khi copy file vào container {self.name}: {e}")
@@ -127,7 +134,7 @@ class Container:
     @log_call
     def copy_from(self, src_path_in_container, dest_path):
         try:
-            self.docker.container.cp(f"{self.name}:{src_path_in_container}", dest_path)
+            self.docker.container.copy(f"{self.name}:{src_path_in_container}", dest_path)
             info(f"📁 Đã copy {self.name}:{src_path_in_container} ra host {dest_path}")
         except Exception as e:
             error(f"❌ Lỗi khi copy file từ container {self.name}: {e}")
