@@ -5,3 +5,5 @@ questionary
 random-password-generator
 requests
 rich
+pytest
+pytest-env
