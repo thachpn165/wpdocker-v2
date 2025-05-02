@@ -5,6 +5,7 @@ from core.backend.utils.debug import log_call, info, warn, error, success, debug
 from core.backend.utils.validate import _is_valid_domain
 import random
 import string
+from core.backend.modules.php.utils import php_choose_version
 
 @log_call
 def prompt_create_website():
@@ -25,17 +26,8 @@ def prompt_create_website():
                 continue
         debug(f"Domain: {domain}")
 
-        php_version = ""
-        while not php_version:
-            php_version = select(
-                "🧩 Chọn phiên bản PHP:",
-                choices=["8.0", "8.1", "8.2", "8.3"],
-                default="8.2"
-            ).ask()
-            if php_version is None:
-                print("Đã huỷ thao tác.")
-                return
-
+        php_version = php_choose_version()
+        info(f"Phiên bản PHP đã chọn: {php_version}")
         create_website(domain, php_version)
 
         # ==== Hỏi thông tin cài đặt WordPress ====

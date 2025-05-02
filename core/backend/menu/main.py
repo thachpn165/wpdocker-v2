@@ -79,3 +79,73 @@ def ssl_menu():
         back_id="0"
     )
     menu.display()
+
+def system_menu():
+    menu = Menu(
+        title="\n⚙️ Công cụ hệ thống:",
+        items=[
+            MenuItem("1", "Rebuild lại container core", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Cập nhật phiên bản WP Docker", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("3", "Xem thông tin hệ thống", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("4", "Đổi ngôn ngữ", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("5", "Đổi kênh phiên bản", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("6","Dọn dẹp Docker", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("0", "Quay lại menu chính", None)
+        ],
+        back_id="0"
+    )
+    menu.display()
+
+def rclone_menu():
+    menu = Menu(
+        title="\n📦 Quản lý RClone:",
+        items=[
+            MenuItem("1", "Cấu hình RClone", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Sao lưu dữ liệu lên Google Drive", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("3", "Phục hồi dữ liệu từ Google Drive", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("0", "Quay lại menu chính", None)
+        ],
+        back_id="0"
+    )
+    menu.display()
+
+def backup_menu():
+    menu = Menu(
+        title="\n💾 Quản lý Backup:",
+        items=[
+            MenuItem("1", "Tạo backup mới", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Phục hồi backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("3", "Xem danh sách backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("4", "Xóa backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("0", "Quay lại menu chính", None)
+        ],
+        back_id="0"
+    )
+    menu.display()
+
+def php_menu():
+    menu = Menu(
+        title="\n🐘 Quản lý PHP:",
+        items=[
+            MenuItem("1", "Thay đổi phiên bản PHP", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Sửa PHP.INI", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("3", "Sửa PHP-FPM Pool", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("0", "Quay lại menu chính", None)
+        ],
+        back_id="0"
+    )
+    menu.display()
+
+def database_menu():
+    menu = Menu(
+        title="\n🗄️ Quản lý Database:",
+        items=[
+            MenuItem("1", "Sửa cấu hình MySQL", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Phục hồi database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("3", "Xem danh sách database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("4", "Reset database", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("0", "Quay lại menu chính", None)
+        ],
+        back_id="0"
+    )
+    menu.display()
