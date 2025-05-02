@@ -6,7 +6,7 @@ from core.backend.modules.ssl.install import install_selfsigned_ssl
 from core.backend.modules.nginx.nginx import restart as nginx_restart
 from core.backend.objects.container import Container
 from core.backend.modules.website.website_utils import website_calculate_php_fpm_values
-from core.backend.models.config import SiteConfig, SiteLogs, SiteMySQL
+from core.backend.models.config import SiteConfig, SiteLogs, SiteMySQL, SitePHP
 from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
 from core.backend.objects.config import Config
 from core.backend.utils.crypto import encrypt
@@ -57,10 +57,13 @@ def setup_config(domain, php_version):
 
     site_config = get_site_config(domain) or SiteConfig(
         domain=domain,
-        php_version=php_version,
+        php=SitePHP(
+            php_version=php_version,
+            php_container=container.name,
+            php_installed_extensions=[]
+        ),
         logs=site_logs,
         cache="no-cache",
-        container_php=container.name
     )
 
 
@@ -78,8 +81,11 @@ def setup_config(domain, php_version):
 
     # Cập nhật lại logs, container_id, php_version nếu thay đổi
     site_config.logs = site_logs
-    site_config.container_php = container.name
-    site_config.php_version = php_version
+    site_config.php = SitePHP(
+        php_version=php_version,
+        php_container=container.name,
+        php_installed_extensions=[]
+    )
 
     set_site_config(domain, site_config)
     info(f"✅ Đã lưu thông tin website {domain} vào config.json")
@@ -185,7 +191,7 @@ def setup_compose_php(domain, php_version):
 def cleanup_compose_php(domain):
     """Xóa docker-compose PHP và container PHP tương ứng"""
     site_config = get_site_config(domain)
-    container_id = site_config.php_container_id if site_config else None
+    container_id = site_config.php.php_container if site_config and site_config.php else None
     if container_id:
         container = Container(name=container_id)
         if container.exists():

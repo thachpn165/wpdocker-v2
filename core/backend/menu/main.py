@@ -12,6 +12,8 @@ from core.backend.modules.website.prompts.info_prompt import prompt_info_website
 from core.backend.modules.ssl.prompts.install_prompt import prompt_install_ssl
 from core.backend.modules.ssl.prompts.check_prompt import prompt_check_ssl
 from core.backend.modules.php.prompts.prompt_change_version import prompt_change_php_version
+from core.backend.modules.php.prompts.prompt_edit_config import prompt_edit_config
+from core.backend.modules.php.prompts.prompt_install_extension import prompt_install_php_extension
 console = Console()
 
 def display_header():
@@ -128,8 +130,8 @@ def php_menu():
         title="\n🐘 Quản lý PHP:",
         items=[
             MenuItem("1", "Thay đổi phiên bản PHP", prompt_change_php_version),
-            MenuItem("2", "Sửa PHP.INI", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("3", "Sửa PHP-FPM Pool", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("2", "Sửa cấu hình PHP", prompt_edit_config),
+            MenuItem("3","Cài PHP Extension", prompt_install_php_extension),
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"

@@ -8,6 +8,8 @@ from core.backend.utils.debug import debug, error, info
 from core.backend.modules.website.website_utils import get_site_config, set_site_config
 from core.backend.modules.php.init_client import init_php_client
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from core.backend.models.config import SitePHP
+from core.backend.modules.php.extensions.install_extension import php_restore_enabled_extensions
 
 BITNAMI_IMAGE_PREFIX = "bitnami/php-fpm"
 DOCKER_HUB_URL = "https://hub.docker.com/v2/repositories/{image}/tags/{version}"
@@ -39,7 +41,11 @@ def php_change_version(domain: str, php_version: str):
                 error(f"❌ Không tìm thấy config cho domain: {domain}")
                 return
 
-            site_config.php_version = php_version
+            if not site_config.php:
+                site_config.php = SitePHP(php_version=php_version, php_container=None, php_installed_extensions=[])
+            else:
+                site_config.php.php_version = php_version
+
             set_site_config(domain, site_config)
             info(f"📦 Đã cập nhật config: PHP version → {php_version}")
 
@@ -79,6 +85,9 @@ def php_change_version(domain: str, php_version: str):
             error(f"❌ Không thể kiểm tra phiên bản PHP từ container: {e}")
 
         info(f"✅ Đã thay đổi và rebuild PHP {php_version} cho {domain} thành công.")
+
+        # Khôi phục lại các extension đã cài đặt
+        php_restore_enabled_extensions(domain)
 
     except Exception as e:
         error(f"❌ Lỗi khi thay đổi phiên bản PHP: {str(e)}")

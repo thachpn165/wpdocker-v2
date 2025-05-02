@@ -5,19 +5,26 @@ from core.backend.utils.debug import log_call, info, warn, error, success, debug
 import random
 import string
 from core.backend.modules.php.utils import php_choose_version
-from core.backend.modules.website.website_utils import select_website
+from core.backend.utils.validate import _is_valid_domain
 
 @log_call
 def prompt_create_website():
     try:
-        domain = select_website("Nhập tên domain website:")
-        if not domain:
-            info("Đã huỷ thao tác.")
-            return
+        # 📝 Nhập domain thủ công thay vì chọn
+        while True:
+            domain = text("🌐 Nhập tên domain website:").ask()
+            if not domain:
+                info("Đã huỷ thao tác.")
+                return
+            if not _is_valid_domain(domain):
+                error("❌ Tên miền không hợp lệ. Vui lòng nhập đúng định dạng (ví dụ: example.com)")
+            else:
+                break
+
         debug(f"Domain: {domain}")
 
         php_version = php_choose_version()
-        info(f"Phiên bản PHP đã chọn: {php_version}")
+        info(f"📦 Phiên bản PHP đã chọn: {php_version}")
         create_website(domain, php_version)
 
         # ==== Hỏi thông tin cài đặt WordPress ====

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -27,10 +27,16 @@ class SiteMySQL:
 
 
 @dataclass
+class SitePHP:
+    php_version: str
+    php_container: Optional[str] = None
+    php_installed_extensions: Optional[List[str]] = None
+
+
+@dataclass
 class SiteConfig:
     domain: str
-    php_version: str
-    logs: SiteLogs 
+    logs: SiteLogs
     cache: Optional[str] = None
     mysql: Optional[SiteMySQL] = None
-    container_php: Optional[str] = None
+    php: Optional[SitePHP] = None
