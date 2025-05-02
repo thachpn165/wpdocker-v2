@@ -2,6 +2,10 @@
 .vscode/
 .vscode-test/
 
+# macOS
+.DS_Store
+
+
 # Private folders
 config/
 data/
@@ -21,4 +25,4 @@ docker-compose/docker-compose.runtime.yml
 docker-compose.override.yml
 
 # WP CLI
-core/wp/wp
+core/wp/wp-cli.phar
