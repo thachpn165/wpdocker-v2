@@ -37,7 +37,16 @@ def prompt_create_website():
             admin_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
         else:
             admin_user = text("👤 Nhập tên đăng nhập WordPress:").ask()
-            admin_pass = password("🔑 Nhập mật khẩu WordPress:").ask()
+            
+            while True:
+                admin_pass = password("🔑 Nhập mật khẩu WordPress:").ask()
+                confirm_pass = password("🔁 Nhập lại mật khẩu để xác nhận:").ask()
+                if admin_pass != confirm_pass:
+                    error("❌ Mật khẩu không khớp. Vui lòng thử lại.")
+                elif not admin_pass:
+                    error("❌ Mật khẩu không được để trống.")
+                else:
+                    break
 
         default_email = f"contact@{domain}"
         admin_email = text("📧 Nhập email quản trị:", default=default_email).ask()
