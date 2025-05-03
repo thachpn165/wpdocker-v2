@@ -3,6 +3,7 @@ from core.backend.modules.php.init_client import init_php_client
 from core.backend.utils.debug import info, error
 from core.backend.modules.website.website_utils import get_site_config, set_site_config
 from core.backend.utils.validate import _is_arm
+import os
 class IoncubeLoaderExtension(PHPBaseExtension):
     def get_id(self) -> str:
         return "ioncube_loader"
