@@ -23,6 +23,7 @@ REQUIRED_MODULES = {
     "requests": "requests",
     "colorama": "colorama",
     "jsons": "jsons",
+    "python-crontab": "python-crontab",
 
 }
 

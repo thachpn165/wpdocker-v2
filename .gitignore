@@ -35,3 +35,6 @@ core/wp/wp-cli.phar
 .sql
 *.sql.gz
 **/.claude/settings.local.json
+
+# Logs
+*.log

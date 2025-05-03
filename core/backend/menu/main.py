@@ -21,6 +21,9 @@ from core.backend.modules.backup.prompts.prompt_backup_website import prompt_bac
 from core.backend.modules.backup.prompts.prompt_delete_backup import prompt_delete_backup
 from core.backend.modules.backup.prompts.prompt_list_backup import prompt_list_backup
 from core.backend.modules.backup.prompts.prompt_restore_backup import prompt_restore_backup
+from core.backend.modules.backup.prompts.prompt_schedule_backup import prompt_schedule_backup
+from core.backend.modules.cron.cron_manager import CronManager
+
 console = Console()
 
 def display_header():
@@ -43,7 +46,7 @@ def show_main_menu():
         items=[
             MenuItem("1", "Quản lý Website", website_menu),
             MenuItem("2", "Quản lý Chứng chỉ SSL", ssl_menu),
-            MenuItem("3", "Công cụ hệ thống", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("3", "Công cụ hệ thống", system_menu),
             MenuItem("4", "Quản lý RClone", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("5", "Công cụ WordPress", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("6", "Quản lý Backup", backup_menu),
@@ -98,7 +101,8 @@ def system_menu():
             MenuItem("3", "Xem thông tin hệ thống", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("4", "Đổi ngôn ngữ", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("5", "Đổi kênh phiên bản", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("6","Dọn dẹp Docker", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("6", "Dọn dẹp Docker", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("7", "Quản lý công việc tự động", cron_menu),
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"
@@ -126,11 +130,169 @@ def backup_menu():
             MenuItem("2", "Phục hồi backup", prompt_restore_backup),
             MenuItem("3", "Xem danh sách backup", prompt_list_backup),
             MenuItem("4", "Xóa backup", prompt_delete_backup),
+            MenuItem("5", "Lên lịch backup tự động", prompt_schedule_backup),
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"
     )
     menu.display()
+
+def cron_menu():
+    menu = Menu(
+        title="\n⏱️ Quản lý công việc tự động:",
+        items=[
+            MenuItem("1", "Xem danh sách công việc", cron_list_jobs),
+            MenuItem("2", "Kích hoạt/Vô hiệu hóa công việc", cron_toggle_job),
+            MenuItem("3", "Xóa công việc", cron_remove_job),
+            MenuItem("4", "Thực thi công việc ngay", cron_run_job),
+            MenuItem("0", "Quay lại menu hệ thống", None)
+        ],
+        back_id="0"
+    )
+    menu.display()
+
+def cron_list_jobs():
+    """Hiển thị danh sách các công việc cron đã đăng ký."""
+    manager = CronManager()
+    jobs = manager.list_jobs()
+    
+    if not jobs:
+        console.print("Không có công việc nào được đăng ký.", style="yellow")
+        input("\nNhấn Enter để tiếp tục...")
+        return
+    
+    console.print("\n[bold cyan]⏱️ Danh sách công việc tự động:[/bold cyan]")
+    console.print("-" * 80)
+    console.print(f"{'ID':<15} {'Loại':<10} {'Lịch trình':<15} {'Trạng thái':<15} {'Mục tiêu':<20}")
+    console.print("-" * 80)
+    
+    for job in jobs:
+        status = "[green]✅ Kích hoạt[/green]" if job.enabled else "[red]❌ Vô hiệu[/red]"
+        console.print(f"{job.id:<15} {job.job_type:<10} {job.schedule:<15} {status:<15} {job.target_id:<20}")
+    
+    console.print("-" * 80)
+    console.print(f"Tổng số: {len(jobs)} công việc")
+    
+    input("\nNhấn Enter để tiếp tục...")
+
+def cron_toggle_job():
+    """Kích hoạt hoặc vô hiệu hóa một công việc cron."""
+    manager = CronManager()
+    jobs = manager.list_jobs()
+    
+    if not jobs:
+        console.print("Không có công việc nào được đăng ký.", style="yellow")
+        input("\nNhấn Enter để tiếp tục...")
+        return
+    
+    # Hiển thị danh sách các công việc
+    console.print("\n[bold cyan]⏱️ Danh sách công việc tự động:[/bold cyan]")
+    
+    job_choices = {}
+    for i, job in enumerate(jobs, 1):
+        status = "✅ Kích hoạt" if job.enabled else "❌ Vô hiệu"
+        choice = f"{i}. {job.id} - {job.job_type} - {job.target_id} - {status}"
+        job_choices[choice] = job
+    
+    from questionary import select
+    selected = select(
+        "Chọn công việc để kích hoạt/vô hiệu hóa:",
+        choices=list(job_choices.keys()) + ["❌ Quay lại"]
+    ).ask()
+    
+    if not selected or selected == "❌ Quay lại":
+        return
+    
+    job = job_choices[selected]
+    
+    # Đảo trạng thái
+    if job.enabled:
+        manager.disable_job(job.id)
+        console.print(f"✅ Đã vô hiệu hóa công việc {job.id}", style="green")
+    else:
+        manager.enable_job(job.id)
+        console.print(f"✅ Đã kích hoạt công việc {job.id}", style="green")
+    
+    input("\nNhấn Enter để tiếp tục...")
+
+def cron_remove_job():
+    """Xóa một công việc cron."""
+    manager = CronManager()
+    jobs = manager.list_jobs()
+    
+    if not jobs:
+        console.print("Không có công việc nào được đăng ký.", style="yellow")
+        input("\nNhấn Enter để tiếp tục...")
+        return
+    
+    # Hiển thị danh sách các công việc
+    console.print("\n[bold cyan]⏱️ Danh sách công việc tự động:[/bold cyan]")
+    
+    job_choices = {}
+    for i, job in enumerate(jobs, 1):
+        status = "✅ Kích hoạt" if job.enabled else "❌ Vô hiệu"
+        choice = f"{i}. {job.id} - {job.job_type} - {job.target_id} - {status}"
+        job_choices[choice] = job
+    
+    from questionary import select, confirm
+    selected = select(
+        "Chọn công việc để xóa:",
+        choices=list(job_choices.keys()) + ["❌ Quay lại"]
+    ).ask()
+    
+    if not selected or selected == "❌ Quay lại":
+        return
+    
+    job = job_choices[selected]
+    
+    # Xác nhận xóa
+    if confirm(f"⚠️ Xác nhận xóa công việc {job.id}?").ask():
+        manager.remove_job(job.id)
+        console.print(f"✅ Đã xóa công việc {job.id}", style="green")
+    else:
+        console.print("Đã hủy thao tác xóa.", style="yellow")
+    
+    input("\nNhấn Enter để tiếp tục...")
+
+def cron_run_job():
+    """Chạy một công việc cron ngay lập tức."""
+    manager = CronManager()
+    jobs = manager.list_jobs()
+    
+    if not jobs:
+        console.print("Không có công việc nào được đăng ký.", style="yellow")
+        input("\nNhấn Enter để tiếp tục...")
+        return
+    
+    # Hiển thị danh sách các công việc
+    console.print("\n[bold cyan]⏱️ Danh sách công việc tự động:[/bold cyan]")
+    
+    job_choices = {}
+    for i, job in enumerate(jobs, 1):
+        status = "✅ Kích hoạt" if job.enabled else "❌ Vô hiệu"
+        choice = f"{i}. {job.id} - {job.job_type} - {job.target_id} - {status}"
+        job_choices[choice] = job
+    
+    from questionary import select, confirm
+    selected = select(
+        "Chọn công việc để chạy ngay:",
+        choices=list(job_choices.keys()) + ["❌ Quay lại"]
+    ).ask()
+    
+    if not selected or selected == "❌ Quay lại":
+        return
+    
+    job = job_choices[selected]
+    
+    # Xác nhận chạy
+    if confirm(f"⚠️ Xác nhận chạy công việc {job.id} ngay bây giờ?").ask():
+        console.print(f"🔄 Đang chạy công việc {job.id}...", style="yellow")
+        manager.run_job(job.id)
+        console.print(f"✅ Đã thực thi công việc {job.id}", style="green")
+    else:
+        console.print("Đã hủy thao tác chạy.", style="yellow")
+    
+    input("\nNhấn Enter để tiếp tục...")
 
 def php_menu():
     menu = Menu(
@@ -138,7 +300,7 @@ def php_menu():
         items=[
             MenuItem("1", "Thay đổi phiên bản PHP", prompt_change_php_version),
             MenuItem("2", "Sửa cấu hình PHP", prompt_edit_config),
-            MenuItem("3","Cài PHP Extension", prompt_install_php_extension),
+            MenuItem("3", "Cài PHP Extension", prompt_install_php_extension),
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"

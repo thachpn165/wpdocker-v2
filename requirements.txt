@@ -7,3 +7,4 @@ requests
 rich
 pytest
 pytest-env
+python-crontab

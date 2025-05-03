@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
 @dataclass
@@ -39,9 +39,36 @@ class SiteBackupInfo:
     file: str
     database: str
 
+
+@dataclass
+class BackupSchedule:
+    """Cấu hình lịch trình backup tự động."""
+    enabled: bool = False
+    schedule_type: str = "daily"  # daily, weekly, monthly
+    hour: int = 0                 # Giờ trong ngày (0-23)
+    minute: int = 0               # Phút (0-59)
+    day_of_week: Optional[int] = None  # 0-6, Thứ Hai là 0 (cho backup hàng tuần)
+    day_of_month: Optional[int] = None  # 1-31 (cho backup hàng tháng)
+    retention_count: int = 3      # Số lượng bản backup giữ lại
+    cloud_sync: bool = False      # Có đồng bộ lên cloud storage không
+
+
+@dataclass
+class CloudConfig:
+    """Cấu hình cloud storage."""
+    provider: str = "rclone"      # Hiện tại chỉ hỗ trợ rclone
+    remote_name: str = ""         # Tên remote rclone
+    remote_path: str = ""         # Đường dẫn trong remote
+    enabled: bool = False         # Cloud sync có bật không
+
+
 @dataclass
 class SiteBackup:
     last_backup: Optional[SiteBackupInfo] = None
+    schedule: Optional[BackupSchedule] = None
+    cloud_config: Optional[CloudConfig] = None
+    job_id: Optional[str] = None  # ID của công việc cron
+
 
 @dataclass
 class SiteConfig:
