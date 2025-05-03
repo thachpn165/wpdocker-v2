@@ -34,9 +34,20 @@ class SitePHP:
 
 
 @dataclass
+class SiteBackupInfo:
+    time: str
+    file: str
+    database: str
+
+@dataclass
+class SiteBackup:
+    last_backup: Optional[SiteBackupInfo] = None
+
+@dataclass
 class SiteConfig:
     domain: str
     logs: SiteLogs
     cache: Optional[str] = None
     mysql: Optional[SiteMySQL] = None
     php: Optional[SitePHP] = None
+    backup: Optional[SiteBackup] = None

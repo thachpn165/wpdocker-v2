@@ -1,6 +1,6 @@
 from core.backend.utils.system_info import get_total_cpu_cores, get_total_ram_mb
 import os
-from core.backend.utils.env_utils import env
+from core.backend.utils.env_utils import env, env_required
 from core.backend.objects.config import Config
 from core.backend.utils.debug import log_call, debug, error, info, warn
 from core.backend.objects.container import Container
@@ -184,3 +184,13 @@ def select_website(message: str = "Chọn website:", default: Optional[str] = No
     except (KeyboardInterrupt, EOFError):
         info("Đã huỷ thao tác.")
         return None
+
+# Lấy đường dẫn thư mục chứa các website
+def get_sites_dir():
+    #env_required("SITES_DIR")
+    """Helper function to handle sites_dir correctly whether it's a string or dictionary."""
+    sites_dir = env["SITES_DIR"]
+    if isinstance(sites_dir, dict):
+        debug(f"Sites dir is a dictionary: {sites_dir}")
+        sites_dir = sites_dir.get("path", "/opt/wp-docker/data/sites")
+    return sites_dir

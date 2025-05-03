@@ -17,6 +17,10 @@ from core.backend.modules.php.prompts.prompt_install_extension import prompt_ins
 from core.backend.modules.mysql.edit_config import edit_mysql_config
 from core.backend.modules.mysql.prompts.prompt_restore_database import prompt_restore_database
 from core.backend.modules.ssl.prompts.edit_prompt import prompt_edit_ssl
+from core.backend.modules.backup.prompts.prompt_backup_website import prompt_backup_website
+from core.backend.modules.backup.prompts.prompt_delete_backup import prompt_delete_backup
+from core.backend.modules.backup.prompts.prompt_list_backup import prompt_list_backup
+from core.backend.modules.backup.prompts.prompt_restore_backup import prompt_restore_backup
 console = Console()
 
 def display_header():
@@ -42,7 +46,7 @@ def show_main_menu():
             MenuItem("3", "Công cụ hệ thống", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("4", "Quản lý RClone", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("5", "Công cụ WordPress", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("6", "Quản lý Backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("6", "Quản lý Backup", backup_menu),
             MenuItem("7", "Cài đặt Cache WP", lambda: console.print("🚧 Chức năng đang được phát triển...")),
             MenuItem("8", "Quản lý PHP", php_menu),
             MenuItem("9", "Quản lý MySQL", database_menu),
@@ -118,10 +122,10 @@ def backup_menu():
     menu = Menu(
         title="\n💾 Quản lý Backup:",
         items=[
-            MenuItem("1", "Tạo backup mới", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("2", "Phục hồi backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("3", "Xem danh sách backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
-            MenuItem("4", "Xóa backup", lambda: console.print("🚧 Chức năng đang được phát triển...")),
+            MenuItem("1", "Tạo backup website", prompt_backup_website),
+            MenuItem("2", "Phục hồi backup", prompt_restore_backup),
+            MenuItem("3", "Xem danh sách backup", prompt_list_backup),
+            MenuItem("4", "Xóa backup", prompt_delete_backup),
             MenuItem("0", "Quay lại menu chính", None)
         ],
         back_id="0"
