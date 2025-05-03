@@ -1,7 +1,8 @@
-# Vscode
+# Vscode & Claude settings
 .vscode/
 .vscode-test/
 CLAUDE.md
+.claude/
 # macOS
 .DS_Store
 
