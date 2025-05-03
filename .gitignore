@@ -33,3 +33,4 @@ core/wp/wp-cli.phar
 *.tar
 .sql
 *.sql.gz
+**/.claude/settings.local.json

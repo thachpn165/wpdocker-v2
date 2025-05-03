@@ -1,70 +1,41 @@
 from questionary import select, confirm, checkbox
 import os
-import glob
 import shutil
-from datetime import datetime
 from core.backend.utils.debug import log_call, info, error, warn, debug, success
-from core.backend.modules.website.website_utils import website_list, get_sites_dir
-from core.backend.modules.website.website_utils import get_site_config, set_site_config, delete_site_config
-from core.backend.models.config import SiteBackup, SiteBackupInfo
+from core.backend.modules.website.website_utils import select_website, get_site_config, set_site_config
+from core.backend.modules.backup.backup_restore import get_backup_folders, get_backup_info
 
 @log_call
 def prompt_delete_backup():
     """
     Hiển thị prompt để người dùng chọn và xóa backup của website.
     """
-    # Lấy danh sách website
-    websites = website_list()
-    if not websites:
-        error("❌ Không tìm thấy website nào để xóa backup.")
-        return
-    
-    # Chọn một website
-    domain = select(
-        "🌐 Chọn website để xóa backup:",
-        choices=websites
-    ).ask()
+    # Chọn một website sử dụng hàm select_website có sẵn
+    domain = select_website("🌐 Chọn website để xóa backup:")
     
     if not domain:
-        info("Đã huỷ thao tác xóa backup.")
+        # Thông báo lỗi đã được hiển thị trong hàm select_website
         return
     
-    # Lấy thư mục backups của website
-    sites_dir = get_sites_dir()
-    backup_dir = os.path.join(sites_dir, domain, "backups")
-    
-    if not os.path.exists(backup_dir):
-        error(f"❌ Không tìm thấy thư mục backup cho website {domain}.")
-        return
-    
-    # Tìm tất cả các thư mục backup trong thư mục backups
-    backup_folders = [d for d in os.listdir(backup_dir) if os.path.isdir(os.path.join(backup_dir, d)) and d.startswith("backup_")]
+    # Lấy thông tin về các thư mục backup
+    backup_dir, backup_folders, last_backup_info = get_backup_folders(domain)
     
     if not backup_folders:
-        error(f"❌ Không tìm thấy bản backup nào cho website {domain}.")
-        return
+        return  # Thông báo lỗi đã được hiển thị trong hàm get_backup_folders
     
-    # Tạo danh sách hiển thị với thông tin thêm về thời gian
+    # Tạo danh sách hiển thị với thông tin thêm về thời gian và kích thước
     display_choices = []
+    backup_info_list = []
+    
     for folder in backup_folders:
-        folder_path = os.path.join(backup_dir, folder)
-        try:
-            # Lấy thời gian tạo thư mục
-            folder_time = datetime.fromtimestamp(os.path.getctime(folder_path))
-            time_str = folder_time.strftime("%d/%m/%Y %H:%M:%S")
-            
-            # Tính kích thước của thư mục
-            total_size = 0
-            for dirpath, dirnames, filenames in os.walk(folder_path):
-                for f in filenames:
-                    fp = os.path.join(dirpath, f)
-                    total_size += os.path.getsize(fp)
-            
-            size_str = f"{total_size / (1024*1024):.2f} MB"
-            
-            display_choices.append(f"{folder} ({time_str}, {size_str})")
-        except Exception as e:
-            display_choices.append(f"{folder} (Không thể lấy thông tin: {e})")
+        backup_info = get_backup_info(backup_dir, folder, last_backup_info)
+        backup_info_list.append(backup_info)
+        
+        if "error" in backup_info:
+            display_choices.append(f"{folder} (Không thể lấy thông tin: {backup_info['error']})")
+        else:
+            status = "✅ Là bản backup gần nhất" if backup_info["is_latest"] else ""
+            display_choices.append(f"{folder} [{backup_info['time']}] [{backup_info['size']}] {status}")
     
     # Hỏi người dùng muốn xóa một hay nhiều backup
     delete_mode = select(
@@ -84,9 +55,16 @@ def prompt_delete_backup():
         ).ask()
         
         if selected_backup:
-            # Lấy tên thư mục từ lựa chọn được hiển thị
+            # Lấy thông tin backup đã chọn
             folder_name = selected_backup.split(" ")[0]
-            folder_path = os.path.join(backup_dir, folder_name)
+            selected_index = next((i for i, item in enumerate(backup_info_list) if item["folder"] == folder_name), -1)
+            
+            if selected_index == -1:
+                error(f"❌ Không tìm thấy thông tin cho bản backup đã chọn.")
+                return
+                
+            backup_info = backup_info_list[selected_index]
+            folder_path = backup_info["path"]
             
             if confirm(f"⚠️ Xác nhận xóa backup {folder_name} của website {domain}?").ask():
                 try:
@@ -117,15 +95,17 @@ def prompt_delete_backup():
             
             if confirm(f"⚠️ Xác nhận xóa {len(selected_folders)} bản backup của website {domain}?").ask():
                 for folder in selected_folders:
-                    folder_path = os.path.join(backup_dir, folder)
-                    try:
-                        shutil.rmtree(folder_path)
-                        success(f"✅ Đã xóa backup {folder} của website {domain}.")
-                        
-                        # Kiểm tra nếu backup này được lưu trong cấu hình
-                        _cleanup_backup_config(domain, folder_path)
-                    except Exception as e:
-                        error(f"❌ Lỗi khi xóa backup {folder}: {e}")
+                    folder_info = next((info for info in backup_info_list if info["folder"] == folder), None)
+                    if folder_info:
+                        folder_path = folder_info["path"]
+                        try:
+                            shutil.rmtree(folder_path)
+                            success(f"✅ Đã xóa backup {folder} của website {domain}.")
+                            
+                            # Kiểm tra nếu backup này được lưu trong cấu hình
+                            _cleanup_backup_config(domain, folder_path)
+                        except Exception as e:
+                            error(f"❌ Lỗi khi xóa backup {folder}: {e}")
                 
                 info(f"🎉 Đã hoàn tất xóa {len(selected_folders)} bản backup.")
             else:
@@ -133,8 +113,9 @@ def prompt_delete_backup():
     
     elif delete_mode == "Xóa tất cả bản backup":
         if confirm(f"⚠️ CẢNH BÁO: Xác nhận xóa TẤT CẢ {len(backup_folders)} bản backup của website {domain}?").ask():
-            for folder in backup_folders:
-                folder_path = os.path.join(backup_dir, folder)
+            for backup_info in backup_info_list:
+                folder = backup_info["folder"]
+                folder_path = backup_info["path"]
                 try:
                     shutil.rmtree(folder_path)
                     success(f"✅ Đã xóa backup {folder} của website {domain}.")
