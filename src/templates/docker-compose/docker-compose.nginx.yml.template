@@ -9,11 +9,12 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ${CONFIG_DIR}/conf.d:${NGINX_CONTAINER_CONF_PATH}/conf.d
-      - ${INSTALL_DIR}/data/sites/:/var/www
-      - ${INSTALL_DIR}/core/backend/modules/nginx/nginx.conf:${NGINX_CONTAINER_CONF_PATH}/nginx.conf
-      - ${INSTALL_DIR}/core/backend/modules/nginx/globals:${NGINX_CONTAINER_CONF_PATH}/globals
-      - ${INSTALL_DIR}/core/backend/modules/nginx/waf:${NGINX_CONTAINER_CONF_PATH}/waf
+      - ${CONFIG_DIR}/nginx/conf.d:${NGINX_CONTAINER_CONF_PATH}/conf.d
+      - ${SITES_DIR}:/var/www
+      - ${NGINX_CONFIG_DIR}/nginx.conf:${NGINX_CONTAINER_CONF_PATH}/nginx.conf
+      - ${NGINX_CONFIG_DIR}/globals:${NGINX_CONTAINER_CONF_PATH}/globals
+      - ${NGINX_CONFIG_DIR}/waf:${NGINX_CONTAINER_CONF_PATH}/waf
+      - ${NGINX_CONFIG_DIR}/cache:${NGINX_CONTAINER_CONF_PATH}/cache
       - wpdocker_fastcgi_cache_data:${NGINX_CONTAINER_PATH}/fastcgi_cache
     networks:
       - ${DOCKER_NETWORK} 

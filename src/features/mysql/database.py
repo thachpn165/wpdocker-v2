@@ -32,7 +32,7 @@ def create_database(domain: str) -> Optional[str]:
     
     try:
         run_mysql_command(
-            f"CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+            f"CREATE DATABASE IF NOT EXISTS {db_name} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
         )
         info(f"✅ Created database: {db_name}")
         return db_name
@@ -80,7 +80,7 @@ def grant_privileges(db_name: str, db_user: str) -> bool:
     """
     try:
         run_mysql_command(
-            f"GRANT ALL PRIVILEGES ON `{db_name}`.* TO '{db_user}'@'%'; FLUSH PRIVILEGES;"
+            f"GRANT ALL PRIVILEGES ON {db_name}.* TO {db_user}@'%'; FLUSH PRIVILEGES;"
         )
         info(f"✅ Granted privileges to user {db_user} on database {db_name}")
         return True

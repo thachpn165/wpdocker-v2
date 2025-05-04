@@ -52,15 +52,29 @@ def prompt_website_create() -> Optional[Dict[str, Any]]:
                                  None if cancelled
     """
     try:
-        domain = text(
-            "Enter domain name (e.g., example.com):",
-            validate=validate_domain
-        ).ask()
+        # Modified to continue asking until valid domain is entered
+        valid_domain = False
+        domain = None
         
-        if not domain:
-            warn("Website creation cancelled.")
-            return None
+        while not valid_domain:
+            # Removed validate parameter to avoid automatically executing validation on each keystroke
+            domain_input = text(
+                "Enter domain name (e.g., example.com):"
+            ).ask()
             
+            # User cancelled input
+            if not domain_input:
+                warn("Website creation cancelled.")
+                return None
+            
+            # Manually call validation function after user completes their input
+            if validate_domain(domain_input):
+                domain = domain_input
+                valid_domain = True
+            else:
+                # Let them try again, validation error was already shown
+                continue
+        
         php_versions = ["8.2", "8.1", "8.0", "7.4"]
         php_version = select(
             "Select PHP version:",

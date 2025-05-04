@@ -55,13 +55,21 @@ def is_website_running(domain: str) -> str:
     if not is_website_exists(domain):
         return "❌ Invalid (missing directory or config)"
 
-    php_container = Container(f"{domain}-php")
-    if not php_container.running():
-        return "❌ PHP container not running"
+    try:
+        php_container = Container(f"{domain}-php")
+        if not php_container.running():
+            return "❌ PHP container not running"
+    except Exception as e:
+        debug(f"Error checking PHP container: {e}")
+        return "❌ PHP container error"
 
-    nginx_conf = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d", f"{domain}.conf")
-    if not os.path.isfile(nginx_conf):
-        return "❌ Missing NGINX configuration"
+    try:
+        nginx_conf = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d", f"{domain}.conf")
+        if not os.path.isfile(nginx_conf):
+            return "❌ Missing NGINX configuration"
+    except Exception as e:
+        debug(f"Error checking NGINX config: {e}")
+        return "❌ NGINX config error"
 
     return "✅ Running"
 

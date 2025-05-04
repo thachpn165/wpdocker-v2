@@ -42,7 +42,7 @@ custom_style = Style([
 def display_banner() -> None:
     """Display application banner."""
     # Clear screen
-    os.system('clear' if os.name != 'nt' else 'cls')
+    #os.system('clear' if os.name != 'nt' else 'cls')
     
     # Display ASCII banner
     header = Text("""

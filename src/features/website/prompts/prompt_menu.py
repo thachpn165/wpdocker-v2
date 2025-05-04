@@ -50,14 +50,45 @@ def prompt_website_menu() -> None:
             style=custom_style
         ).ask()
         
-        if answer == "3":
+        if answer == "1":
+            try:
+                from src.features.website.cli.create import cli_create_website
+                cli_create_website()
+            except ImportError:
+                not_implemented()
+        elif answer == "2":
+            try:
+                from src.features.website.cli.delete import cli_delete_website
+                cli_delete_website()
+            except ImportError:
+                not_implemented()
+        elif answer == "3":
             try:
                 from src.features.website.cli.list import list_websites
                 list_websites()
             except ImportError:
                 not_implemented()
-        elif answer != "0":
-            not_implemented()
+        elif answer == "4":
+            try:
+                from src.features.website.cli.restart import cli_restart_website
+                cli_restart_website()
+            except ImportError:
+                not_implemented()
+        elif answer == "5":
+            try:
+                from src.features.website.cli.logs import cli_view_logs
+                cli_view_logs()
+            except ImportError:
+                not_implemented()
+        elif answer == "6":
+            try:
+                from src.features.website.cli.info import cli_website_info
+                cli_website_info()
+            except ImportError:
+                not_implemented()
+        elif answer == "7":
+            not_implemented()  # Migrate feature not implemented yet
+        # answer "0" just returns to main menu
     except Exception as e:
         error(f"Error in website menu: {e}")
         input("Press Enter to continue...")

@@ -60,7 +60,8 @@ class NginxBootstrap(BaseBootstrap):
             "DOCKER_NETWORK",
             "NGINX_CONTAINER_PATH",
             "NGINX_CONTAINER_CONF_PATH",
-            "TEMPLATES_DIR"
+            "TEMPLATES_DIR",
+            "NGINX_CONFIG_DIR"
         ]
         
         for var in required_env_vars:
@@ -112,7 +113,7 @@ class NginxBootstrap(BaseBootstrap):
         """
         try:
             # Use new structure location
-            nginx_conf_dir = os.path.join(env["INSTALL_DIR"], "src/features/nginx/configs")
+            nginx_conf_dir = env["NGINX_CONFIG_DIR"]
             nginx_conf_path = os.path.join(nginx_conf_dir, "nginx.conf")
             
             # Create directory if it doesn't exist
@@ -171,7 +172,10 @@ class NginxBootstrap(BaseBootstrap):
                     "NGINX_IMAGE_NAME": env["NGINX_IMAGE_NAME"],
                     "DOCKER_NETWORK": env["DOCKER_NETWORK"],
                     "NGINX_CONTAINER_PATH": env["NGINX_CONTAINER_PATH"],
-                    "NGINX_CONTAINER_CONF_PATH": env["NGINX_CONTAINER_CONF_PATH"]
+                    "NGINX_CONTAINER_CONF_PATH": env["NGINX_CONTAINER_CONF_PATH"],
+                    "NGINX_CONFIG_DIR": env["NGINX_CONFIG_DIR"],
+                    "CONFIG_DIR": env["CONFIG_DIR"],
+                    "SITES_DIR": env["SITES_DIR"],
                 }
             )
             

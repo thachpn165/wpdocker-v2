@@ -158,7 +158,7 @@ def setup_php_configs(domain: str, php_version: str) -> None:
     site_dir = os.path.join(sites_dir, domain)
     install_dir = env["INSTALL_DIR"]
     php_ini_template = os.path.join(
-        install_dir, "core", "templates", "php.ini.template")
+        install_dir, "src", "templates", "php", "php.ini.template")
     
     config_manager = ConfigManager()
     timezone = config_manager.get().get("core", {}).get("timezone", "UTC")
@@ -207,7 +207,7 @@ def setup_compose_php(domain: str, php_version: str) -> Dict[str, str]:
     site_dir = os.path.join(sites_dir, domain)
 
     docker_compose_template = os.path.join(
-        install_dir, "core", "templates", "docker-compose.php.yml.template")
+        install_dir, "src", "templates", "docker-compose", "docker-compose.php.yml.template")
     docker_compose_target = os.path.join(site_dir, "docker-compose.php.yml")
     php_container = f"{domain}-php"
 
@@ -272,7 +272,7 @@ def setup_nginx_vhost(domain: str) -> None:
     """
     install_dir = env["INSTALL_DIR"]
     nginx_template = os.path.join(
-        install_dir, "core", "templates", "nginx-vhost.conf.template")
+        install_dir, "src", "templates", "nginx", "nginx-vhost.conf.template")
     nginx_target_dir = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d")
     nginx_target_path = os.path.join(nginx_target_dir, f"{domain}.conf")
 

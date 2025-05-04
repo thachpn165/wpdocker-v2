@@ -3,13 +3,13 @@ name: ${PROJECT_NAME}
 services:
   mariadb:
     container_name: ${MYSQL_CONTAINER_NAME}
-    image: ${MYSQL_IMAGE} # <-- injected từ config["mysql.version"] 
+    image: ${MYSQL_IMAGE} # đây không phải là biến env, được injected từ config.json 
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${mysql_root_passwd}
     volumes:
       - ${MYSQL_VOLUME_NAME}:/var/lib/mysql
-      - /opt/wp-docker/config/mysql.conf:/etc/mysql/conf.d/mysql.cnf:ro
+      - ${CONFIG_DIR}/mysql/mysql.conf:/etc/mysql/conf.d/mysql.cnf:ro
     networks:
       - ${DOCKER_NETWORK} 
 

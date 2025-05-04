@@ -8,6 +8,8 @@ websites in the system with their current status.
 import sys
 import json
 from typing import List, Dict, Any, Optional
+from rich.console import Console
+from rich.table import Table
 
 from src.common.logging import log_call, info, warn, error, success
 from src.features.website.utils import website_list, is_website_running
@@ -35,34 +37,34 @@ def get_websites_with_status() -> List[Dict[str, Any]]:
 
 
 @log_call
-def format_website_list(websites: List[Dict[str, Any]]) -> str:
+def format_website_list(websites: List[Dict[str, Any]]) -> None:
     """
-    Format a list of websites for display.
+    Format a list of websites for display using Rich.
     
     Args:
         websites: List of website dictionaries with domain and status
-        
-    Returns:
-        str: Formatted string for display
     """
+    console = Console()
+    
     if not websites:
-        return "No websites found."
+        console.print("No websites found.", style="bold red")
+        return
     
-    # Calculate the maximum domain length for alignment
-    max_domain_len = max([len(site["domain"]) for site in websites])
-    
-    lines = []
-    lines.append("=" * (max_domain_len + 25))
-    lines.append(f"{'Domain'.ljust(max_domain_len + 5)}Status")
-    lines.append("=" * (max_domain_len + 25))
+    # Create a table
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Domain", style="bold white")
+    table.add_column("Status", style="bold white")
     
     for site in websites:
         domain = site["domain"]
         status = site["status"]
-        lines.append(f"{domain.ljust(max_domain_len + 5)}{status}")
+        
+        # Set color based on status
+        status_style = "green" if "✅" in status else "red"
+        
+        table.add_row(domain, f"[{status_style}]{status}[/{status_style}]")
     
-    lines.append("=" * (max_domain_len + 25))
-    return "\n".join(lines)
+    console.print(table)
 
 
 @log_call
@@ -82,8 +84,7 @@ def list_websites(json_output: bool = False) -> bool:
         if json_output:
             print(json.dumps(websites, indent=2))
         else:
-            formatted_list = format_website_list(websites)
-            print(formatted_list)
+            format_website_list(websites)
         
         return True
     except Exception as e:
