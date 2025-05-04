@@ -263,12 +263,27 @@ def prompt_restore_from_cloud():
         selected_dir = backup_dir_answer["backup_dir"].split(" (created on ")[0]
         
         # Liệt kê file trong thư mục backup được chọn
-        backup_files = rclone_manager.list_files(remote_name, f"backups/{website_name}/{selected_dir}")
+        backup_path = f"backups/{website_name}/{selected_dir}"
+        backup_files = rclone_manager.list_files(remote_name, backup_path)
+        
+        # Lưu lại đường dẫn thư mục backup đã chọn để sử dụng sau
+        selected_backup_dir = selected_dir
         
         if not backup_files:
             print(f"\n❌ No backup files found in directory {selected_dir}")
             input("\nPress Enter to continue...")
             return
+            
+        # In ra thông tin về tệp tìm thấy để dễ dàng debug
+        print(f"\n📂 Files found in {backup_path}:")
+        for item in backup_files:
+            is_dir = item.get("IsDir", False)
+            name = item.get("Name", "Unknown")
+            path = item.get("Path", "Unknown") if "Path" in item else f"{backup_path}/{name}"
+            # Cập nhật đường dẫn đầy đủ cho mỗi file
+            item["Path"] = path
+            print(f"   {'📁' if is_dir else '📄'} {name}")
+            print(f"      Path: {path}")
     
     # Lọc các file (không phải thư mục) và sắp xếp theo thời gian
     backup_files = [f for f in backup_files if not f.get("IsDir", False)]
@@ -375,9 +390,20 @@ def prompt_restore_from_cloud():
     if selected_display == "Cancel":
         return
     
+    if selected_display not in backup_files_dict:
+        print(f"\n❌ Error: Cannot find selected backup information")
+        input("\nPress Enter to continue...")
+        return
+        
     selected_backup_info = backup_files_dict[selected_display]
-    selected_backup_name = selected_backup_info["name"]
-    selected_backup_path = selected_backup_info["path"]
+    selected_backup_name = selected_backup_info.get("name")
+    selected_backup_path = selected_backup_info.get("path")
+    
+    # Check for missing information
+    if not selected_backup_name:
+        print(f"\n❌ Error: Backup name is missing")
+        input("\nPress Enter to continue...")
+        return
     
     # Find the full backup information for display in confirmation
     selected_backup_full = next((b for b in backup_files if b.get("Name") == selected_backup_name), None)
@@ -397,13 +423,23 @@ def prompt_restore_from_cloud():
         backup_type = "Unknown type"
     
     # Xác định đường dẫn đầy đủ trên remote
-    # Nếu có path và khác name, sử dụng path để tạo đường dẫn đầy đủ
+    # Luôn ưu tiên sử dụng path đã lưu trong item
     if selected_backup_path and selected_backup_path != selected_backup_name:
-        # Path đã bao gồm phần website_name và thư mục backup
         remote_path = selected_backup_path
     else:
-        # Cấu trúc đơn giản, chỉ có file ở root của website_name
-        remote_path = f"backups/{website_name}/{selected_backup_name}"
+        # Nếu đang trong chế độ xem thư mục backup con
+        if 'selected_backup_dir' in locals():
+            remote_path = f"backups/{website_name}/{selected_backup_dir}/{selected_backup_name}"
+        else:
+            # Cấu trúc đơn giản, chỉ có file ở root của website_name
+            remote_path = f"backups/{website_name}/{selected_backup_name}"
+        
+    print(f"\n📋 DEBUG Info:")
+    print(f"   Selected Path: {selected_backup_path}")
+    print(f"   Selected Name: {selected_backup_name}")
+    print(f"   Final Remote Path: {remote_path}")
+    if 'selected_backup_dir' in locals():
+        print(f"   Selected Directory: {selected_backup_dir}")
     
     # Confirm restoration with detailed information
     print(f"\n📋 Backup Details:")
@@ -435,12 +471,57 @@ def prompt_restore_from_cloud():
     # Download backup file
     print(f"\n📥 Downloading backup file {selected_backup_name}...")
     
-    backup_dir = get_env_value("BACKUP_DIR")
-    local_path = os.path.join(backup_dir, selected_backup_name)
+    # Sử dụng thư mục backup của website thay vì BACKUP_DIR
+    sites_dir = get_env_value("SITES_DIR")
+    if not sites_dir:
+        print("\n❌ Error: SITES_DIR environment variable is not set")
+        input("\nPress Enter to continue...")
+        return
+    
+    # Tạo đường dẫn tới thư mục backups của website
+    website_backup_dir = os.path.join(sites_dir, website_name, "backups")
+    
+    # Ensure backup directory exists
+    if not os.path.exists(website_backup_dir):
+        try:
+            os.makedirs(website_backup_dir, exist_ok=True)
+            print(f"\n✅ Created backup directory: {website_backup_dir}")
+        except Exception as e:
+            print(f"\n❌ Error creating backup directory: {str(e)}")
+            input("\nPress Enter to continue...")
+            return
+    
+    local_path = os.path.join(website_backup_dir, selected_backup_name)
     
     # Create a temporary directory in the website's directory for the restore process
-    temp_dir = os.path.join(sites_dir, website_name, "temp_cloud_restore")
-    os.makedirs(temp_dir, exist_ok=True)
+    if not sites_dir:
+        print("\n❌ Error: SITES_DIR environment variable is not set")
+        input("\nPress Enter to continue...")
+        return
+        
+    if not os.path.exists(sites_dir):
+        print(f"\n❌ Error: Sites directory does not exist: {sites_dir}")
+        input("\nPress Enter to continue...")
+        return
+    
+    # Check if website directory exists
+    website_dir = os.path.join(sites_dir, website_name)
+    if not os.path.exists(website_dir):
+        try:
+            os.makedirs(website_dir, exist_ok=True)
+            print(f"\n✅ Created website directory: {website_dir}")
+        except Exception as e:
+            print(f"\n❌ Error creating website directory: {str(e)}")
+            input("\nPress Enter to continue...")
+            return
+    
+    temp_dir = os.path.join(website_dir, "temp_cloud_restore")
+    try:
+        os.makedirs(temp_dir, exist_ok=True)
+    except Exception as e:
+        print(f"\n❌ Error creating temporary directory: {str(e)}")
+        input("\nPress Enter to continue...")
+        return
     
     # Download backup file to the temporary directory first
     success, message = integration.restore_from_remote(
@@ -460,24 +541,24 @@ def prompt_restore_from_cloud():
     
     try:
         # Determine backup type
-        is_database = selected_backup.endswith('.sql')
-        is_archive = selected_backup.endswith('.tar.gz') or selected_backup.endswith('.tgz')
+        is_database = selected_backup_name.endswith('.sql')
+        is_archive = selected_backup_name.endswith('.tar.gz') or selected_backup_name.endswith('.tgz')
         
         if is_database:
             # Restore database directly using MySQL module
             from core.backend.modules.mysql.import_export import import_database
-            print(f"\n🗃️ Restoring database from {selected_backup}...")
+            print(f"\n🗃️ Restoring database from {selected_backup_name}...")
             import_database(website_name, local_path, reset=True)
             restore_success = True
             
         elif is_archive:
             # Restore source code using specialized functions
             from core.backend.modules.backup.backup_restore import restore_source_code
-            print(f"\n📦 Extracting WordPress files from {selected_backup}...")
+            print(f"\n📦 Extracting WordPress files from {selected_backup_name}...")
             restore_success = restore_source_code(website_name, local_path)
             
         else:
-            print(f"\n❌ Unknown backup file type: {selected_backup}")
+            print(f"\n❌ Unknown backup file type: {selected_backup_name}")
             restore_success = False
         
         # If restoration was successful, restart the website

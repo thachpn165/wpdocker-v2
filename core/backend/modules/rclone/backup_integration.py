@@ -20,7 +20,8 @@ class RcloneBackupIntegration:
         """Initialize the backup integration."""
         self.debug = Debug("RcloneBackupIntegration")
         self.rclone_manager = RcloneManager()
-        self.backup_dir = get_env_value("BACKUP_DIR")
+        # Không sử dụng BACKUP_DIR nữa
+        self.sites_dir = get_env_value("SITES_DIR")
         
     def backup_to_remote(self, remote_name: str, website_name: str, backup_path: str) -> Tuple[bool, str]:
         """Back up a website to a remote storage.
@@ -124,15 +125,38 @@ class RcloneBackupIntegration:
         actual_local_path = local_path
         
         if website_name:
-            # Get the sites directory
-            sites_dir = get_env_value("SITES_DIR")
-            if sites_dir:
+            # Sử dụng sites_dir từ đối tượng
+            if self.sites_dir:
                 # Create a temporary directory for this download
-                temp_dir = os.path.join(sites_dir, website_name, "temp_cloud_restore")
+                temp_dir = os.path.join(self.sites_dir, website_name, "temp_cloud_restore")
                 os.makedirs(temp_dir, exist_ok=True)
                 
-                # Get just the filename portion
-                backup_filename = os.path.basename(remote_path)
+                # Get just the filename portion more reliably
+                # Kiểm tra xem remote_path có phải là đường dẫn đầy đủ không
+                self.debug.debug(f"Analyzing remote path: {remote_path}")
+                
+                # Xác định tên file dựa trên đường dẫn remote
+                path_parts = remote_path.split("/")
+                if len(path_parts) > 0:
+                    # Lấy phần tử cuối của đường dẫn
+                    backup_filename = path_parts[-1]
+                    
+                    # Kiểm tra xem phần cuối có phải là tên file hợp lệ không
+                    if not any(backup_filename.endswith(ext) for ext in ['.sql', '.tar.gz', '.tgz', '.zip']):
+                        # Nếu không phải tên file hợp lệ, sử dụng tên file từ local_path
+                        self.debug.warn(f"Remote path does not end with a valid file extension: {backup_filename}")
+                        backup_filename = os.path.basename(local_path)
+                else:
+                    # Không thể phân tích đường dẫn, sử dụng local_path
+                    backup_filename = os.path.basename(local_path)
+                
+                # Make sure we have a valid filename
+                if not backup_filename or backup_filename == "":
+                    backup_filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    self.debug.warn(f"Could not determine backup filename, using generated name: {backup_filename}")
+                    
+                # Log để debug
+                self.debug.info(f"Using backup filename: {backup_filename} from remote path: {remote_path}")
                 
                 # Set the actual local path to the temporary directory
                 actual_local_path = os.path.join(temp_dir, backup_filename)
@@ -145,25 +169,86 @@ class RcloneBackupIntegration:
         self.debug.info(f"Downloading from {remote_name}:{remote_path} to {actual_local_path}")
         self.debug.info(f"Container path: {container_local_path}")
         
-        # Create directory if it doesn't exist
+        # Make sure the target directory exists, but the file doesn't (to avoid creating a directory instead of a file)
         os.makedirs(os.path.dirname(actual_local_path), exist_ok=True)
         
-        # Use copy instead of sync to avoid deleting local files
+        # Delete the destination if it already exists (could be a directory from a previous failed attempt)
+        if os.path.exists(actual_local_path):
+            try:
+                if os.path.isdir(actual_local_path):
+                    self.debug.warn(f"Destination path exists as a directory, removing it: {actual_local_path}")
+                    import shutil
+                    shutil.rmtree(actual_local_path)
+                else:
+                    self.debug.warn(f"Destination file already exists, removing it: {actual_local_path}")
+                    os.remove(actual_local_path)
+            except Exception as e:
+                self.debug.error(f"Error removing existing destination: {str(e)}")
+                return False, f"Error removing existing destination: {str(e)}"
+        
+        # Chỉ kiểm tra sự tồn tại của file trên remote
+        check_success, check_output = self.rclone_manager.execute_command(
+            ["lsf", f"{remote_name}:{remote_path}"]
+        )
+        
+        if not check_success or not check_output.strip():
+            self.debug.error(f"Source file does not exist on remote: {remote_name}:{remote_path}")
+            return False, f"Source file does not exist on remote: {remote_name}:{remote_path}"
+        
+        # Đảm bảo đường dẫn không có dấu / ở cuối để tránh Rclone hiểu nhầm
+        remote_path = remote_path.rstrip('/')
+        
+        # Sử dụng size để kiểm tra thông tin về kích thước mà không tải file
+        size_check, size_output = self.rclone_manager.execute_command(
+            ["size", f"{remote_name}:{remote_path}"]
+        )
+        
+        if size_check:
+            self.debug.info(f"Remote file info: {size_output.strip()}")
+        
+        # Sử dụng copyto thay vì copy để đảm bảo rằng chúng ta copy một file, không phải thư mục
         success, message = self.rclone_manager.execute_command(
-            ["copy", f"{remote_name}:{remote_path}", container_local_path, "--progress"]
+            ["copyto", f"{remote_name}:{remote_path}", container_local_path, "--progress"]
         )
         
         if success:
+            # Verify that the file was actually downloaded and is a file (not a directory)
+            if not os.path.exists(actual_local_path):
+                self.debug.error(f"Download completed but file does not exist: {actual_local_path}")
+                return False, f"Download completed but file does not exist: {actual_local_path}"
+                
+            if os.path.isdir(actual_local_path):
+                self.debug.error(f"Download resulted in a directory instead of a file: {actual_local_path}")
+                return False, f"Download resulted in a directory instead of a file: {actual_local_path}"
+                
+            # Check if file is empty
+            if os.path.getsize(actual_local_path) == 0:
+                self.debug.error(f"Downloaded file is empty: {actual_local_path}")
+                return False, f"Downloaded file is empty: {actual_local_path}"
+            
             # Move the file from temporary location to the actual destination if needed
             if temp_dir and os.path.exists(actual_local_path) and actual_local_path != local_path:
                 try:
                     # Create the target directory if it doesn't exist
                     os.makedirs(os.path.dirname(local_path), exist_ok=True)
                     
+                    # Remove destination file if it exists
+                    if os.path.exists(local_path):
+                        if os.path.isdir(local_path):
+                            import shutil
+                            shutil.rmtree(local_path)
+                        else:
+                            os.remove(local_path)
+                    
                     # Copy the file to the actual destination
                     import shutil
                     shutil.copy2(actual_local_path, local_path)
                     self.debug.info(f"Copied from temporary location {actual_local_path} to {local_path}")
+                    
+                    # Verify the copy succeeded
+                    if not os.path.exists(local_path) or os.path.isdir(local_path):
+                        self.debug.error(f"Failed to copy file to final destination: {local_path}")
+                        return False, f"Failed to copy file to final destination: {local_path}"
                     
                     # Don't remove the temp directory yet - it will be cleaned up after the restore process
                 except Exception as e:
