@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from core.backend.modules.backup.backup_manager import BackupManager
-from core.backend.modules.website.website_utils import list_websites
+from core.backend.modules.website.website_utils import website_list
 from core.backend.modules.rclone.rclone_manager import RcloneManager
 from core.backend.modules.rclone.backup_integration import RcloneBackupIntegration
 from core.backend.utils.env_utils import get_env_value
@@ -69,14 +69,14 @@ def prompt_backup_to_cloud():
         return
     
     # Get websites
-    websites = list_websites()
+    websites = website_list()
     if not websites:
         print("\n❌ No websites found.")
         input("\nPress Enter to continue...")
         return
     
     # Select website to backup
-    website_choices = [website["domain"] for website in websites]
+    website_choices = websites
     website_choices.append("Cancel")
     
     website_question = [
@@ -404,14 +404,14 @@ def prompt_schedule_cloud_backup():
         return
     
     # Get websites
-    websites = list_websites()
+    websites = website_list()
     if not websites:
         print("\n❌ No websites found.")
         input("\nPress Enter to continue...")
         return
     
     # Select website to backup
-    website_choices = [website["domain"] for website in websites]
+    website_choices = websites
     website_choices.append("Cancel")
     
     website_question = [
