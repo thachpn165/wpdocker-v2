@@ -41,3 +41,16 @@ def env_required(keys):
         sys.exit(1)
 
     return result
+
+# ✅ Hàm để lấy giá trị của một biến môi trường
+def get_env_value(key, default=None):
+    """Lấy giá trị của một biến môi trường từ env.
+    
+    Args:
+        key: Tên của biến môi trường
+        default: Giá trị mặc định nếu biến không tồn tại
+        
+    Returns:
+        Giá trị của biến môi trường hoặc giá trị mặc định
+    """
+    return env.get(key, default)

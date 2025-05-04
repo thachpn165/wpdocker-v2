@@ -1,0 +1,20 @@
+name: ${PROJECT_NAME} 
+services:
+  rclone:
+    container_name: ${RCLONE_CONTAINER_NAME}
+    image: ${RCLONE_IMAGE}
+    restart: unless-stopped
+    volumes:
+      - ${CONFIG_DIR}/rclone:/config/rclone
+      - ${DATA_DIR}:/data
+      - ${BACKUP_DIR}:/backups
+    networks:
+      - ${DOCKER_NETWORK}
+    environment:
+      - TZ=${TIMEZONE}
+    # Keep container running
+    entrypoint: ["sh", "-c", "mkdir -p /config/rclone && touch /config/rclone/rclone.conf && while true; do sleep 3600; done"]
+
+networks:
+  ${DOCKER_NETWORK}:
+    external: true

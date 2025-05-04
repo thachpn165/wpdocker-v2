@@ -5,7 +5,7 @@ from questionary import select, confirm, checkbox
 from core.backend.utils.debug import log_call, info, error, warn, debug, success
 from core.backend.abc.prompt_base import PromptBase
 from core.backend.modules.website.website_utils import website_list
-from core.backend.modules.backup.website_backup import backup_website
+from core.backend.modules.backup.backup_manager import BackupManager
 
 class BackupWebsitePrompt(PromptBase):
     """
@@ -22,7 +22,7 @@ class BackupWebsitePrompt(PromptBase):
         Thu thập đầu vào từ người dùng về website cần backup.
         
         Returns:
-            dict: Chứa thông tin domain hoặc danh sách domain cần backup, hoặc None nếu bị hủy
+            dict: Chứa thông tin domain, provider, và danh sách domain cần backup, hoặc None nếu bị hủy
         """
         # Lấy danh sách website
         websites = website_list()
@@ -56,10 +56,6 @@ class BackupWebsitePrompt(PromptBase):
                 info("Đã huỷ thao tác backup.")
                 return None
                 
-            if not confirm(f"⚠️ Xác nhận backup website {domain}?").ask():
-                info("Đã huỷ thao tác backup.")
-                return None
-                
             selected_domains = [domain]
         else:
             # Chọn nhiều website
@@ -71,14 +67,49 @@ class BackupWebsitePrompt(PromptBase):
             if not selected_domains:
                 info("Không có website nào được chọn để backup.")
                 return None
-                
-            if not confirm(f"⚠️ Xác nhận backup {len(selected_domains)} website?").ask():
+        
+        # Chọn nơi lưu trữ backup
+        backup_manager = BackupManager()
+        storage_providers = backup_manager.get_available_providers()
+        
+        if not storage_providers:
+            error("❌ Không tìm thấy nơi lưu trữ backup nào.")
+            return None
+        
+        # Format provider options to be more user-friendly
+        provider_choices = []
+        for provider in storage_providers:
+            if provider == "local":
+                provider_choices.append({"name": "Lưu trữ local", "value": provider})
+            elif provider.startswith("rclone:"):
+                remote_name = provider.split(":")[1]
+                provider_choices.append({"name": f"Lưu trữ đám mây ({remote_name})", "value": provider})
+            else:
+                provider_choices.append({"name": provider, "value": provider})
+        
+        selected_provider = select(
+            "💾 Chọn nơi lưu trữ backup:",
+            choices=provider_choices
+        ).ask()
+        
+        if not selected_provider:
+            info("Đã huỷ thao tác backup.")
+            return None
+        
+        # Confirm backup operation
+        if backup_mode == "Backup một website":
+            if not confirm(f"⚠️ Xác nhận backup website {selected_domains[0]} lưu trữ tại {selected_provider}?").ask():
+                info("Đã huỷ thao tác backup.")
+                return None
+        else:
+            if not confirm(f"⚠️ Xác nhận backup {len(selected_domains)} website lưu trữ tại {selected_provider}?").ask():
                 info("Đã huỷ thao tác backup.")
                 return None
         
         return {
             "backup_mode": backup_mode,
-            "domains": selected_domains
+            "domains": selected_domains,
+            "provider": selected_provider
         }
     
     def _process(self, inputs):
@@ -86,13 +117,17 @@ class BackupWebsitePrompt(PromptBase):
         Thực hiện việc backup website dựa trên thông tin đầu vào.
         
         Args:
-            inputs: Dict chứa thông tin domain hoặc danh sách domain cần backup
+            inputs: Dict chứa thông tin domain, provider, và danh sách domain cần backup
             
         Returns:
             dict: Kết quả xử lý bao gồm trạng thái thành công và chi tiết backup
         """
         backup_mode = inputs["backup_mode"]
         domains = inputs["domains"]
+        provider = inputs["provider"]
+        
+        # Initialize the BackupManager
+        backup_manager = BackupManager()
         
         backup_results = []
         success_count = 0
@@ -101,18 +136,28 @@ class BackupWebsitePrompt(PromptBase):
             result = {
                 "domain": domain,
                 "success": False,
-                "error": None
+                "error": None,
+                "provider": provider,
+                "backup_path": None
             }
             
-            info(f"⏳ Đang tiến hành backup website {domain}...")
+            info(f"⏳ Đang tiến hành backup website {domain} lưu trữ tại {provider}...")
             
             try:
-                backup_website(domain)
-                result["success"] = True
-                success_count += 1
+                success, backup_path = backup_manager.create_backup(domain, provider)
                 
-                if backup_mode == "Backup nhiều website":
-                    success(f"✅ Backup website {domain} hoàn tất.")
+                result["success"] = success
+                result["backup_path"] = backup_path
+                
+                if success:
+                    success_count += 1
+                    
+                    if backup_mode == "Backup nhiều website":
+                        success(f"✅ Backup website {domain} hoàn tất (lưu tại {provider}).")
+                else:
+                    result["error"] = backup_path  # In case of error, the message is in backup_path
+                    if backup_mode == "Backup nhiều website":
+                        error(f"❌ Lỗi khi backup website {domain}: {backup_path}")
             except Exception as e:
                 error_msg = f"❌ Lỗi khi backup website {domain}: {e}"
                 error(error_msg)
@@ -126,7 +171,8 @@ class BackupWebsitePrompt(PromptBase):
             "results": backup_results,
             "total_count": len(domains),
             "success_count": success_count,
-            "failed_count": len(domains) - success_count
+            "failed_count": len(domains) - success_count,
+            "provider": provider
         }
     
     def _show_results(self):
@@ -143,20 +189,31 @@ class BackupWebsitePrompt(PromptBase):
         total_count = self.result["total_count"]
         success_count = self.result["success_count"]
         failed_count = self.result["failed_count"]
+        provider = self.result["provider"]
+        
+        # Format provider name for display
+        provider_display = provider
+        if provider == "local":
+            provider_display = "lưu trữ local"
+        elif provider.startswith("rclone:"):
+            remote_name = provider.split(":")[1]
+            provider_display = f"lưu trữ đám mây ({remote_name})"
         
         # Hiển thị tổng quan kết quả nếu là backup nhiều website
         if backup_mode == "Backup nhiều website":
             if success_count == total_count:
-                success(f"🎉 Đã hoàn tất backup tất cả {total_count} website thành công.")
+                success(f"🎉 Đã hoàn tất backup tất cả {total_count} website thành công ({provider_display}).")
             elif success_count > 0:
-                warn(f"⚠️ Đã backup {success_count}/{total_count} website, {failed_count} website gặp lỗi.")
+                warn(f"⚠️ Đã backup {success_count}/{total_count} website, {failed_count} website gặp lỗi ({provider_display}).")
             else:
                 error(f"❌ Không thể backup bất kỳ website nào.")
         # Nếu là backup một website, thông báo đã được hiển thị trong quá trình xử lý
         else:
             domain = results[0]["domain"]
             if results[0]["success"]:
-                success(f"✅ Hoàn tất backup website {domain}.")
+                backup_path = results[0].get("backup_path", "")
+                success(f"✅ Hoàn tất backup website {domain} ({provider_display}).")
+                info(f"📦 Backup lưu tại: {backup_path}")
             else:
                 error_msg = results[0].get("error", "Lỗi không xác định")
                 error(f"❌ Backup website {domain} thất bại: {error_msg}")

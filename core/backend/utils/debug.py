@@ -106,3 +106,56 @@ def enable_exception_hook():
             return
         logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     sys.excepthook = handle_exception
+
+
+class Debug:
+    """Helper class for module-specific debugging."""
+    
+    def __init__(self, module_name):
+        """Initialize with module name for logging context.
+        
+        Args:
+            module_name: Name of the module for log context
+        """
+        self.module_name = module_name
+    
+    def debug(self, message):
+        """Log a debug message.
+        
+        Args:
+            message: The message to log
+        """
+        if env["DEBUG_MODE"].lower() == "true":
+            logger.debug(f"[{self.module_name}] 🐞 {message}")
+    
+    def info(self, message):
+        """Log an info message.
+        
+        Args:
+            message: The message to log
+        """
+        logger.info(f"[{self.module_name}] ℹ️  {message}")
+    
+    def warn(self, message):
+        """Log a warning message.
+        
+        Args:
+            message: The message to log
+        """
+        logger.warning(f"[{self.module_name}] ⚠️  {message}")
+    
+    def error(self, message):
+        """Log an error message.
+        
+        Args:
+            message: The message to log
+        """
+        logger.error(f"[{self.module_name}] ❌  {message}")
+    
+    def success(self, message):
+        """Log a success message.
+        
+        Args:
+            message: The message to log
+        """
+        print(f"{GREEN}{BOLD}✅ [{self.module_name}] {message}{RESET}")

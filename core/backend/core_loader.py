@@ -24,6 +24,7 @@ REQUIRED_MODULES = {
     "colorama": "colorama",
     "jsons": "jsons",
     "python-crontab": "python-crontab",
+    "inquirer": "inquirer",
 
 }
 

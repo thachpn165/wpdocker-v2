@@ -9,10 +9,9 @@ from dataclasses import asdict
 
 from core.backend.utils.debug import log_call, info, error, warn, debug, success
 from core.backend.abc.prompt_base import PromptBase
-from core.backend.modules.website.website_utils import select_website, get_site_config, set_site_config
+from core.backend.modules.website.website_utils import select_website, get_site_config
 from core.backend.models.config import BackupSchedule, CloudConfig, SiteBackup
-from core.backend.modules.cron.models.cron_job import CronJob
-from core.backend.modules.cron.cron_manager import CronManager
+from core.backend.modules.backup.backup_manager import BackupManager
 
 
 class ScheduleBackupPrompt(PromptBase):
@@ -39,25 +38,64 @@ class ScheduleBackupPrompt(PromptBase):
             # Thông báo lỗi đã được hiển thị trong hàm select_website
             return None
         
+        # Khởi tạo BackupManager
+        backup_manager = BackupManager()
+        
         # Kiểm tra lịch trình hiện tại
         site_config = get_site_config(domain)
         has_existing_schedule = (site_config and site_config.backup and
                                 site_config.backup.schedule and
                                 site_config.backup.schedule.enabled)
         
+        # Lấy danh sách storage providers
+        storage_providers = backup_manager.get_available_providers()
+        
+        if not storage_providers:
+            error("❌ Không tìm thấy nơi lưu trữ backup nào.")
+            return None
+        
         # Hành động dựa trên trạng thái hiện tại
         if has_existing_schedule:
             # Hiển thị thông tin lịch trình hiện tại
             current_schedule = site_config.backup.schedule
-            info(f"⏱️ Lịch trình hiện tại: {self._format_schedule(current_schedule)}")
+            current_cloud = site_config.backup.cloud_config
             
-            # Hỏi người dùng muốn cập nhật hay xóa lịch trình
+            info(f"⏰ Lịch trình backup hiện tại cho {domain}:")
+            
+            # Hiển thị tần suất
+            schedule_type = current_schedule.schedule_type
+            hour = current_schedule.hour
+            minute = current_schedule.minute
+            
+            if schedule_type == "daily":
+                info(f"  Hàng ngày lúc {hour:02d}:{minute:02d}")
+            elif schedule_type == "weekly":
+                day = current_schedule.day_of_week
+                day_names = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+                day_name = day_names[day] if 0 <= day < len(day_names) else f"ngày {day}"
+                info(f"  Hàng tuần vào {day_name} lúc {hour:02d}:{minute:02d}")
+            elif schedule_type == "monthly":
+                day = current_schedule.day_of_month
+                info(f"  Hàng tháng vào ngày {day} lúc {hour:02d}:{minute:02d}")
+            
+            # Hiển thị số bản backup lưu giữ
+            if current_schedule.retention_count:
+                info(f"  Giữ lại {current_schedule.retention_count} bản backup gần nhất")
+            
+            # Hiển thị nơi lưu trữ
+            if current_cloud and current_cloud.enabled:
+                provider = current_cloud.provider
+                remote = current_cloud.remote_name
+                info(f"  Lưu trữ đám mây: {provider} ({remote})")
+            else:
+                info("  Lưu trữ: local")
+            
+            # Hỏi người dùng muốn làm gì với lịch trình
             action = select(
-                "🔍 Bạn muốn làm gì với lịch trình hiện tại?",
+                "🔍 Bạn muốn làm gì với lịch trình backup hiện tại?",
                 choices=[
-                    "Cập nhật lịch trình",
+                    "Chỉnh sửa lịch trình",
                     "Vô hiệu hóa lịch trình",
-                    "Xóa lịch trình",
                     "Quay lại"
                 ]
             ).ask()
@@ -65,461 +103,480 @@ class ScheduleBackupPrompt(PromptBase):
             if not action or action == "Quay lại":
                 info("Đã huỷ thao tác.")
                 return None
-                
-            if action == "Xóa lịch trình":
-                if confirm("⚠️ Xác nhận xóa lịch trình backup tự động?").ask():
-                    return {
-                        "domain": domain,
-                        "action": "delete"
-                    }
-                info("Đã huỷ thao tác.")
-                return None
-                
+            
             if action == "Vô hiệu hóa lịch trình":
                 return {
                     "domain": domain,
-                    "action": "disable"
+                    "action": "disable",
+                    "config": None
                 }
+            
+            # Mặc định provider là local nếu không có cấu hình cloud hoặc cloud bị tắt
+            provider = "local"
+            if current_cloud and current_cloud.enabled and current_cloud.remote_name:
+                provider = f"rclone:{current_cloud.remote_name}"
+            
+            # Nếu chọn cập nhật, tiếp tục với tuỳ chọn
+            schedule_type_mapping = {
+                "daily": "Hàng ngày",
+                "weekly": "Hàng tuần",
+                "monthly": "Hàng tháng"
+            }
+            
+            # Chọn tần suất backup
+            selected_schedule_type = select(
+                "🔄 Chọn tần suất backup:",
+                choices=["Hàng ngày", "Hàng tuần", "Hàng tháng"],
+                default=schedule_type_mapping.get(schedule_type, "Hàng ngày")
+            ).ask()
+            
+            if not selected_schedule_type:
+                info("Đã huỷ thao tác.")
+                return None
+            
+            # Chọn thời gian backup (giờ và phút)
+            hour_choices = [f"{h:02d}" for h in range(24)]
+            selected_hour = select(
+                "🕒 Chọn giờ thực hiện backup (0-23):",
+                choices=hour_choices,
+                default=f"{hour:02d}"
+            ).ask()
+            
+            if not selected_hour:
+                info("Đã huỷ thao tác.")
+                return None
+            
+            minute_choices = ["00", "15", "30", "45"]
+            selected_minute = select(
+                "🕒 Chọn phút (0, 15, 30, 45):",
+                choices=minute_choices,
+                default=f"{minute:02d}" if minute in [0, 15, 30, 45] else "00"
+            ).ask()
+            
+            if not selected_minute:
+                info("Đã huỷ thao tác.")
+                return None
+            
+            # Chuyển đổi
+            hour_int = int(selected_hour)
+            minute_int = int(selected_minute)
+            
+            # Tuỳ chọn thêm dựa vào loại lịch
+            day_of_week = None
+            day_of_month = None
+            
+            if selected_schedule_type == "Hàng tuần":
+                day_names = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+                default_day = day_names[current_schedule.day_of_week] if 0 <= current_schedule.day_of_week < len(day_names) else "Chủ Nhật"
                 
-            # Nếu chọn cập nhật, tiếp tục với thông tin hiện tại
-            current_values = {
-                "schedule_type": current_schedule.schedule_type,
-                "hour": current_schedule.hour,
-                "minute": current_schedule.minute,
-                "day_of_week": current_schedule.day_of_week,
-                "day_of_month": current_schedule.day_of_month,
-                "retention_count": current_schedule.retention_count,
-                "cloud_sync": current_schedule.cloud_sync
+                selected_day = select(
+                    "📅 Chọn ngày trong tuần:",
+                    choices=day_names,
+                    default=default_day
+                ).ask()
+                
+                if not selected_day:
+                    info("Đã huỷ thao tác.")
+                    return None
+                
+                day_map = {
+                    "Thứ Hai": 0, "Thứ Ba": 1, "Thứ Tư": 2, "Thứ Năm": 3, 
+                    "Thứ Sáu": 4, "Thứ Bảy": 5, "Chủ Nhật": 6
+                }
+                day_of_week = day_map.get(selected_day, 0)
+            
+            elif selected_schedule_type == "Hàng tháng":
+                day_choices = [str(d) for d in range(1, 29)]  # 1-28 an toàn cho tất cả các tháng
+                default_day = str(current_schedule.day_of_month) if 1 <= current_schedule.day_of_month <= 28 else "1"
+                
+                selected_day = select(
+                    "📅 Chọn ngày trong tháng (1-28):",
+                    choices=day_choices,
+                    default=default_day
+                ).ask()
+                
+                if not selected_day:
+                    info("Đã huỷ thao tác.")
+                    return None
+                
+                day_of_month = int(selected_day)
+            
+            # Số lượng backup giữ lại
+            retention_text = text(
+                "🗃️ Số lượng bản sao lưu gần nhất giữ lại (0 = giữ tất cả):",
+                default=str(current_schedule.retention_count)
+            ).ask()
+            
+            if not retention_text:
+                retention_count = 3  # Giá trị mặc định
+            else:
+                try:
+                    retention_count = int(retention_text)
+                except ValueError:
+                    retention_count = 3
+                    warn("⚠️ Giá trị không hợp lệ, sử dụng giá trị mặc định: 3")
+            
+            # Format provider options to be more user-friendly
+            provider_choices = []
+            for prov in storage_providers:
+                if prov == "local":
+                    provider_choices.append({"name": "Lưu trữ local", "value": prov})
+                elif prov.startswith("rclone:"):
+                    remote_name = prov.split(":")[1]
+                    provider_choices.append({"name": f"Lưu trữ đám mây ({remote_name})", "value": prov})
+                else:
+                    provider_choices.append({"name": prov, "value": prov})
+            
+            # Tìm provider mặc định
+            default_provider = None
+            for prov in provider_choices:
+                if prov["value"] == provider:
+                    default_provider = prov["name"]
+                    break
+            
+            selected_provider = select(
+                "💾 Chọn nơi lưu trữ backup:",
+                choices=provider_choices,
+                default=default_provider
+            ).ask()
+            
+            if not selected_provider:
+                info("Đã huỷ thao tác.")
+                return None
+            
+            # Tạo schedule info để hiển thị trong xác nhận
+            schedule_info = ""
+            if selected_schedule_type == "Hàng ngày":
+                schedule_info = f"hàng ngày lúc {hour_int:02d}:{minute_int:02d}"
+            elif selected_schedule_type == "Hàng tuần":
+                day_names = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+                day_name = day_names[day_of_week] if 0 <= day_of_week < len(day_names) else "Chủ Nhật"
+                schedule_info = f"hàng tuần vào {day_name} lúc {hour_int:02d}:{minute_int:02d}"
+            else:
+                schedule_info = f"hàng tháng vào ngày {day_of_month} lúc {hour_int:02d}:{minute_int:02d}"
+            
+            # Format provider name cho đẹp
+            provider_display = selected_provider
+            if selected_provider == "local":
+                provider_display = "lưu trữ local"
+            elif selected_provider.startswith("rclone:"):
+                remote_name = selected_provider.split(":")[1]
+                provider_display = f"lưu trữ đám mây ({remote_name})"
+            
+            # Xác nhận
+            if not confirm(f"⚠️ Xác nhận lịch trình {schedule_info} cho website {domain} tại {provider_display}?").ask():
+                info("Đã huỷ thao tác.")
+                return None
+            
+            # Tạo config
+            config = {
+                "enabled": True,
+                "schedule_type": "daily" if selected_schedule_type == "Hàng ngày" else 
+                              "weekly" if selected_schedule_type == "Hàng tuần" else 
+                              "monthly",
+                "hour": hour_int,
+                "minute": minute_int,
+                "day_of_week": day_of_week,
+                "day_of_month": day_of_month,
+                "retention_count": retention_count,
+                "provider": selected_provider
+            }
+            
+            return {
+                "domain": domain,
+                "action": "update",
+                "config": config
             }
         else:
-            # Tạo mới
-            action = "create"
-            current_values = {
-                "schedule_type": "daily",
-                "hour": 1,
-                "minute": 0,
-                "day_of_week": None,
-                "day_of_month": None,
-                "retention_count": 3,
-                "cloud_sync": False
-            }
-        
-        # Thu thập thông tin lịch trình
-        schedule_type = select(
-            "🔄 Chọn tần suất backup:",
-            choices=[
-                "Hàng ngày",
-                "Hàng tuần",
-                "Hàng tháng"
-            ],
-            default="Hàng ngày" if current_values["schedule_type"] == "daily" else 
-                    "Hàng tuần" if current_values["schedule_type"] == "weekly" else
-                    "Hàng tháng"
-        ).ask()
-        
-        if not schedule_type:
-            info("Đã huỷ thao tác.")
-            return None
-        
-        # Chọn giờ trong ngày
-        hour_choices = [f"{h:02d}" for h in range(24)]
-        hour = select(
-            "🕒 Chọn giờ thực hiện backup (0-23):",
-            choices=hour_choices,
-            default=f"{current_values['hour']:02d}"
-        ).ask()
-        
-        if not hour:
-            info("Đã huỷ thao tác.")
-            return None
-        
-        hour = int(hour)
-        
-        # Chọn phút
-        minute_choices = ["00", "15", "30", "45"]
-        minute = select(
-            "🕒 Chọn phút (0-59):",
-            choices=minute_choices,
-            default=f"{current_values['minute']:02d}" if current_values['minute'] in [0, 15, 30, 45] else "00"
-        ).ask()
-        
-        if not minute:
-            info("Đã huỷ thao tác.")
-            return None
-        
-        minute = int(minute)
-        
-        # Thông tin bổ sung dựa trên loại lịch trình
-        day_of_week = None
-        day_of_month = None
-        
-        if schedule_type == "Hàng tuần":
-            days = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
-            default_day = days[current_values["day_of_week"]] if current_values["day_of_week"] is not None else "Thứ Hai"
+            # Không có lịch trình, hỏi người dùng có muốn tạo không
+            if not confirm(f"⏰ Bạn muốn tạo lịch trình backup tự động cho website {domain}?").ask():
+                info("Đã huỷ thao tác tạo lịch trình backup.")
+                return None
             
-            selected_day = select(
-                "📅 Chọn ngày trong tuần:",
-                choices=days,
-                default=default_day
+            # Chọn tần suất backup
+            schedule_type = select(
+                "🔄 Chọn tần suất backup:",
+                choices=["Hàng ngày", "Hàng tuần", "Hàng tháng"],
+                default="Hàng ngày"
             ).ask()
             
-            if not selected_day:
+            if not schedule_type:
                 info("Đã huỷ thao tác.")
                 return None
             
-            day_of_week = days.index(selected_day)
-            
-        elif schedule_type == "Hàng tháng":
-            day_choices = [str(d) for d in range(1, 32)]
-            default_day = str(current_values["day_of_month"]) if current_values["day_of_month"] is not None else "1"
-            
-            selected_day = select(
-                "📅 Chọn ngày trong tháng (1-31):",
-                choices=day_choices,
-                default=default_day
+            # Chọn thời gian backup (giờ và phút)
+            hour_choices = [f"{h:02d}" for h in range(24)]
+            selected_hour = select(
+                "🕒 Chọn giờ thực hiện backup (0-23):",
+                choices=hour_choices,
+                default="01"
             ).ask()
             
-            if not selected_day:
+            if not selected_hour:
                 info("Đã huỷ thao tác.")
                 return None
             
-            day_of_month = int(selected_day)
-        
-        # Chọn số lượng bản backup giữ lại
-        retention_choices = ["1", "3", "5", "10", "Tất cả"]
-        default_retention = "Tất cả" if current_values["retention_count"] == 0 else str(current_values["retention_count"])
-        
-        retention = select(
-            "🔢 Số lượng bản backup gần nhất muốn giữ lại:",
-            choices=retention_choices,
-            default=default_retention
-        ).ask()
-        
-        if not retention:
-            info("Đã huỷ thao tác.")
-            return None
-        
-        retention_count = 0 if retention == "Tất cả" else int(retention)
-        
-        # Cấu hình đồng bộ lên cloud
-        cloud_sync = confirm(
-            "☁️ Bạn có muốn đồng bộ backup lên cloud storage không?",
-            default=current_values["cloud_sync"]
-        ).ask()
-        
-        # Nếu bật đồng bộ cloud, thu thập thông tin
-        cloud_config = None
-        if cloud_sync:
-            # Lấy cấu hình cloud hiện tại nếu có
-            current_cloud = None
-            if site_config and site_config.backup and site_config.backup.cloud_config:
-                current_cloud = site_config.backup.cloud_config
-            
-            # Nhập tên remote rclone
-            remote_name = text(
-                "Nhập tên remote rclone:",
-                default=current_cloud.remote_name if current_cloud else ""
+            minute_choices = ["00", "15", "30", "45"]
+            selected_minute = select(
+                "🕒 Chọn phút (0, 15, 30, 45):",
+                choices=minute_choices,
+                default="00"
             ).ask()
             
-            if not remote_name:
+            if not selected_minute:
                 info("Đã huỷ thao tác.")
                 return None
             
-            # Nhập đường dẫn trong remote
-            remote_path = text(
-                "Nhập đường dẫn trong remote:",
-                default=current_cloud.remote_path if current_cloud else f"backup/{domain}"
+            # Chuyển đổi
+            hour = int(selected_hour)
+            minute = int(selected_minute)
+            
+            # Tuỳ chọn thêm dựa vào loại lịch
+            day_of_week = None
+            day_of_month = None
+            
+            if schedule_type == "Hàng tuần":
+                selected_day = select(
+                    "📅 Chọn ngày trong tuần:",
+                    choices=["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"],
+                    default="Chủ Nhật"
+                ).ask()
+                
+                if not selected_day:
+                    info("Đã huỷ thao tác.")
+                    return None
+                
+                day_map = {
+                    "Thứ Hai": 0, "Thứ Ba": 1, "Thứ Tư": 2, "Thứ Năm": 3, 
+                    "Thứ Sáu": 4, "Thứ Bảy": 5, "Chủ Nhật": 6
+                }
+                day_of_week = day_map.get(selected_day, 0)
+            
+            elif schedule_type == "Hàng tháng":
+                day_choices = [str(d) for d in range(1, 29)]  # 1-28 an toàn cho tất cả các tháng
+                selected_day = select(
+                    "📅 Chọn ngày trong tháng (1-28):",
+                    choices=day_choices,
+                    default="1"
+                ).ask()
+                
+                if not selected_day:
+                    info("Đã huỷ thao tác.")
+                    return None
+                
+                day_of_month = int(selected_day)
+            
+            # Số lượng backup giữ lại
+            retention_text = text(
+                "🗃️ Số lượng bản sao lưu gần nhất giữ lại (0 = giữ tất cả):",
+                default="3"
             ).ask()
             
-            if not remote_path:
+            if not retention_text:
+                retention_count = 3  # Giá trị mặc định
+            else:
+                try:
+                    retention_count = int(retention_text)
+                except ValueError:
+                    retention_count = 3
+                    warn("⚠️ Giá trị không hợp lệ, sử dụng giá trị mặc định: 3")
+            
+            # Format provider options to be more user-friendly
+            provider_choices = []
+            for provider in storage_providers:
+                if provider == "local":
+                    provider_choices.append({"name": "Lưu trữ local", "value": provider})
+                elif provider.startswith("rclone:"):
+                    remote_name = provider.split(":")[1]
+                    provider_choices.append({"name": f"Lưu trữ đám mây ({remote_name})", "value": provider})
+                else:
+                    provider_choices.append({"name": provider, "value": provider})
+            
+            selected_provider = select(
+                "💾 Chọn nơi lưu trữ backup:",
+                choices=provider_choices,
+                default="Lưu trữ local"
+            ).ask()
+            
+            if not selected_provider:
                 info("Đã huỷ thao tác.")
                 return None
             
-            cloud_config = {
-                "provider": "rclone",
-                "remote_name": remote_name,
-                "remote_path": remote_path,
-                "enabled": True
-            }
-        
-        # Chuyển đổi loại lịch trình
-        schedule_type_map = {
-            "Hàng ngày": "daily",
-            "Hàng tuần": "weekly",
-            "Hàng tháng": "monthly"
-        }
-        
-        # Xác nhận cấu hình
-        if not confirm("⚠️ Xác nhận áp dụng lịch trình backup tự động?").ask():
-            info("Đã huỷ thao tác.")
-            return None
-        
-        # Trả về thông tin đã thu thập
-        return {
-            "domain": domain,
-            "action": action,
-            "schedule": {
-                "schedule_type": schedule_type_map[schedule_type],
+            # Tạo schedule info để hiển thị trong xác nhận
+            schedule_info = ""
+            if schedule_type == "Hàng ngày":
+                schedule_info = f"hàng ngày lúc {hour:02d}:{minute:02d}"
+            elif schedule_type == "Hàng tuần":
+                day_names = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+                day_name = day_names[day_of_week] if 0 <= day_of_week < len(day_names) else "Chủ Nhật"
+                schedule_info = f"hàng tuần vào {day_name} lúc {hour:02d}:{minute:02d}"
+            else:
+                schedule_info = f"hàng tháng vào ngày {day_of_month} lúc {hour:02d}:{minute:02d}"
+            
+            # Format provider name cho đẹp
+            provider_display = selected_provider
+            if selected_provider == "local":
+                provider_display = "lưu trữ local"
+            elif selected_provider.startswith("rclone:"):
+                remote_name = selected_provider.split(":")[1]
+                provider_display = f"lưu trữ đám mây ({remote_name})"
+            
+            # Xác nhận
+            if not confirm(f"⚠️ Xác nhận tạo lịch trình backup {schedule_info} cho website {domain} tại {provider_display}?").ask():
+                info("Đã huỷ thao tác.")
+                return None
+            
+            # Tạo config
+            config = {
+                "enabled": True,
+                "schedule_type": "daily" if schedule_type == "Hàng ngày" else 
+                              "weekly" if schedule_type == "Hàng tuần" else 
+                              "monthly",
                 "hour": hour,
                 "minute": minute,
                 "day_of_week": day_of_week,
                 "day_of_month": day_of_month,
                 "retention_count": retention_count,
-                "cloud_sync": cloud_sync
-            },
-            "cloud_config": cloud_config
-        }
+                "provider": selected_provider
+            }
+            
+            return {
+                "domain": domain,
+                "action": "create",
+                "config": config
+            }
     
     def _process(self, inputs):
         """
-        Thực hiện việc tạo, cập nhật hoặc xóa lịch trình backup.
+        Xử lý việc tạo, cập nhật hoặc xóa lịch trình backup dựa trên thông tin đầu vào.
         
         Args:
-            inputs: Dict chứa thông tin về lịch trình backup
+            inputs: Dict chứa thông tin domain, hành động và cấu hình lịch trình
             
         Returns:
             dict: Kết quả xử lý
         """
+        if not inputs:
+            return None
+            
         domain = inputs["domain"]
         action = inputs["action"]
+        config = inputs.get("config")
         
-        # Lấy cấu hình website
-        site_config = get_site_config(domain)
-        if not site_config:
-            error(f"❌ Không tìm thấy cấu hình cho website {domain}.")
-            return None
+        # Khởi tạo BackupManager
+        backup_manager = BackupManager()
         
-        # Đảm bảo có phần backup trong cấu hình
-        if not site_config.backup:
-            site_config.backup = SiteBackup()
+        result = {"success": False, "message": "", "domain": domain, "action": action}
         
-        # Khởi tạo CronManager
-        cron_manager = CronManager()
-        
-        # Xử lý theo hành động
-        if action == "delete":
-            # Xóa công việc cron nếu có
-            if site_config.backup.job_id:
-                cron_manager.remove_job(site_config.backup.job_id)
+        try:
+            if action == "disable":
+                # Vô hiệu hóa lịch trình
+                schedule = {"enabled": False}
+                success, message = backup_manager.schedule_backup(domain, schedule)
+                
+                result["success"] = success
+                result["message"] = message
+                
+            elif action in ["create", "update"]:
+                # Tạo/cập nhật lịch trình
+                success, message = backup_manager.schedule_backup(domain, config, config["provider"])
+                
+                result["success"] = success
+                result["message"] = message
+                result["config"] = config
             
-            # Xóa cấu hình lịch trình
-            site_config.backup.schedule = None
-            site_config.backup.job_id = None
-            
-            # Lưu cấu hình mới
-            set_site_config(domain, site_config)
-            
-            return {
-                "domain": domain,
-                "action": "delete",
-                "success": True
-            }
-        
-        elif action == "disable":
-            # Vô hiệu hóa công việc cron
-            if site_config.backup.job_id:
-                # Use the disable_job method which now handles versions safely
-                cron_manager.disable_job(site_config.backup.job_id)
-            
-            # Cập nhật cấu hình
-            if site_config.backup.schedule:
-                site_config.backup.schedule.enabled = False
-                set_site_config(domain, site_config)
-            
-            return {
-                "domain": domain,
-                "action": "disable",
-                "success": True
-            }
-        
-        else:  # create or update
-            # Tạo đối tượng BackupSchedule
-            schedule_data = inputs["schedule"]
-            schedule = BackupSchedule(
-                enabled=True,
-                schedule_type=schedule_data["schedule_type"],
-                hour=schedule_data["hour"],
-                minute=schedule_data["minute"],
-                day_of_week=schedule_data["day_of_week"],
-                day_of_month=schedule_data["day_of_month"],
-                retention_count=schedule_data["retention_count"],
-                cloud_sync=schedule_data["cloud_sync"]
-            )
-            
-            # Cập nhật hoặc tạo cấu hình cloud nếu cần
-            cloud_config = inputs.get("cloud_config")
-            if cloud_config:
-                site_config.backup.cloud_config = CloudConfig(
-                    provider=cloud_config["provider"],
-                    remote_name=cloud_config["remote_name"],
-                    remote_path=cloud_config["remote_path"],
-                    enabled=cloud_config["enabled"]
-                )
-            elif schedule.cloud_sync and not site_config.backup.cloud_config:
-                # Tạo cấu hình cloud mặc định nếu chưa có
-                site_config.backup.cloud_config = CloudConfig(
-                    remote_path=f"backup/{domain}"
-                )
-            
-            # Cập nhật lịch trình
-            site_config.backup.schedule = schedule
-            
-            # Tạo biểu thức cron
-            cron_expr = self._create_cron_expression(schedule)
-            
-            # Tham số cho công việc
-            job_params = {
-                "retention_count": schedule.retention_count,
-                "cloud_sync": schedule.cloud_sync
-            }
-            
-            if site_config.backup.cloud_config and schedule.cloud_sync:
-                job_params["cloud_config"] = asdict(site_config.backup.cloud_config)
-            
-            # Tạo hoặc cập nhật công việc cron
-            if site_config.backup.job_id:
-                # Cập nhật công việc hiện có
-                job = cron_manager.get_job(site_config.backup.job_id)
-                if job:
-                    # Cập nhật thông tin
-                    job.schedule = cron_expr
-                    job.parameters = job_params
-                    job.enabled = True
-                    cron_manager.update_job(job)
-                else:
-                    # Công việc không tồn tại, tạo mới
-                    job = CronJob(
-                        id=f"backup_{domain}_{int(time.time())}",
-                        job_type="backup",
-                        schedule=cron_expr,
-                        target_id=domain,
-                        parameters=job_params,
-                        enabled=True,
-                        created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    )
-                    cron_manager.add_job(job)
-                    site_config.backup.job_id = job.id
-            else:
-                # Tạo công việc mới
-                job = CronJob(
-                    id=f"backup_{domain}_{int(time.time())}",
-                    job_type="backup",
-                    schedule=cron_expr,
-                    target_id=domain,
-                    parameters=job_params,
-                    enabled=True,
-                    created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                )
-                cron_manager.add_job(job)
-                site_config.backup.job_id = job.id
-            
-            # Lưu cấu hình mới
-            set_site_config(domain, site_config)
-            
-            return {
-                "domain": domain,
-                "action": "create_or_update",
-                "success": True,
-                "schedule": schedule,
-                "job_id": site_config.backup.job_id,
-                "cron_expression": cron_expr
-            }
+            return result
+        except Exception as e:
+            error_msg = f"Lỗi xử lý lịch trình backup: {str(e)}"
+            error(error_msg)
+            result["success"] = False
+            result["message"] = error_msg
+            return result
     
     def _show_results(self):
         """
-        Hiển thị kết quả lên lịch backup.
+        Hiển thị kết quả xử lý lịch trình backup.
         
-        Sử dụng self.result để hiển thị kết quả.
+        Sử dụng self.result để hiển thị kết quả xử lý.
         """
         if not self.result:
             return
-        
+            
         domain = self.result["domain"]
         action = self.result["action"]
-        success = self.result.get("success", False)
+        success = self.result["success"]
+        message = self.result.get("message", "")
+        config = self.result.get("config")
         
-        if not success:
-            error(f"❌ Không thể cấu hình lịch trình backup cho {domain}.")
-            return
-        
-        if action == "delete":
-            success(f"✅ Đã xóa lịch trình backup tự động cho website {domain}.")
-            
-        elif action == "disable":
-            success(f"✅ Đã vô hiệu hóa lịch trình backup tự động cho website {domain}.")
-            
-        elif action == "create_or_update":
-            schedule = self.result["schedule"]
-            job_id = self.result["job_id"]
-            cron_expr = self.result["cron_expression"]
-            
-            success(f"✅ Đã cấu hình lịch trình backup tự động cho website {domain}.")
-            info(f"⏱️ Lịch trình: {self._format_schedule(schedule)}")
-            info(f"🔄 Biểu thức Cron: {cron_expr}")
-            info(f"🔑 Job ID: {job_id}")
-            
-            if schedule.cloud_sync:
-                info("☁️ Đồng bộ lên cloud storage: Bật")
-            else:
-                info("☁️ Đồng bộ lên cloud storage: Tắt")
-            
-            retention = "Tất cả" if schedule.retention_count == 0 else str(schedule.retention_count)
-            info(f"🔢 Số lượng backup giữ lại: {retention}")
-    
-    def _format_schedule(self, schedule):
-        """
-        Định dạng lịch trình để hiển thị.
-        
-        Args:
-            schedule: Đối tượng BackupSchedule
-            
-        Returns:
-            str: Chuỗi mô tả lịch trình
-        """
-        if not schedule:
-            return "Không có"
-        
-        hour_min = f"{schedule.hour:02d}:{schedule.minute:02d}"
-        
-        if schedule.schedule_type == "daily":
-            result = f"Hàng ngày lúc {hour_min}"
-        elif schedule.schedule_type == "weekly" and schedule.day_of_week is not None:
-            days = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
-            day_name = days[schedule.day_of_week]
-            result = f"{day_name} hàng tuần lúc {hour_min}"
-        elif schedule.schedule_type == "monthly" and schedule.day_of_month is not None:
-            result = f"Ngày {schedule.day_of_month} hàng tháng lúc {hour_min}"
+        if success:
+            if action == "disable":
+                success(f"✅ Đã vô hiệu hóa lịch trình backup cho website {domain}.")
+            elif action == "create":
+                success(f"✅ Đã tạo lịch trình backup cho website {domain}.")
+                
+                # Hiển thị thông tin lịch trình
+                if config:
+                    schedule_type = config["schedule_type"]
+                    hour = config["hour"]
+                    minute = config["minute"]
+                    
+                    schedule_info = ""
+                    if schedule_type == "daily":
+                        schedule_info = f"hàng ngày lúc {hour:02d}:{minute:02d}"
+                    elif schedule_type == "weekly":
+                        day = config["day_of_week"]
+                        day_names = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+                        day_name = day_names[day] if 0 <= day < len(day_names) else f"ngày {day}"
+                        schedule_info = f"hàng tuần vào {day_name} lúc {hour:02d}:{minute:02d}"
+                    elif schedule_type == "monthly":
+                        day = config["day_of_month"]
+                        schedule_info = f"hàng tháng vào ngày {day} lúc {hour:02d}:{minute:02d}"
+                    
+                    # Hiển thị provider
+                    provider = config["provider"]
+                    provider_display = provider
+                    if provider == "local":
+                        provider_display = "lưu trữ local"
+                    elif provider.startswith("rclone:"):
+                        remote_name = provider.split(":")[1]
+                        provider_display = f"lưu trữ đám mây ({remote_name})"
+                    
+                    info(f"⏰ Lịch trình: {schedule_info}")
+                    info(f"📦 Lưu trữ tại: {provider_display}")
+            elif action == "update":
+                success(f"✅ Đã cập nhật lịch trình backup cho website {domain}.")
+                
+                # Hiển thị thông tin lịch trình đã cập nhật
+                if config:
+                    schedule_type = config["schedule_type"]
+                    hour = config["hour"]
+                    minute = config["minute"]
+                    
+                    schedule_info = ""
+                    if schedule_type == "daily":
+                        schedule_info = f"hàng ngày lúc {hour:02d}:{minute:02d}"
+                    elif schedule_type == "weekly":
+                        day = config["day_of_week"]
+                        day_names = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+                        day_name = day_names[day] if 0 <= day < len(day_names) else f"ngày {day}"
+                        schedule_info = f"hàng tuần vào {day_name} lúc {hour:02d}:{minute:02d}"
+                    elif schedule_type == "monthly":
+                        day = config["day_of_month"]
+                        schedule_info = f"hàng tháng vào ngày {day} lúc {hour:02d}:{minute:02d}"
+                    
+                    # Hiển thị provider
+                    provider = config["provider"]
+                    provider_display = provider
+                    if provider == "local":
+                        provider_display = "lưu trữ local"
+                    elif provider.startswith("rclone:"):
+                        remote_name = provider.split(":")[1]
+                        provider_display = f"lưu trữ đám mây ({remote_name})"
+                    
+                    info(f"⏰ Lịch trình mới: {schedule_info}")
+                    info(f"📦 Lưu trữ tại: {provider_display}")
         else:
-            result = f"Lịch trình không hợp lệ"
-        
-        if not schedule.enabled:
-            result += " (đã vô hiệu hóa)"
-        
-        return result
-    
-    def _create_cron_expression(self, schedule):
-        """
-        Tạo biểu thức cron từ cấu hình lịch trình.
-        
-        Args:
-            schedule: Đối tượng BackupSchedule
-            
-        Returns:
-            str: Biểu thức cron (VD: "0 2 * * *")
-        """
-        minute = schedule.minute
-        hour = schedule.hour
-        day_of_month = "*"
-        month = "*"
-        day_of_week = "*"
-        
-        if schedule.schedule_type == "weekly" and schedule.day_of_week is not None:
-            day_of_week = str(schedule.day_of_week)
-        
-        if schedule.schedule_type == "monthly" and schedule.day_of_month is not None:
-            day_of_month = str(schedule.day_of_month)
-        
-        return f"{minute} {hour} {day_of_month} {month} {day_of_week}"
+            error(f"❌ Lỗi xử lý lịch trình backup: {message}")
 
 
 # Hàm tiện ích để tương thích với giao diện cũ
@@ -530,7 +587,7 @@ def prompt_schedule_backup():
     Duy trì tương thích với giao diện cũ.
     
     Returns:
-        Kết quả từ quá trình lên lịch backup hoặc None nếu bị hủy
+        Kết quả từ quá trình lên lịch hoặc None nếu bị hủy
     """
     prompt = ScheduleBackupPrompt()
     return prompt.run()

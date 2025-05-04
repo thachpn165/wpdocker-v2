@@ -39,3 +39,24 @@ def _is_arm() -> bool:
         debug(f"⚠️ Hệ thống ARM phát hiện: {arch}")
         return True
     return False
+
+def validate_directory(directory_path: str) -> bool:
+    """
+    Kiểm tra và tạo thư mục nếu chưa tồn tại.
+    
+    Args:
+        directory_path: Đường dẫn đến thư mục cần kiểm tra và tạo
+        
+    Returns:
+        True nếu thư mục đã tồn tại hoặc được tạo thành công
+    """
+    import os
+    if not os.path.exists(directory_path):
+        try:
+            os.makedirs(directory_path, exist_ok=True)
+            debug(f"✅ Đã tạo thư mục: {directory_path}")
+            return True
+        except Exception as e:
+            debug(f"❌ Không thể tạo thư mục {directory_path}: {e}")
+            return False
+    return True

@@ -38,3 +38,6 @@ core/wp/wp-cli.phar
 
 # Logs
 *.log
+
+# Docs
+docs/
