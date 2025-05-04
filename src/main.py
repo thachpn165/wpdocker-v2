@@ -67,279 +67,133 @@ def not_implemented() -> None:
 def handle_website_menu() -> None:
     """Handle website management menu."""
     try:
-        choices = [
-            {"name": "1. Create Website", "value": "1"},
-            {"name": "2. Delete Website", "value": "2"},
-            {"name": "3. List Websites", "value": "3"},
-            {"name": "4. Restart Website", "value": "4"},
-            {"name": "5. View Website Logs", "value": "5"},
-            {"name": "6. View Website Info", "value": "6"},
-            {"name": "7. Migrate Data to WP Docker", "value": "7"},
-            {"name": "0. Back to Main Menu", "value": "0"},
-        ]
-        
-        answer = questionary.select(
-            "\n🌐 Website Management:",
-            choices=choices,
-            style=custom_style
-        ).ask()
-        
-        if answer == "3":
-            try:
-                from src.features.website.cli.list import list_websites
-                list_websites()
-            except ImportError:
-                not_implemented()
-        elif answer != "0":
-            not_implemented()
+        # Use prompt_menu module
+        from src.features.website.prompts.prompt_menu import prompt_website_menu
+        prompt_website_menu()
     except Exception as e:
-        error(f"Error in website menu: {e}")
+        error(f"Error importing website menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_ssl_menu() -> None:
     """Handle SSL certificates menu."""
     try:
-        choices = [
-            {"name": "1. Create Self-Signed Certificate", "value": "1"},
-            {"name": "2. Create Let's Encrypt Certificate", "value": "2"},
-            {"name": "3. Install Custom Certificate", "value": "3"},
-            {"name": "4. Check Certificate Info", "value": "4"},
-            {"name": "5. Edit Current Certificate", "value": "5"},
-            {"name": "0. Back to Main Menu", "value": "0"},
-        ]
-        
-        answer = questionary.select(
-            "\n🔒 SSL Certificate Management:",
-            choices=choices,
-            style=custom_style
-        ).ask()
-        
-        if answer != "0":
-            not_implemented()
+        # Use prompt_menu module
+        from src.features.ssl.prompts.prompt_menu import prompt_ssl_menu
+        prompt_ssl_menu()
     except Exception as e:
-        error(f"Error in SSL menu: {e}")
+        error(f"Error importing SSL menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_cron_menu() -> None:
     """Handle cron job management menu."""
     try:
-        choices = [
-            {"name": "1. List Tasks", "value": "1"},
-            {"name": "2. Enable/Disable Task", "value": "2"},
-            {"name": "3. Delete Task", "value": "3"},
-            {"name": "4. Run Task Now", "value": "4"},
-            {"name": "0. Back to System Menu", "value": "0"},
-        ]
-        
-        answer = questionary.select(
-            "\n⏱️ Scheduled Task Management:",
-            choices=choices,
-            style=custom_style
-        ).ask()
-        
-        if answer != "0":
-            not_implemented()
+        # Use prompt_menu module
+        from src.features.cron.prompts.prompt_menu import prompt_cron_menu
+        prompt_cron_menu()
     except Exception as e:
-        error(f"Error in cron menu: {e}")
+        error(f"Error importing cron menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_system_menu() -> None:
     """Handle system tools menu."""
     try:
-        choices = [
-            {"name": "1. Rebuild Core Containers", "value": "1"},
-            {"name": "2. Update WP Docker Version", "value": "2"},
-            {"name": "3. View System Information", "value": "3"},
-            {"name": "4. Change Language", "value": "4"},
-            {"name": "5. Change Version Channel", "value": "5"},
-            {"name": "6. Clean Docker", "value": "6"},
-            {"name": "7. Manage Scheduled Tasks", "value": "7"},
-            {"name": "0. Back to Main Menu", "value": "0"},
-        ]
-        
-        answer = questionary.select(
-            "\n⚙️ System Tools:",
-            choices=choices,
-            style=custom_style
-        ).ask()
-        
-        if answer == "7":
-            handle_cron_menu()
-        elif answer != "0":
-            not_implemented()
+        # Use prompt_menu module
+        from src.features.system.prompts.prompt_menu import prompt_system_menu
+        prompt_system_menu()
     except Exception as e:
-        error(f"Error in system menu: {e}")
+        error(f"Error importing system menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_cloud_menu() -> None:
     """Handle cloud storage menu."""
     try:
-        try:
-            from src.features.rclone.prompts.rclone_prompt import prompt_rclone_menu
-            prompt_rclone_menu()
-        except ImportError:
-            choices = [
-                {"name": "1. Manage RClone", "value": "1"},
-                {"name": "0. Back to Main Menu", "value": "0"},
-            ]
-            
-            answer = questionary.select(
-                "\n📦 RClone Management:",
-                choices=choices,
-                style=custom_style
-            ).ask()
-            
-            if answer != "0":
-                not_implemented()
+        # Use prompt_menu module
+        from src.features.rclone.prompts.prompt_menu import prompt_rclone_menu
+        prompt_rclone_menu()
     except Exception as e:
-        error(f"Error in cloud menu: {e}")
+        error(f"Error importing rclone menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_cloud_backup() -> None:
     """Handle cloud backup menu."""
     try:
-        from src.features.backup.prompts.prompt_cloud_backup import prompt_cloud_backup
+        # Use prompt_menu module
+        from src.features.backup.prompts.prompt_menu import prompt_cloud_backup
         prompt_cloud_backup()
-    except ImportError:
-        error("Cloud backup not implemented yet")
+    except Exception as e:
+        error(f"Error importing cloud backup menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_backup_menu() -> None:
     """Handle backup and restore menu."""
     try:
-        try:
-            from src.features.backup.prompts.prompt_backup_website import prompt_backup_website
-            
-            choices = [
-                {"name": "1. Create Website Backup", "value": "1"},
-                {"name": "2. Restore Backup", "value": "2"},
-                {"name": "3. List Backups", "value": "3"},
-                {"name": "4. Delete Backup", "value": "4"},
-                {"name": "5. Schedule Automatic Backup", "value": "5"},
-                {"name": "6. Cloud Backup with RClone", "value": "6"},
-                {"name": "0. Back to Main Menu", "value": "0"},
-            ]
-            
-            answer = questionary.select(
-                "\n💾 Backup Management:",
-                choices=choices,
-                style=custom_style
-            ).ask()
-            
-            if answer == "1":
-                prompt_backup_website()
-            elif answer == "6":
-                handle_cloud_backup()
-            elif answer != "0":
-                not_implemented()
-        except ImportError:
-            error("Backup module not fully implemented yet")
-            input("Press Enter to continue...")
+        # Use prompt_menu module
+        from src.features.backup.prompts.prompt_menu import prompt_backup_menu
+        prompt_backup_menu()
     except Exception as e:
-        error(f"Error in backup menu: {e}")
+        error(f"Error importing backup menu: {e}")
         input("Press Enter to continue...")
 
 
 def handle_wordpress_menu() -> None:
     """Handle WordPress tools menu."""
-    choices = [
-        {"name": "1. Install WordPress", "value": "1"},
-        {"name": "2. Manage Plugins", "value": "2"},
-        {"name": "3. Manage Themes", "value": "3"},
-        {"name": "4. Change WordPress Settings", "value": "4"},
-        {"name": "0. Back to Main Menu", "value": "0"},
-    ]
-    
-    answer = questionary.select(
-        "\n🔌 WordPress Tools:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    
-    if answer != "0":
-        not_implemented()
+    try:
+        # Use prompt_menu module
+        from src.features.wordpress.prompts.prompt_menu import prompt_wordpress_menu
+        prompt_wordpress_menu()
+    except Exception as e:
+        error(f"Error importing WordPress menu: {e}")
+        input("Press Enter to continue...")
 
 
 def handle_wp_cache_menu() -> None:
     """Handle WP cache setup menu."""
-    choices = [
-        {"name": "1. Install W3 Total Cache", "value": "1"},
-        {"name": "2. Install WP Fastest Cache", "value": "2"},
-        {"name": "3. Install WP Super Cache", "value": "3"},
-        {"name": "4. Configure FastCGI Cache", "value": "4"},
-        {"name": "0. Back to Main Menu", "value": "0"},
-    ]
-    
-    answer = questionary.select(
-        "\n⚡ WP Cache Setup:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    
-    if answer != "0":
-        not_implemented()
+    try:
+        # Use prompt_menu module
+        from src.features.cache.prompts.prompt_menu import prompt_cache_menu
+        prompt_cache_menu()
+    except Exception as e:
+        error(f"Error importing cache menu: {e}")
+        input("Press Enter to continue...")
 
 
 def handle_php_menu() -> None:
     """Handle PHP management menu."""
-    choices = [
-        {"name": "1. Change PHP Version", "value": "1"},
-        {"name": "2. Edit PHP Configuration", "value": "2"},
-        {"name": "3. Install PHP Extension", "value": "3"},
-        {"name": "0. Back to Main Menu", "value": "0"},
-    ]
-    
-    answer = questionary.select(
-        "\n🐘 PHP Management:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    
-    if answer != "0":
-        not_implemented()
+    try:
+        # Use prompt_menu module
+        from src.features.php.prompts.prompt_menu import prompt_php_menu
+        prompt_php_menu()
+    except Exception as e:
+        error(f"Error importing PHP menu: {e}")
+        input("Press Enter to continue...")
 
 
 def handle_mysql_menu() -> None:
     """Handle MySQL management menu."""
-    choices = [
-        {"name": "1. Edit MySQL Configuration", "value": "1"},
-        {"name": "2. Restore Database", "value": "2"},
-        {"name": "0. Back to Main Menu", "value": "0"},
-    ]
-    
-    answer = questionary.select(
-        "\n🗄️ MySQL Management:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    
-    if answer != "0":
-        not_implemented()
+    try:
+        # Use prompt_menu module
+        from src.features.mysql.prompts.prompt_menu import prompt_mysql_menu
+        prompt_mysql_menu()
+    except Exception as e:
+        error(f"Error importing MySQL menu: {e}")
+        input("Press Enter to continue...")
 
 
 def handle_update_menu() -> None:
     """Handle update menu."""
-    choices = [
-        {"name": "1. Check for Updates", "value": "1"},
-        {"name": "2. Update to Latest Version", "value": "2"},
-        {"name": "3. View Changelog", "value": "3"},
-        {"name": "0. Back to Main Menu", "value": "0"},
-    ]
-    
-    answer = questionary.select(
-        "\n🔄 Check & Update WP Docker:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    
-    if answer != "0":
-        not_implemented()
+    try:
+        # Use prompt_menu module
+        from src.features.update.prompts.prompt_menu import prompt_update_menu
+        prompt_update_menu()
+    except Exception as e:
+        error(f"Error importing update menu: {e}")
+        input("Press Enter to continue...")
 
 
 def show_main_menu() -> bool:
