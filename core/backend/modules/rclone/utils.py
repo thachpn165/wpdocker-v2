@@ -103,6 +103,36 @@ def validate_remote_params(remote_type: str, params: Dict[str, str]) -> bool:
     return True
 
 
+def get_remote_type_display_name(remote_type: str) -> str:
+    """Return a friendly display name for the remote type.
+    
+    Args:
+        remote_type: The technical name of the remote type
+        
+    Returns:
+        str: The friendly display name for the remote type
+    """
+    remote_type_display = {
+        "s3": "Amazon S3 / Tương thích S3",
+        "b2": "Backblaze B2",
+        "drive": "Google Drive",
+        "dropbox": "Dropbox",
+        "onedrive": "Microsoft OneDrive",
+        "box": "Box",
+        "sftp": "SFTP",
+        "ftp": "FTP",
+        "webdav": "WebDAV",
+        "azureblob": "Azure Blob Storage",
+        "mega": "Mega.nz",
+        "pcloud": "pCloud",
+        "swift": "OpenStack Swift",
+        "yandex": "Yandex Disk",
+        "alias": "Alias",
+        "local": "Local Disk"
+    }
+    return remote_type_display.get(remote_type, remote_type.upper())
+
+
 def validate_raw_config(raw_config: str, remote_type: str) -> bool:
     """Validate raw rclone config format.
     

@@ -12,7 +12,8 @@ from core.backend.modules.rclone.utils import (
     validate_remote_params,
     validate_raw_config,
     format_size,
-    get_backup_filename
+    get_backup_filename,
+    get_remote_type_display_name
 )
 from core.backend.utils.container_utils import convert_host_path_to_container
 from core.backend.utils.debug import Debug
@@ -64,7 +65,8 @@ def prompt_manage_rclone():
         elif "Sao lưu" in action:
             prompt_backup_to_remote()
         elif "Khôi phục" in action:
-            prompt_restore_from_remote()
+            from core.backend.modules.backup.prompts.prompt_cloud_backup import prompt_restore_from_cloud
+            prompt_restore_from_cloud()
         elif "Xem tệp tin" in action:
             prompt_view_backup_files()
         elif "Quay lại" in action:
@@ -162,27 +164,6 @@ def prompt_add_remote():
     input("\nPress Enter to continue...")
 
 
-def get_remote_type_display_name(remote_type: str) -> str:
-    """Trả về tên hiển thị thân thiện cho loại remote."""
-    remote_type_display = {
-        "s3": "Amazon S3 / Tương thích S3",
-        "b2": "Backblaze B2",
-        "drive": "Google Drive",
-        "dropbox": "Dropbox",
-        "onedrive": "Microsoft OneDrive",
-        "box": "Box",
-        "sftp": "SFTP",
-        "ftp": "FTP",
-        "webdav": "WebDAV",
-        "azureblob": "Azure Blob Storage",
-        "mega": "Mega.nz",
-        "pcloud": "pCloud",
-        "swift": "OpenStack Swift",
-        "yandex": "Yandex Disk",
-        "alias": "Alias",
-        "local": "Local Disk"
-    }
-    return remote_type_display.get(remote_type, remote_type.upper())
 
 def prompt_remote_params(remote_type: str) -> Dict[str, str]:
     """Prompt for remote-specific parameters and provide detailed guidance."""
@@ -794,44 +775,40 @@ def prompt_backup_to_remote():
             
             domain = domain_input_answer["domain_input"]
     
-    # Hiển thị đường dẫn dựa vào domain
-    backup_dir = rclone_manager.get_backup_dir_for_domain(domain) if domain else rclone_manager.get_backup_dir_for_domain()
-    
-    # Get backup source and destination path
-    backup_questions = [
-        inquirer.Text(
-            "source",
-            message=f"Nhập đường dẫn thư mục nguồn{' (tương đối với ' + domain + ')' if domain else ''}:",
-            default="data" if not domain else "."
-        ),
-        inquirer.Text(
-            "destination",
-            message=f"Nhập đường dẫn đích trên remote{' (cho ' + domain + ')' if domain else ''}:",
-            default=f"backups/{domain if domain else ''}"
-        ),
-    ]
-    
-    backup_answers = inquirer.prompt(backup_questions)
-    
-    if not backup_answers:
-        return
-    
-    source = backup_answers["source"]
-    destination = backup_answers["destination"]
-    
-    # Hiển thị thông tin đầy đủ
+    # Sử dụng các đường dẫn tiêu chuẩn
     if domain:
+        # Đường dẫn nguồn tiêu chuẩn
+        sites_dir = get_env_value("SITES_DIR")
+        source = os.path.join(sites_dir, domain, "wordpress")
+        
+        # Kiểm tra thư mục wordpress có tồn tại không
+        if not os.path.exists(source):
+            # Thử thư mục www nếu wordpress không tồn tại
+            www_dir = os.path.join(sites_dir, domain, "www")
+            if os.path.exists(www_dir):
+                source = www_dir
+                print(f"\n⚠️ Thư mục wordpress không tồn tại, sử dụng thư mục www thay thế.")
+            else:
+                # Sử dụng thư mục gốc của domain
+                source = os.path.join(sites_dir, domain)
+                print(f"\n⚠️ Không tìm thấy thư mục wordpress hoặc www, sử dụng thư mục gốc của trang web.")
+        
+        # Đường dẫn đích tiêu chuẩn trên remote
+        destination = f"backups/{domain}"
+        
         print(f"\nThông tin sao lưu cho trang web: {domain}")
-        print(f"Thư mục sao lưu: {os.path.join(backup_dir, source)}")
+        print(f"Nguồn: {source}")
+        print(f"Đích: {remote_name}:{destination}")
     else:
-        print("\nThông tin sao lưu chung:")
-        print(f"Thư mục sao lưu: {os.path.join(backup_dir, source)}")
+        print("\n❌ Cần chọn một trang web cụ thể để sao lưu.")
+        input("\nNhấn Enter để tiếp tục...")
+        return
     
     # Confirm backup operation
     confirm = inquirer.prompt([
         inquirer.Confirm(
             "confirm", 
-            message=f"Sao lưu '{source}' lên '{remote_name}:{destination}'?", 
+            message=f"Sao lưu '{domain}' lên '{remote_name}:{destination}'?", 
             default=False
         )
     ])
@@ -864,188 +841,6 @@ def prompt_backup_to_remote():
     input("\nNhấn Enter để tiếp tục...")
 
 
-def prompt_restore_from_remote():
-    """Prompt for restoring data from a remote."""
-    rclone_manager = RcloneManager()
-    config_manager = RcloneConfigManager()
-    remotes = rclone_manager.list_remotes()
-    
-    if not remotes:
-        print("\nChưa có remote nào được cấu hình. Vui lòng thêm remote trước.")
-        input("\nNhấn Enter để tiếp tục...")
-        return
-    
-    # Tạo danh sách lựa chọn với thông tin thêm về loại remote
-    display_choices = []
-    for remote in remotes:
-        config = config_manager.get_remote_config(remote)
-        remote_type = config.get("type", "unknown") if config else "unknown"
-        display_type = get_remote_type_display_name(remote_type)
-        display_choices.append(f"{remote} ({display_type})")
-    
-    # Thêm lựa chọn huỷ
-    display_choices.append("Huỷ")
-    
-    questions = [
-        inquirer.List(
-            "remote_display",
-            message="Chọn remote nguồn:",
-            choices=display_choices,
-        ),
-    ]
-    
-    answers = inquirer.prompt(questions)
-    
-    if not answers or answers["remote_display"] == "Huỷ":
-        return
-    
-    # Trích xuất tên remote từ chuỗi hiển thị (trước dấu ngoặc đầu tiên)
-    remote_name = answers["remote_display"].split(" (")[0]
-    
-    # List files in the remote
-    print(f"\n⏳ Đang liệt kê tệp tin trong remote '{remote_name}'...")
-    files = rclone_manager.list_files(remote_name)
-    
-    if not files:
-        print(f"\n❌ Không tìm thấy tệp tin nào trong remote '{remote_name}'.")
-        input("\nNhấn Enter để tiếp tục...")
-        return
-    
-    # Kiểm tra xem người dùng muốn khôi phục cho trang web cụ thể hay không
-    site_restore_question = [
-        inquirer.Confirm(
-            "use_domain",
-            message="Bạn muốn khôi phục cho một trang web cụ thể?",
-            default=True
-        )
-    ]
-    
-    site_restore_answer = inquirer.prompt(site_restore_question)
-    if not site_restore_answer:
-        return
-    
-    domain = None
-    if site_restore_answer.get("use_domain", True):
-        # Hiển thị các domain sẵn có nếu SITES_DIR tồn tại
-        sites_dir = get_env_value("SITES_DIR")
-        if sites_dir and os.path.exists(sites_dir):
-            available_domains = [d for d in os.listdir(sites_dir) if os.path.isdir(os.path.join(sites_dir, d))]
-            
-            if available_domains:
-                domain_question = [
-                    inquirer.List(
-                        "domain",
-                        message="Chọn trang web để khôi phục:",
-                        choices=available_domains + ["Tự nhập tên miền khác"]
-                    )
-                ]
-                
-                domain_answer = inquirer.prompt(domain_question)
-                if not domain_answer:
-                    return
-                
-                if domain_answer["domain"] == "Tự nhập tên miền khác":
-                    custom_domain_question = [
-                        inquirer.Text(
-                            "custom_domain",
-                            message="Nhập tên miền của trang web:"
-                        )
-                    ]
-                    
-                    custom_domain_answer = inquirer.prompt(custom_domain_question)
-                    if not custom_domain_answer:
-                        return
-                    
-                    domain = custom_domain_answer["custom_domain"]
-                else:
-                    domain = domain_answer["domain"]
-            else:
-                # Không có domain, yêu cầu người dùng nhập
-                domain_input_question = [
-                    inquirer.Text(
-                        "domain_input",
-                        message="Nhập tên miền của trang web cần khôi phục:"
-                    )
-                ]
-                
-                domain_input_answer = inquirer.prompt(domain_input_question)
-                if not domain_input_answer:
-                    return
-                
-                domain = domain_input_answer["domain_input"]
-        else:
-            # Không có SITES_DIR hoặc thư mục không tồn tại, yêu cầu người dùng nhập
-            domain_input_question = [
-                inquirer.Text(
-                    "domain_input",
-                    message="Nhập tên miền của trang web cần khôi phục:"
-                )
-            ]
-            
-            domain_input_answer = inquirer.prompt(domain_input_question)
-            if not domain_input_answer:
-                return
-            
-            domain = domain_input_answer["domain_input"]
-    
-    # Hiển thị đường dẫn dựa vào domain
-    restore_dir = rclone_manager.get_backup_dir_for_domain(domain) if domain else rclone_manager.get_backup_dir_for_domain()
-    
-    # Get restore source and destination path
-    restore_questions = [
-        inquirer.Text(
-            "source",
-            message=f"Nhập đường dẫn nguồn trên remote{' (cho ' + domain + ')' if domain else ''}:",
-            default=f"backups/{domain if domain else ''}"
-        ),
-        inquirer.Text(
-            "destination",
-            message=f"Nhập đường dẫn đích trên máy cục bộ{' (tương đối với ' + domain + ')' if domain else ''}:",
-            default="restored" if not domain else "."
-        ),
-    ]
-    
-    restore_answers = inquirer.prompt(restore_questions)
-    
-    if not restore_answers:
-        return
-    
-    source = restore_answers["source"]
-    destination = restore_answers["destination"]
-    
-    # Hiển thị thông tin đầy đủ
-    if domain:
-        print(f"\nThông tin khôi phục cho trang web: {domain}")
-        print(f"Thư mục đích khôi phục: {os.path.join(restore_dir, destination)}")
-    else:
-        print("\nThông tin khôi phục chung:")
-        print(f"Thư mục đích khôi phục: {os.path.join(restore_dir, destination)}")
-    
-    # Confirm restore operation
-    confirm = inquirer.prompt([
-        inquirer.Confirm(
-            "confirm", 
-            message=f"Khôi phục từ '{remote_name}:{source}' về '{destination}'?", 
-            default=False
-        )
-    ])
-    
-    if confirm and confirm["confirm"]:
-        print(f"\n⏳ Đang bắt đầu khôi phục từ '{remote_name}'...")
-        
-        # Ensure destination directory exists locally
-        local_restore_dir = os.path.join(restore_dir, destination)
-        os.makedirs(os.path.dirname(local_restore_dir), exist_ok=True)
-        
-        # Execute restore
-        success, output = rclone_manager.restore(remote_name, source, destination, domain)
-        
-        if success:
-            print(f"\n✅ Khôi phục hoàn tất thành công.")
-        else:
-            print(f"\n❌ Khôi phục thất bại: {output}")
-    
-    input("\nNhấn Enter để tiếp tục...")
 
 
 def prompt_view_backup_files():
