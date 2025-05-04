@@ -5,9 +5,11 @@
 
 # Load environment variables and utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/get_path.sh"
-source "$SCRIPT_DIR/load_config.sh"
-source "$SCRIPT_DIR/messages_utils.sh"
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BASH_UTILS_DIR="$INSTALL_DIR/src/bash"
+source "$BASH_UTILS_DIR/get_path.sh"
+source "$BASH_UTILS_DIR/load_config.sh"
+source "$BASH_UTILS_DIR/messages_utils.sh"
 
 # Check arguments
 if [ $# -lt 2 ]; then
@@ -44,10 +46,10 @@ fi
 # Set the PYTHONPATH
 export PYTHONPATH="${INSTALL_DIR}"
 
-# Upload the backup to the remote
+# Upload the backup to the remote - updated to use new structure
 info "Uploading backup to ${REMOTE_NAME}..."
 python -c "
-from core.backend.modules.rclone.backup_integration import RcloneBackupIntegration;
+from src.features.rclone.backup_integration import RcloneBackupIntegration;
 integration = RcloneBackupIntegration();
 success, message = integration.backup_to_remote('${REMOTE_NAME}', '${WEBSITE_NAME}', '${BACKUP_PATH}');
 print(message);

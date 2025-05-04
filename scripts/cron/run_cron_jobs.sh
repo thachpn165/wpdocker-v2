@@ -59,8 +59,19 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Check if new structure exists
+if [ -f "$PROJECT_ROOT/src/features/cron/cli.py" ]; then
+    CLI_PATH="$PROJECT_ROOT/src/features/cron/cli.py"
+elif [ -f "$PROJECT_ROOT/core/backend/modules/cron/cli.py" ]; then
+    # Fallback to old structure if new structure not found
+    CLI_PATH="$PROJECT_ROOT/core/backend/modules/cron/cli.py"
+else
+    log "❌ Could not find cron CLI script in either new or old structure"
+    exit 1
+fi
+
 # Command to execute
-CMD="$PROJECT_ROOT/core/backend/modules/cron/cli.py run"
+CMD="$CLI_PATH run"
 
 # If a Job ID parameter is provided, add it to the command
 if [ -n "$JOB_ID" ]; then
@@ -68,7 +79,7 @@ if [ -n "$JOB_ID" ]; then
 fi
 
 # Make CLI script executable if needed
-chmod +x "$PROJECT_ROOT/core/backend/modules/cron/cli.py"
+chmod +x "$CLI_PATH"
 
 # Log Python and environment information
 log "Python version: $(python3 --version)"

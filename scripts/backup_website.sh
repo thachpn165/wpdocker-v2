@@ -5,9 +5,11 @@
 
 # Load environment variables and utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/get_path.sh" 2>/dev/null || true
-source "$SCRIPT_DIR/load_config.sh" 2>/dev/null || true
-source "$SCRIPT_DIR/messages_utils.sh" 2>/dev/null || true
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BASH_UTILS_DIR="$INSTALL_DIR/src/bash"
+source "$BASH_UTILS_DIR/get_path.sh" 2>/dev/null || true
+source "$BASH_UTILS_DIR/load_config.sh" 2>/dev/null || true
+source "$BASH_UTILS_DIR/messages_utils.sh" 2>/dev/null || true
 
 # Default values
 PROVIDER="local"
@@ -47,9 +49,9 @@ fi
 # Set the PYTHONPATH
 export PYTHONPATH="${INSTALL_DIR}"
 
-# Run the backup using BackupManager
+# Run the backup using BackupManager - updated to use new structure
 python -c "
-from core.backend.modules.backup.backup_manager import BackupManager;
+from src.features.backup.backup_manager import BackupManager;
 manager = BackupManager();
 success, result = manager.create_backup('${WEBSITE_NAME}', '${PROVIDER}');
 print(result);

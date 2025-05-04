@@ -41,3 +41,8 @@ core/wp/wp-cli.phar
 
 # Docs
 docs/
+
+# Misc
+README_NEW_STRUCTURE.md
+migrate.py 
+MIGRATION.md

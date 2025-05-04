@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from core.backend.modules.mysql.database import create_database
+from src.features.mysql.database import create_database
 
 @pytest.fixture
 def mock_env():
@@ -12,22 +12,22 @@ def mock_mysql_client():
 
 @pytest.fixture
 def mock_get_mysql_root_password():
-    with patch("core.backend.modules.mysql.database.get_mysql_root_password") as mock:
+    with patch("src.features.mysql.database.get_mysql_root_password") as mock:
         yield mock
 
 @pytest.fixture
 def mock_subprocess_run():
-    with patch("core.backend.modules.mysql.database.subprocess.run") as mock:
+    with patch("src.features.mysql.database.subprocess.run") as mock:
         yield mock
 
 @pytest.fixture
 def mock_error():
-    with patch("core.backend.modules.mysql.database.error") as mock:
+    with patch("src.features.mysql.database.error") as mock:
         yield mock
 
 @pytest.fixture
 def mock_info():
-    with patch("core.backend.modules.mysql.database.info") as mock:
+    with patch("src.features.mysql.database.info") as mock:
         yield mock
 
 def test_create_database_success(
@@ -39,8 +39,8 @@ def test_create_database_success(
     mock_get_mysql_root_password.return_value = "root_password"
     mock_subprocess_run.return_value = MagicMock()
 
-    with patch("core.backend.modules.mysql.database.env", mock_env), \
-         patch("core.backend.modules.mysql.database.mysql_client", mock_mysql_client):
+    with patch("src.features.mysql.database.env", mock_env), \
+         patch("src.features.mysql.database.mysql_client", mock_mysql_client):
         # Act
         result = create_database(domain)
 
@@ -64,8 +64,8 @@ def test_create_database_no_root_password(
     domain = "example.com"
     mock_get_mysql_root_password.return_value = None
 
-    with patch("core.backend.modules.mysql.database.env", mock_env), \
-         patch("core.backend.modules.mysql.database.mysql_client", mock_mysql_client):
+    with patch("src.features.mysql.database.env", mock_env), \
+         patch("src.features.mysql.database.mysql_client", mock_mysql_client):
         # Act
         result = create_database(domain)
 
@@ -83,8 +83,8 @@ def test_create_database_subprocess_error(
     mock_get_mysql_root_password.return_value = "root_password"
     mock_subprocess_run.side_effect = Exception("Subprocess error")
 
-    with patch("core.backend.modules.mysql.database.env", mock_env), \
-         patch("core.backend.modules.mysql.database.mysql_client", mock_mysql_client):
+    with patch("src.features.mysql.database.env", mock_env), \
+         patch("src.features.mysql.database.mysql_client", mock_mysql_client):
         # Act
         result = create_database(domain)
 
