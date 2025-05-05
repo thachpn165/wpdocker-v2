@@ -7,14 +7,15 @@ like creating, deleting, listing, and restarting websites.
 
 import questionary
 from questionary import Style
-from typing import Optional
+from typing import Optional, Callable, Any
 
 from src.common.logging import info, error, debug, success
+from src.common.ui.menu_utils import with_pause, pause_after_action
 
+@with_pause
 def not_implemented() -> None:
     """Handle not implemented features."""
     error("🚧 Feature not implemented yet")
-    input("Press Enter to continue...")
 
 # Custom style for the menu
 custom_style = Style([
@@ -54,36 +55,43 @@ def prompt_website_menu() -> None:
             try:
                 from src.features.website.cli.create import cli_create_website
                 cli_create_website()
+                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "2":
             try:
                 from src.features.website.cli.delete import cli_delete_website
                 cli_delete_website()
+                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "3":
             try:
                 from src.features.website.cli.list import list_websites
+                # Wrap the function call with pause_after_action
                 list_websites()
+                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "4":
             try:
                 from src.features.website.cli.restart import cli_restart_website
                 cli_restart_website()
+                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "5":
             try:
                 from src.features.website.cli.logs import cli_view_logs
                 cli_view_logs()
+                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "6":
             try:
                 from src.features.website.cli.info import cli_website_info
                 cli_website_info()
+                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "7":
