@@ -100,14 +100,13 @@ class Menu:
             
             if callable(selected_item.action):
                 try:
-                    selected_item.action()
+                    result = selected_item.action()
+                    # Always show Enter to continue prompt to view logs
+                    input("\n⏎ Press Enter to continue...")
                 except Exception as e:
                     self.debug.error(f"Error executing action for {selected_item.label}: {e}")
                     self.console.print(f"[red]Error:[/] {e}")
-            
-            # Don't require Enter after selecting Back
-            if selected_item.id != self.back_id:
-                input("\n⏎ Press Enter to return to menu...")
+                    input("\n⏎ Press Enter to continue...")
                 
     @classmethod
     def create_with_back(cls, title: str, items: List[MenuItem]) -> 'Menu':

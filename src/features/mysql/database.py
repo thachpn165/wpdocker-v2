@@ -80,7 +80,7 @@ def grant_privileges(db_name: str, db_user: str) -> bool:
     """
     try:
         run_mysql_command(
-            f"GRANT ALL PRIVILEGES ON {db_name}.* TO {db_user}@'%'; FLUSH PRIVILEGES;"
+            f"GRANT ALL PRIVILEGES ON {db_name}.* TO '{db_user}'@'%'; FLUSH PRIVILEGES;"
         )
         info(f"✅ Granted privileges to user {db_user} on database {db_name}")
         return True
@@ -134,7 +134,8 @@ def delete_database(domain: str) -> bool:
     db_name = f"{domain.replace('.', '_')}_wpdb"
     
     try:
-        run_mysql_command(f"DROP DATABASE IF EXISTS `{db_name}`;")
+        # Escape backticks in the SQL command properly
+        run_mysql_command(f"DROP DATABASE IF EXISTS {db_name};")
         info(f"🗑️ Deleted database: {db_name}")
         return True
     except Exception as e:

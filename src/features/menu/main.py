@@ -96,7 +96,9 @@ class Menu:
         
         for item in self.items:
             if item.id == answer and item.action:
-                item.action()
+                result = item.action()
+                # Always prompt user to continue to view logs
+                input("\n⏎ Press Enter to continue...")
                 break
 
 
@@ -376,4 +378,4 @@ class MainMenu:
     def _not_implemented(self) -> None:
         """Handle not implemented features."""
         error("🚧 Feature not implemented yet")
-        input("Press Enter to continue...")
+        # We don't need an input prompt here since the menu will add one
