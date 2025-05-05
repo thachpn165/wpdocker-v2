@@ -7,7 +7,7 @@ PHP extensions for websites.
 
 from typing import Dict, List, Any, Optional, Type
 
-from src.common.logging import log_call, info, warn, error, success
+from src.common.logging import log_call, info, warn, error, success, debug
 from src.features.website.utils import get_site_config
 from src.features.php.extensions.registry import (
     get_extension_instance,
@@ -129,9 +129,30 @@ def get_available_extensions(domain: str) -> List[Dict[str, Any]]:
     all_extensions = get_extension_list()
     result = []
     
+    # Debug information
+    info(f"Available PHP extensions in registry: {list(all_extensions.keys())}")
+    info(f"Current PHP version: {php_version}")
+    info(f"Already installed extensions: {installed_ids}")
+    
+    if not all_extensions:
+        warn("No extensions are registered in the system. This is unexpected.")
+        # Add a default IonCube entry as fallback
+        try:
+            from src.features.php.extensions.ioncube_loader import IoncubeLoaderExtension
+            ext = IoncubeLoaderExtension()
+            result.append({
+                "id": ext.id,
+                "name": ext.name,
+                "description": ext.description,
+                "requires_compilation": ext.requires_compilation
+            })
+        except Exception as e:
+            error(f"Failed to add fallback IonCube entry: {e}")
+    
     for ext_id, ext_class in all_extensions.items():
         # Skip already installed extensions
         if ext_id in installed_ids:
+            debug(f"Skipping {ext_id} as it's already installed")
             continue
             
         try:
@@ -139,15 +160,32 @@ def get_available_extensions(domain: str) -> List[Dict[str, Any]]:
             
             # Check PHP version compatibility if version is known
             if php_version and not ext.check_compatibility(php_version):
+                info(f"Skipping {ext_id} as it's not compatible with PHP {php_version}")
                 continue
                 
+            info(f"Adding {ext_id} to available extensions")
             result.append({
                 "id": ext.id,
                 "name": ext.name,
                 "description": ext.description,
                 "requires_compilation": ext.requires_compilation
             })
-        except Exception:
-            pass
+        except Exception as e:
+            error(f"Error processing extension {ext_id}: {e}")
+    
+    # If no extensions are available after compatibility checks, add IonCube anyway with a note
+    if not result and php_version and php_version != "8.3":
+        try:
+            from src.features.php.extensions.ioncube_loader import IoncubeLoaderExtension
+            ext = IoncubeLoaderExtension()
+            result.append({
+                "id": ext.id,
+                "name": ext.name,
+                "description": f"{ext.description} (Force-added as fallback)",
+                "requires_compilation": ext.requires_compilation
+            })
+            warn("Force-adding IonCube Loader as no other extensions were available")
+        except Exception as e:
+            error(f"Failed to add fallback IonCube entry: {e}")
     
     return result

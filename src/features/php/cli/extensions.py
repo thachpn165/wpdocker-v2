@@ -22,6 +22,9 @@ from src.features.php.extensions.manager import (
     get_available_extensions
 )
 
+# Force extensions to be registered
+import src.features.php.extensions.force_registry
+
 
 # Create a console instance for rich output
 console = Console()
