@@ -122,11 +122,25 @@ class MySQLBootstrap(BaseBootstrap):
             bool: True if successful, False otherwise
         """
         try:
+            # Verify required environment variables are available
+            required_vars = ["MYSQL_CONTAINER_NAME", "MYSQL_VOLUME_NAME", "DOCKER_NETWORK", 
+                            "PROJECT_NAME", "MYSQL_CONFIG_FILE"]
+            for var in required_vars:
+                if var not in env:
+                    self.debug.error(f"Required environment variable {var} not found")
+                    return False
+                self.debug.debug(f"Using {var}={env[var]}")
+            
             # Get configuration details
             mysql_container = env["MYSQL_CONTAINER_NAME"]
             volume_name = env["MYSQL_VOLUME_NAME"]
             docker_network = env["DOCKER_NETWORK"]
             project_name = env["PROJECT_NAME"]
+            config_path = env["MYSQL_CONFIG_FILE"]
+            
+            # Log important paths
+            self.debug.debug(f"MySQL container name: {mysql_container}")
+            self.debug.debug(f"MySQL config file path: {config_path}")
             
             # Step 1: Configure MySQL version
             if not self._configure_mysql_version():
@@ -138,6 +152,7 @@ class MySQLBootstrap(BaseBootstrap):
                 return False
                 
             # Step 3: Create MySQL configuration file (using the ensure function)
+            # Ensure config directory and file exist before creating the compose file
             if not self.ensure_mysql_config_file():
                 return False
                 

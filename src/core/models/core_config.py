@@ -16,11 +16,9 @@ class CoreConfig:
         channel: Release channel (stable, beta, etc.)
         timezone: System timezone setting
         webserver: Web server type (nginx, etc.)
-        mysql_version: MySQL/MariaDB version
         lang: Interface language
     """
     channel: str
     timezone: str
     webserver: str
-    mysql_version: str
     lang: str

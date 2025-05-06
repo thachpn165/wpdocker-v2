@@ -113,6 +113,17 @@ class SystemInitializer:
             
             # Check the root directory first (new location)
             root_env_file = os.path.join(install_dir, 'core.env')
+            root_env_sample = os.path.join(install_dir, 'core.env.sample')
+            
+            # Create from sample if needed
+            if not os.path.exists(root_env_file) and os.path.exists(root_env_sample):
+                try:
+                    self.debug.info(f"Creating core.env from sample...")
+                    import shutil
+                    shutil.copy2(root_env_sample, root_env_file)
+                    self.debug.success(f"Created core.env from sample template")
+                except Exception as e:
+                    self.debug.error(f"Failed to create core.env from sample: {e}")
             
             # Fallback to src/config directory
             config_env_file = os.path.join(install_dir, 'src', 'config', 'core.env')

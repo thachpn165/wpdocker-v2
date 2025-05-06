@@ -85,18 +85,12 @@ class ConfigBootstrap(BaseBootstrap):
                 choices=["nginx", "apache"]
             ).ask()
             
-            mysql_version = questionary.select(
-                "Select MySQL version:",
-                choices=["10.6", "10.11"]
-            ).ask()
-            
-            # Create configuration
+            # Create configuration - removed mysql_version
             core_config = CoreConfig(
                 lang=lang,
                 channel=channel,
                 timezone=timezone,
-                webserver=webserver,
-                mysql_version=mysql_version
+                webserver=webserver
             )
             
             # Save configuration

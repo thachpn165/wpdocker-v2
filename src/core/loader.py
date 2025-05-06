@@ -121,6 +121,9 @@ class CoreLoader:
         """
         Find the core.env file.
         
+        If core.env doesn't exist but core.env.sample does, it will create
+        core.env from the sample.
+        
         Returns:
             Optional[str]: Path to env file or None if not found
         """
@@ -129,11 +132,36 @@ class CoreLoader:
         
         # Primary location: project root
         root_env = os.path.join(project_root, "core.env")
+        root_env_sample = os.path.join(project_root, "core.env.sample")
+        
+        # Check if we should create core.env from sample
+        if not os.path.exists(root_env) and os.path.exists(root_env_sample):
+            try:
+                self.debug.info(f"Creating core.env from sample...")
+                import shutil
+                shutil.copy2(root_env_sample, root_env)
+                self.debug.success(f"Created core.env from sample template")
+            except Exception as e:
+                self.debug.error(f"Failed to create core.env from sample: {e}")
+        
+        # Now check for the file again
         if os.path.exists(root_env):
             return root_env
             
         # Secondary location: src/config directory
         config_env = os.path.join(project_root, "src", "config", "core.env")
+        config_env_sample = os.path.join(project_root, "src", "config", "core.env.sample")
+        
+        # Check if we should create config/core.env from sample
+        if not os.path.exists(config_env) and os.path.exists(config_env_sample):
+            try:
+                self.debug.info(f"Creating src/config/core.env from sample...")
+                import shutil
+                shutil.copy2(config_env_sample, config_env)
+                self.debug.success(f"Created src/config/core.env from sample template")
+            except Exception as e:
+                self.debug.error(f"Failed to create src/config/core.env from sample: {e}")
+                
         if os.path.exists(config_env):
             return config_env
             

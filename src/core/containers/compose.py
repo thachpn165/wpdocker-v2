@@ -90,11 +90,25 @@ class Compose:
             with open(self.template_path, "r") as f:
                 content = f.read()
 
+            # Get environment variables from the environment
+            from src.common.utils.environment import env
+
+            # First, replace variables from env_map (passed in constructor)
             for key, value in self.env_map.items():
                 content = content.replace(f"${{{key}}}", value)
 
+            # Replace sensitive environment variables (passed in constructor)
             for key, value in self.sensitive_env.items():
                 content = content.replace(f"${{{key}}}", value)
+                
+            # Then replace any remaining variables from the system environment
+            # This ensures MYSQL_CONFIG_FILE and other env vars are correctly replaced
+            for key, value in env.items():
+                # Only replace if the variable still exists in the template
+                # and we haven't already replaced it from env_map
+                if f"${{{key}}}" in content and key not in self.env_map and key not in self.sensitive_env:
+                    self.debug.debug(f"Using environment variable {key}={value}")
+                    content = content.replace(f"${{{key}}}", value)
 
             with open(self.output_path, "w") as f:
                 f.write(content)

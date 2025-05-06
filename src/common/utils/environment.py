@@ -22,10 +22,22 @@ def load_environment(env_file: str = None) -> Dict[str, str]:
         Dictionary containing environment variables and their values.
     """
     if env_file is None:
-        # Try to find core.env in standard locations
+        # Find the core.env file in standard locations
         base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-        env_file = os.path.join(base_path, "core.env")
-
+        
+        # Check standard locations in priority order
+        standard_locations = [
+            os.path.join(base_path, "core.env"),  # Root directory (primary)
+            os.path.join(base_path, "src", "config", "core.env"),  # src/config (fallback)
+            os.path.join(base_path, "config", "core.env"),  # config/ (legacy)
+            os.path.join(base_path, "core", "core.env"),  # core/ (legacy)
+        ]
+        
+        for location in standard_locations:
+            if os.path.isfile(location):
+                env_file = location
+                break
+    
     if not os.path.isfile(env_file):
         print(f"Configuration file not found: {env_file}")
         return {}

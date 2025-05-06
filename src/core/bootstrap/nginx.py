@@ -157,6 +157,12 @@ class NginxBootstrap(BaseBootstrap):
             docker_compose_dir = os.path.join(env["INSTALL_DIR"], "docker-compose")
             os.makedirs(docker_compose_dir, exist_ok=True)
             
+            # Ensure FastCGI cache volume exists
+            self._ensure_fastcgi_cache_volume_exists()
+            
+            # Define FastCGI cache volume name
+            fastcgi_cache_volume = "wpdocker_fastcgi_cache_data"
+            
             # Initialize Compose object
             template_path = os.path.join(env["TEMPLATES_DIR"], "docker-compose", "docker-compose.nginx.yml.template")
             output_path = os.path.join(docker_compose_dir, "docker-compose.nginx.yml")
@@ -176,6 +182,7 @@ class NginxBootstrap(BaseBootstrap):
                     "NGINX_CONFIG_DIR": env["NGINX_CONFIG_DIR"],
                     "CONFIG_DIR": env["CONFIG_DIR"],
                     "SITES_DIR": env["SITES_DIR"],
+                    "FASTCGI_CACHE_VOLUME": fastcgi_cache_volume,
                 }
             )
             
@@ -187,6 +194,40 @@ class NginxBootstrap(BaseBootstrap):
             return True
         except Exception as e:
             self.debug.error(f"Failed to create NGINX container: {e}")
+            return False
+    
+    def _ensure_fastcgi_cache_volume_exists(self) -> bool:
+        """
+        Ensure the FastCGI cache volume exists.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        import subprocess
+        
+        try:
+            # Check if volume exists
+            result = subprocess.run(
+                ["docker", "volume", "ls", "--format", "{{.Name}}"],
+                capture_output=True, text=True, check=True
+            )
+            volumes = result.stdout.strip().splitlines()
+            volume_name = "wpdocker_fastcgi_cache_data"
+            
+            # Create volume if it doesn't exist
+            if volume_name not in volumes:
+                self.debug.info(f"FastCGI cache volume not found, creating it: {volume_name}")
+                subprocess.run(
+                    ["docker", "volume", "create", volume_name],
+                    check=True
+                )
+                self.debug.success(f"Created Docker volume for FastCGI cache: {volume_name}")
+            else:
+                self.debug.debug(f"FastCGI cache volume already exists: {volume_name}")
+                
+            return True
+        except Exception as e:
+            self.debug.error(f"Failed to ensure FastCGI cache volume exists: {e}")
             return False
             
     def _set_directory_permissions(self) -> bool:

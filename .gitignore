@@ -16,7 +16,7 @@ __pycache__/
 
 # Config files
 .venv
-core/core.env
+core.env
 config.json
 .secret_key
 
