@@ -17,6 +17,7 @@ from src.common.utils.password import strong_password
 from src.core.bootstrap.base import BaseBootstrap
 from src.core.config.manager import ConfigManager
 from src.core.containers.compose import Compose
+from src.common.containers.container import Container
 
 
 class MySQLBootstrap(BaseBootstrap):
@@ -26,6 +27,31 @@ class MySQLBootstrap(BaseBootstrap):
         """Initialize MySQL bootstrap."""
         super().__init__("MySQLBootstrap")
         self.config_manager = ConfigManager()
+        
+    @log_call
+    def bootstrap(self) -> bool:
+        """
+        Override the base bootstrap method to ensure the config file exists
+        even when bootstrap is skipped.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Skip if already bootstrapped, but still ensure config file exists
+        if self.is_bootstrapped():
+            self.debug.info("Already bootstrapped, skipping")
+            
+            # Even if bootstrapped, ensure the config file exists
+            config_path = env["MYSQL_CONFIG_FILE"]
+            if not os.path.exists(config_path):
+                self.debug.warn(f"MySQL config file is missing but MySQL is considered bootstrapped")
+                self.debug.info(f"Attempting to recreate the MySQL config file")
+                self.ensure_mysql_config_file()
+            
+            return True
+            
+        # Continue with normal bootstrap process
+        return super().bootstrap()
         
     def is_bootstrapped(self) -> bool:
         """
@@ -37,21 +63,31 @@ class MySQLBootstrap(BaseBootstrap):
         # Check if MySQL configuration exists
         config_data = self.config_manager.get()
         if not config_data.get("mysql", {}).get("version"):
+            self.debug.debug("❌ Bootstrap condition failed: MySQL version not configured in config")
             return False
             
         if not config_data.get("mysql", {}).get("root_passwd"):
+            self.debug.debug("❌ Bootstrap condition failed: MySQL root password not configured in config")
             return False
             
         # Check if MySQL config file exists
-        config_path = os.path.join(env["CONFIG_DIR"], "mysql.conf")
+        config_path = env["MYSQL_CONFIG_FILE"]
         if not os.path.exists(config_path):
+            self.debug.debug(f"❌ Bootstrap condition failed: MySQL config file not found at {config_path}")
             return False
             
         # Check if MySQL compose file exists
         compose_path = os.path.join(env["INSTALL_DIR"], "docker-compose", "docker-compose.mysql.yml")
         if not os.path.exists(compose_path):
+            self.debug.debug(f"❌ Bootstrap condition failed: MySQL docker-compose file not found at {compose_path}")
             return False
-            
+        
+        # All bootstrap conditions satisfied
+        self.debug.debug("✅ All MySQL bootstrap conditions satisfied:")
+        self.debug.debug(f"  - MySQL version: {config_data.get('mysql', {}).get('version')}")
+        self.debug.debug(f"  - MySQL root password: Configured (encrypted in config)")
+        self.debug.debug(f"  - MySQL config file: {config_path}")
+        self.debug.debug(f"  - MySQL compose file: {compose_path}")
         return True
         
     def check_prerequisites(self) -> bool:
@@ -101,8 +137,8 @@ class MySQLBootstrap(BaseBootstrap):
             if not passwd:
                 return False
                 
-            # Step 3: Create MySQL configuration file
-            if not self._create_mysql_config():
+            # Step 3: Create MySQL configuration file (using the ensure function)
+            if not self.ensure_mysql_config_file():
                 return False
                 
             # Step 4: Create and start MySQL container
@@ -114,7 +150,10 @@ class MySQLBootstrap(BaseBootstrap):
             output_path = os.path.join(env["INSTALL_DIR"], "docker-compose", "docker-compose.mysql.yml")
             
             # Create docker-compose directory if it doesn't exist
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            compose_dir = os.path.dirname(output_path)
+            if not os.path.exists(compose_dir):
+                self.debug.info(f"Creating docker-compose directory: {compose_dir}")
+                os.makedirs(compose_dir, exist_ok=True)
             
             compose = Compose(
                 name=mysql_container,
@@ -211,22 +250,24 @@ class MySQLBootstrap(BaseBootstrap):
             self.debug.error(f"Failed to manage MySQL password: {e}")
             return None
             
-    def _create_mysql_config(self) -> bool:
+    def ensure_mysql_config_file(self) -> bool:
         """
-        Create MySQL configuration file optimized for system resources.
+        Check if MySQL configuration file exists and create it if it doesn't.
+        This can be called at any time, even after bootstrap.
         
         Returns:
-            bool: True if successful, False otherwise
+            bool: True if config file exists or was created, False if error
         """
-        config_path = os.path.join(env["CONFIG_DIR"], "mysql.conf")
+        config_path = env["MYSQL_CONFIG_FILE"]
         
-        # Skip if config file already exists
+        # If config file exists, return success
         if os.path.exists(config_path):
-            self.debug.debug(f"MySQL config file already exists: {config_path}")
+            self.debug.debug(f"MySQL config file exists: {config_path}")
             return True
             
+        # Config file is missing, attempt to create it
         try:
-            self.debug.info(f"Creating MySQL configuration at: {config_path}")
+            self.debug.info(f"MySQL config file is missing, creating at: {config_path}")
             
             # Calculate optimal settings based on system resources
             total_ram = get_total_ram_mb()
@@ -239,8 +280,13 @@ class MySQLBootstrap(BaseBootstrap):
             table_open_cache = max(total_ram * 8, 400)
             thread_cache_size = max(total_cpu * 8, 16)
             
+            # Ensure directory exists
+            mysql_conf_dir = os.path.dirname(config_path)
+            if not os.path.exists(mysql_conf_dir):
+                self.debug.info(f"Creating MySQL config directory: {mysql_conf_dir}")
+                os.makedirs(mysql_conf_dir, exist_ok=True)
+                
             # Create MySQL config file
-            os.makedirs(os.path.dirname(config_path), exist_ok=True)
             with open(config_path, "w") as f:
                 f.write(f"""[mysqld]
 max_connections = {max_connections}
@@ -251,8 +297,26 @@ table_open_cache = {table_open_cache}
 thread_cache_size = {thread_cache_size}
 """)
             
-            self.debug.success("MySQL configuration file created successfully")
+            self.debug.success("✅ MySQL configuration file created successfully")
+            
+            # Check if MySQL container is running and restart it to apply changes
+            container = Container(env["MYSQL_CONTAINER_NAME"])
+            if container.running():
+                self.debug.info(f"MySQL container is running, restarting to apply new configuration")
+                container.restart()
+                
             return True
         except Exception as e:
-            self.debug.error(f"Failed to create MySQL config file: {e}")
+            self.debug.error(f"❌ Failed to create MySQL config file: {e}")
             return False
+    
+    def _create_mysql_config(self) -> bool:
+        """
+        Create MySQL configuration file optimized for system resources.
+        Used during bootstrap only.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Delegate to the ensure_mysql_config_file function
+        return self.ensure_mysql_config_file()

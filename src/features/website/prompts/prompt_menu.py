@@ -77,21 +77,18 @@ def prompt_website_menu() -> None:
             try:
                 from src.features.website.cli.restart import cli_restart_website
                 cli_restart_website()
-                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "5":
             try:
                 from src.features.website.cli.logs import cli_view_logs
                 cli_view_logs()
-                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "6":
             try:
                 from src.features.website.cli.info import cli_website_info
                 cli_website_info()
-                pause_after_action()
             except ImportError:
                 not_implemented()
         elif answer == "7":

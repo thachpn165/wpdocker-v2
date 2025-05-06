@@ -33,9 +33,25 @@ def edit_mysql_config() -> bool:
     """
     config_path = env["MYSQL_CONFIG_FILE"]
 
+    # Ensure directory exists
+    config_dir = os.path.dirname(config_path)
+    if not os.path.exists(config_dir):
+        try:
+            info(f"Creating MySQL config directory: {config_dir}")
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as e:
+            error(f"❌ Failed to create MySQL config directory: {e}")
+            return False
+
+    # Create empty config file if it doesn't exist
     if not os.path.isfile(config_path):
-        error(f"❌ MySQL configuration file not found: {config_path}")
-        return False
+        try:
+            info(f"Creating empty MySQL config file: {config_path}")
+            with open(config_path, "w") as f:
+                f.write("[mysqld]\n# MySQL server configuration\n")
+        except Exception as e:
+            error(f"❌ Failed to create MySQL config file: {e}")
+            return False
 
     editor = choose_editor()
     if not editor:
@@ -65,6 +81,17 @@ def backup_mysql_config() -> Optional[str]:
         Optional[str]: Path to the backup file if successful, None otherwise
     """
     config_path = env["MYSQL_CONFIG_FILE"]
+    
+    # Ensure directory exists
+    config_dir = os.path.dirname(config_path)
+    if not os.path.exists(config_dir):
+        try:
+            info(f"Creating MySQL config directory: {config_dir}")
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as e:
+            error(f"❌ Failed to create MySQL config directory: {e}")
+            return None
+    
     if not os.path.isfile(config_path):
         error(f"❌ MySQL configuration file not found: {config_path}")
         return None
@@ -94,6 +121,16 @@ def restore_mysql_config(backup_path: Optional[str] = None) -> bool:
     """
     config_path = env["MYSQL_CONFIG_FILE"]
     backup_path = backup_path or f"{config_path}.bak"
+    
+    # Ensure directory exists
+    config_dir = os.path.dirname(config_path)
+    if not os.path.exists(config_dir):
+        try:
+            info(f"Creating MySQL config directory: {config_dir}")
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as e:
+            error(f"❌ Failed to create MySQL config directory: {e}")
+            return False
     
     if not os.path.isfile(backup_path):
         error(f"❌ MySQL configuration backup not found: {backup_path}")
