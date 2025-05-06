@@ -470,7 +470,7 @@ def prompt_manage_remotes() -> None:
                         remote_type = remote_config.get("type", "unknown") if remote_config else "unknown"
                         display_type = get_remote_type_display_name(remote_type)
                         
-                        info(f"{i}.i {remote} ({display_type})")
+                        info(f"{i}. {remote} ({display_type})")
                 else:
                     info("No remotes configured yet.")
                 input("\nPress Enter to continue...")
@@ -873,10 +873,11 @@ def prompt_file_operations() -> None:
                     flags.append("--dry-run")
                 
                 # Perform sync operation
-                info(f"\n🔄 Syncing from {source_path} to {destination}...")
                 if source_type == "local":
+                    info(f"\n🔄 Syncing from {source_path} to {destination}...")
                     success_result, message = rclone_manager.sync(source_path, destination, flags)
                 else:
+                    info(f"\n🔄 Syncing from {source} to {destination}...")
                     success_result, message = rclone_manager.sync(source, destination, flags)
                 
                 if success_result:
@@ -941,8 +942,7 @@ def prompt_file_operations() -> None:
                         dest_remote = f"{dest_remote}:"
                     destination = f"{dest_remote}{dest_path}"
                     
-                    # Convert source to container path
-                    container_source = source_path
+                    # Source path is already configured
                     
                 else:
                     # Remote source
