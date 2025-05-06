@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 
 from src.common.logging import log_call, info, error, success, debug
 from src.features.backup.backup_manager import BackupManager
-from src.features.website.utils import get_website_list
+from src.features.website.utils import select_website
 
 
 @log_call

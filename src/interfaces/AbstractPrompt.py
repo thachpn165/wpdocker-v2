@@ -4,7 +4,7 @@
 Định nghĩa lớp trừu tượng AbstractPrompt cho các prompt tương tác với người dùng.
 """
 from abc import ABC, abstractmethod
-from src.common.debug import log_call, info, error, warn, debug, success
+from src.common.logging import log_call, info, error, warn, debug, success
 
 class AbstractPrompt(ABC):
     """
