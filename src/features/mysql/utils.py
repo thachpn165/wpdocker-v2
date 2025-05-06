@@ -6,30 +6,71 @@ including password retrieval and client detection.
 """
 
 from src.common.config.manager import ConfigManager
-from src.common.logging import debug, error
+from src.common.logging import debug, error, warn
 from src.common.utils.crypto import decrypt
 from src.common.containers.container import Container
 
 
 def get_mysql_root_password() -> str:
     """
-    Get decrypted MySQL root password from config.json.
+    Get MySQL root password by decrypting it from config.json.
+    
+    The password is stored encrypted in config.json during the bootstrap process
+    and should be the authoritative source. Only if decryption fails, we'll try
+    to read from docker-compose as a fallback.
     
     Returns:
-        Decrypted root password or None if not found
+        Decrypted MySQL root password or None if not found
     """
+    # Primary source: Try to decrypt from config.json first
     config = ConfigManager()
     encrypted_pass = config.get().get("mysql", {}).get("root_passwd")
     if not encrypted_pass:
         error("❌ mysql.root_passwd not found in config.")
-        return None
+        return _fallback_get_password_from_compose()
+    
     try:
         password = decrypt(encrypted_pass)
-        debug(f"🔑 MySQL root password (decrypted): {password}")
+        debug(f"🔑 Successfully decrypted MySQL root password from config.json")
         return password
     except Exception as e:
         error(f"❌ Error decrypting MySQL password: {e}")
-        return None
+        debug("Falling back to docker-compose.mysql.yml as password source")
+        return _fallback_get_password_from_compose()
+
+
+def _fallback_get_password_from_compose() -> str:
+    """
+    Fallback method to extract MySQL root password from docker-compose file.
+    This should only be used if the primary method (decrypting from config.json) fails.
+    
+    Returns:
+        MySQL root password or None if not found
+    """
+    import os
+    from src.common.utils.environment import env
+    
+    # Try to read from docker-compose file as fallback
+    compose_path = os.path.join(env.get("INSTALL_DIR", "/opt/wp-docker"), "docker-compose", "docker-compose.mysql.yml")
+    if os.path.exists(compose_path):
+        try:
+            debug(f"Attempting to read MySQL password from compose file: {compose_path}")
+            with open(compose_path, 'r') as file:
+                content = file.read()
+                
+            # Extract password from docker-compose file
+            import re
+            password_match = re.search(r'MYSQL_ROOT_PASSWORD:\s*([^\s]+)', content)
+            if password_match:
+                password = password_match.group(1).strip()
+                debug(f"🔑 Using MySQL root password from docker-compose file as fallback")
+                warn("⚠️ Using password from docker-compose file may be less reliable")
+                return password
+        except Exception as e:
+            debug(f"Failed to extract password from docker-compose file: {e}")
+    
+    error("❌ Could not retrieve MySQL root password from any source")
+    return None
 
 
 def get_domain_db_pass(domain: str) -> str:
