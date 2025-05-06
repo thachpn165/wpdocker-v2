@@ -47,11 +47,14 @@ class RcloneManager:
         self.container = Container(self.container_name)
         
         # Configuration paths
-        self.config_dir = os.path.join(env["CONFIG_DIR"], "rclone")
-        self.config_file = os.path.join(self.config_dir, "rclone.conf")
+        self.config_dir = env.get("RCLONE_CONFIG_DIR", os.path.join(env["CONFIG_DIR"], "rclone"))
+        self.config_file = env.get("RCLONE_CONFIG_FILE", os.path.join(self.config_dir, "rclone.conf"))
         
         # Ensure config directory exists
-        os.makedirs(self.config_dir, exist_ok=True)
+        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+        
+        # Debug output to help with troubleshooting
+        self.debug.info(f"Using Rclone config file: {self.config_file}")
     
     @log_call
     def is_container_running(self) -> bool:
