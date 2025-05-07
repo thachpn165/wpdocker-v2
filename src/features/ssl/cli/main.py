@@ -5,6 +5,7 @@ This module provides the command-line interface for SSL certificate management.
 """
 
 import argparse
+import sys
 from typing import Optional
 
 from src.common.logging import log_call, debug, error, info, warn, success

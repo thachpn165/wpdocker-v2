@@ -6,6 +6,7 @@ This module provides functions for installing different types of SSL certificate
 
 import os
 import subprocess
+import shutil
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
@@ -15,7 +16,8 @@ from src.features.website.utils import get_site_config, set_site_config
 from src.features.ssl.utils.ssl_utils import (
     get_ssl_paths,
     ensure_ssl_dir,
-    backup_ssl_files
+    backup_ssl_files,
+    has_ssl_certificate
 )
 from src.features.ssl.models.ssl_config import SSLConfig, SSLType
 
