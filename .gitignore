@@ -3,6 +3,10 @@
 .vscode-test/
 CLAUDE.md
 .claude/
+.cursor
+.cursorignore
+.cursorrc
+ai_read.md
 # macOS
 .DS_Store
 
