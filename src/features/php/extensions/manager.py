@@ -1,65 +1,128 @@
 """
-PHP extensions management functionality.
+PHP extension management functionality.
 
-This module provides functions for installing, uninstalling, and managing
-PHP extensions for websites.
+This module provides functions for managing PHP extensions,
+including installation, uninstallation, and compatibility checks.
 """
 
-from typing import Dict, List, Any, Optional, Type
+import os
+from typing import List, Dict, Any, Optional
+from pathlib import Path
 
-from src.common.logging import log_call, info, warn, error, success, debug
-from src.features.website.utils import get_site_config
+from src.common.logging import log_call, debug, error, info, warn
+from src.common.utils.environment import env
+from src.features.website.utils import get_site_config, set_site_config
+from src.features.php.client import init_php_client
 from src.features.php.extensions.registry import (
+    EXTENSION_REGISTRY,
     get_extension_instance,
-    get_extension_list,
-    EXTENSION_REGISTRY
+    get_extension_list
 )
 
 
 @log_call
-def install_php_extension(domain: str, extension_id: str) -> bool:
+def install_php_extension(domain: str, ext_id: str) -> bool:
     """
     Install a PHP extension for a website.
     
     Args:
         domain: Website domain name
-        extension_id: Extension identifier
+        ext_id: Extension identifier
         
     Returns:
         bool: True if installation was successful, False otherwise
     """
     try:
-        ext = get_extension_instance(extension_id)
-        success = ext.install(domain)
-        if success:
-            ext.update_config(domain)
-            ext.post_install(domain)
-            info(f"✅ {ext.name} extension installed successfully for {domain}")
-        return success
+        # Get site config
+        site_config = get_site_config(domain)
+        if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+            error(f"❌ PHP configuration not found for website {domain}")
+            return False
+            
+        # Check if extension is already installed
+        if ext_id in (site_config.php.php_installed_extensions or []):
+            warn(f"⚠️ Extension '{ext_id}' is already installed")
+            return True
+            
+        # Check if extension is registered
+        if ext_id not in EXTENSION_REGISTRY:
+            error(f"❌ Extension '{ext_id}' is not registered")
+            return False
+            
+        # Get extension instance
+        ext = get_extension_instance(ext_id)
+        
+        # Install extension
+        if not ext.install(domain):
+            error(f"❌ Failed to install extension '{ext_id}'")
+            return False
+            
+        # Update configuration
+        if not ext.update_config(domain):
+            error(f"❌ Failed to update configuration for extension '{ext_id}'")
+            return False
+            
+        # Update site config
+        if not site_config.php.php_installed_extensions:
+            site_config.php.php_installed_extensions = []
+        site_config.php.php_installed_extensions.append(ext_id)
+        set_site_config(domain, site_config)
+        
+        # Restart PHP container
+        container = init_php_client(domain)
+        container.restart()
+        
+        info(f"✅ Successfully installed extension '{ext_id}' for {domain}")
+        return True
+        
     except Exception as e:
         error(f"❌ Error installing PHP extension: {e}")
         return False
 
 
 @log_call
-def uninstall_php_extension(domain: str, extension_id: str) -> bool:
+def uninstall_php_extension(domain: str, ext_id: str) -> bool:
     """
     Uninstall a PHP extension from a website.
     
     Args:
         domain: Website domain name
-        extension_id: Extension identifier
+        ext_id: Extension identifier
         
     Returns:
         bool: True if uninstallation was successful, False otherwise
     """
     try:
-        ext = get_extension_instance(extension_id)
-        success = ext.uninstall(domain)
-        if success:
-            ext.remove_from_config(domain)
-            info(f"✅ {ext.name} extension uninstalled successfully from {domain}")
-        return success
+        # Get site config
+        site_config = get_site_config(domain)
+        if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+            error(f"❌ PHP configuration not found for website {domain}")
+            return False
+            
+        # Check if extension is installed
+        if not site_config.php.php_installed_extensions or ext_id not in site_config.php.php_installed_extensions:
+            warn(f"⚠️ Extension '{ext_id}' is not installed")
+            return True
+            
+        # Get extension instance
+        ext = get_extension_instance(ext_id)
+        
+        # Uninstall extension
+        if not ext.uninstall(domain):
+            error(f"❌ Failed to uninstall extension '{ext_id}'")
+            return False
+            
+        # Update site config
+        site_config.php.php_installed_extensions.remove(ext_id)
+        set_site_config(domain, site_config)
+        
+        # Restart PHP container
+        container = init_php_client(domain)
+        container.restart()
+        
+        info(f"✅ Successfully uninstalled extension '{ext_id}' from {domain}")
+        return True
+        
     except Exception as e:
         error(f"❌ Error uninstalling PHP extension: {e}")
         return False
@@ -76,33 +139,39 @@ def get_installed_extensions(domain: str) -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: List of installed extensions with metadata
     """
-    site_config = get_site_config(domain)
-    if not site_config or not hasattr(site_config, 'php') or not site_config.php:
-        return []
-    
-    installed_ids = site_config.php.php_installed_extensions or []
-    result = []
-    
-    for ext_id in installed_ids:
-        try:
-            if ext_id in EXTENSION_REGISTRY:
+    try:
+        # Get site config
+        site_config = get_site_config(domain)
+        if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+            error(f"❌ PHP configuration not found for website {domain}")
+            return []
+            
+        # Get installed extensions
+        installed_ids = site_config.php.php_installed_extensions or []
+        result = []
+        
+        for ext_id in installed_ids:
+            try:
+                if ext_id not in EXTENSION_REGISTRY:
+                    warn(f"⚠️ Extension '{ext_id}' is not in the supported extensions list")
+                    continue
+                    
                 ext = get_extension_instance(ext_id)
                 result.append({
                     "id": ext.id,
                     "name": ext.name,
-                    "description": ext.description
+                    "description": ext.description,
+                    "version": ext.version,
+                    "requires_compilation": ext.requires_compilation
                 })
-            else:
-                # Extension in config but not in registry
-                result.append({
-                    "id": ext_id,
-                    "name": f"Unknown ({ext_id})",
-                    "description": "Extension registered in configuration but implementation not found"
-                })
-        except Exception:
-            pass
-    
-    return result
+            except Exception as e:
+                warn(f"⚠️ Error getting information for extension '{ext_id}': {e}")
+                
+        return result
+        
+    except Exception as e:
+        error(f"❌ Error getting installed extensions: {e}")
+        return []
 
 
 @log_call
@@ -116,76 +185,85 @@ def get_available_extensions(domain: str) -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: List of available extensions with metadata
     """
-    # Get PHP version for compatibility check
-    site_config = get_site_config(domain)
-    php_version = site_config.php.php_version if site_config and hasattr(site_config, 'php') and site_config.php else None
-    
-    # Get installed extensions
-    installed_ids = []
-    if site_config and hasattr(site_config, 'php') and site_config.php:
+    try:
+        # Get site config
+        site_config = get_site_config(domain)
+        if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+            error(f"❌ PHP configuration not found for website {domain}")
+            return []
+            
+        # Get installed extensions
         installed_ids = site_config.php.php_installed_extensions or []
-    
-    # Get all available extensions
-    all_extensions = get_extension_list()
-    result = []
-    
-    # Debug information
-    info(f"Available PHP extensions in registry: {list(all_extensions.keys())}")
-    info(f"Current PHP version: {php_version}")
-    info(f"Already installed extensions: {installed_ids}")
-    
-    if not all_extensions:
-        warn("No extensions are registered in the system. This is unexpected.")
-        # Add a default IonCube entry as fallback
-        try:
-            from src.features.php.extensions.ioncube_loader import IoncubeLoaderExtension
-            ext = IoncubeLoaderExtension()
-            result.append({
-                "id": ext.id,
-                "name": ext.name,
-                "description": ext.description,
-                "requires_compilation": ext.requires_compilation
-            })
-        except Exception as e:
-            error(f"Failed to add fallback IonCube entry: {e}")
-    
-    for ext_id, ext_class in all_extensions.items():
-        # Skip already installed extensions
-        if ext_id in installed_ids:
-            debug(f"Skipping {ext_id} as it's already installed")
-            continue
-            
-        try:
-            ext = ext_class()
-            
-            # Check PHP version compatibility if version is known
-            if php_version and not ext.check_compatibility(php_version):
-                info(f"Skipping {ext_id} as it's not compatible with PHP {php_version}")
-                continue
+        
+        # Get all available extensions
+        all_extensions = get_extension_list()
+        result = []
+        
+        for ext_id, ext_class in all_extensions.items():
+            try:
+                # Skip if already installed
+                if ext_id in installed_ids:
+                    continue
+                    
+                # Create extension instance
+                ext = ext_class()
+                    
+                result.append({
+                    "id": ext.id,
+                    "name": ext.name,
+                    "description": ext.description,
+                    "requires_compilation": ext.requires_compilation
+                })
+            except Exception as e:
+                warn(f"⚠️ Error getting information for extension '{ext_id}': {e}")
                 
-            info(f"Adding {ext_id} to available extensions")
-            result.append({
-                "id": ext.id,
-                "name": ext.name,
-                "description": ext.description,
-                "requires_compilation": ext.requires_compilation
-            })
-        except Exception as e:
-            error(f"Error processing extension {ext_id}: {e}")
+        return result
+        
+    except Exception as e:
+        error(f"❌ Error getting available extensions: {e}")
+        return []
+
+
+@log_call
+def check_extension_status(domain: str, ext_id: str) -> Dict[str, Any]:
+    """
+    Check the status of a PHP extension for a website.
     
-    # If no extensions are available after compatibility checks, add IonCube anyway with a note
-    if not result and php_version and php_version != "8.3":
-        try:
-            from src.features.php.extensions.ioncube_loader import IoncubeLoaderExtension
-            ext = IoncubeLoaderExtension()
-            result.append({
-                "id": ext.id,
-                "name": ext.name,
-                "description": f"{ext.description} (Force-added as fallback)",
-                "requires_compilation": ext.requires_compilation
-            })
-            warn("Force-adding IonCube Loader as no other extensions were available")
-        except Exception as e:
-            error(f"Failed to add fallback IonCube entry: {e}")
-    
-    return result
+    Args:
+        domain: Website domain name
+        ext_id: Extension identifier
+        
+    Returns:
+        Dict[str, Any]: Extension status information
+    """
+    try:
+        # Get site config
+        site_config = get_site_config(domain)
+        if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+            error(f"❌ PHP configuration not found for website {domain}")
+            return {"status": "error", "message": "PHP configuration not found"}
+            
+        # Check if extension is registered
+        if ext_id not in EXTENSION_REGISTRY:
+            return {
+                "status": "error",
+                "message": f"Extension '{ext_id}' is not registered"
+            }
+            
+        # Get extension instance
+        ext = get_extension_instance(ext_id)
+        
+        # Check if installed
+        is_installed = ext_id in (site_config.php.php_installed_extensions or [])
+        
+        return {
+            "status": "success",
+            "is_installed": is_installed,
+            "name": ext.name,
+            "description": ext.description,
+            "requires_compilation": ext.requires_compilation
+        }
+        
+    except Exception as e:
+        error(f"❌ Error checking extension status: {e}")
+        return {"status": "error", "message": str(e)}

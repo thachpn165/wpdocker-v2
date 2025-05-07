@@ -9,12 +9,16 @@ import os
 import questionary
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any, Union, Callable
+import tempfile
+import subprocess
 
 from src.common.logging import info, error, debug, success
 from src.common.utils.environment import env
 from src.common.ui.prompt_helpers import wait_for_enter, custom_style, prompt_with_cancel
 from src.features.rclone.manager import RcloneManager
 from src.features.rclone.config.manager import RcloneConfigManager
+from src.features.rclone.models.remote import RemoteConfig
+from src.common.utils.editor import choose_editor
 
 
 def format_size(size_bytes: int) -> str:
@@ -67,49 +71,134 @@ def get_remote_type_display_name(remote_type: str) -> str:
     return display_names.get(remote_type, remote_type.capitalize())
 
 
-def ensure_remotes_available(rclone_manager: RcloneManager) -> List[str]:
+def get_remote_type_choices() -> List[Dict[str, str]]:
+    """Lấy danh sách các loại remote có sẵn."""
+    return [
+        {"name": "S3 (Amazon S3, Wasabi, etc.)", "value": "s3"},
+        {"name": "Google Drive", "value": "drive"},
+        {"name": "Dropbox", "value": "dropbox"},
+        {"name": "Microsoft OneDrive", "value": "onedrive"},
+        {"name": "SFTP", "value": "sftp"},
+        {"name": "FTP", "value": "ftp"},
+        {"name": "WebDAV / Nextcloud", "value": "webdav"},
+        {"name": "Backblaze B2", "value": "b2"},
+        {"name": "Box", "value": "box"},
+        {"name": "Azure Blob Storage", "value": "azureblob"},
+        {"name": "Cancel", "value": "cancel"}
+    ]
+
+
+def prompt_remote_params(remote_type: str) -> Dict[str, str]:
     """
-    Ensure that remotes are available, providing appropriate error messages.
+    Lấy thông tin cấu hình cho remote.
     
     Args:
-        rclone_manager: An instance of RcloneManager
+        remote_type (str): Loại remote
         
     Returns:
-        List of remote names or empty list if none available
+        Dict[str, str]: Thông tin cấu hình
+    """
+    params = {}
+    
+    # Hỏi người dùng có muốn nhập cấu hình thủ công không
+    use_manual_config = questionary.confirm(
+        "Do you have a configuration from your local machine to paste?",
+        style=custom_style,
+        default=True
+    ).ask()
+    
+    if use_manual_config:
+        # Tạo file tạm để người dùng nhập cấu hình
+        with tempfile.NamedTemporaryFile(suffix='.conf', delete=False, mode='w+') as temp_file:
+            temp_path = temp_file.name
+            # Tạo template cho người dùng
+            temp_file.write(f"# Paste your {remote_type} configuration below, do not include the remote name [xxx]\n")
+            temp_file.write(f"# Example for {remote_type}:\n")
+            temp_file.write(f"type = {remote_type}\n")
+            temp_file.write('token = {"access_token":"xxxxxx","token_type":"Bearer","refresh_token":"xxxxxx","expiry":"2025-12-31T12:00:00Z"}\n')
+            temp_file.write("client_id = xxxxxx\n")
+            temp_file.write("client_secret = xxxxxx\n")
+            temp_file.write("# Delete these lines and paste your actual configuration here\n")
+        
+        info("\nAfter the editor opens:")
+        info("- Paste your Rclone configuration")
+        info("- Delete the guide lines (starting with #)")
+        info("- Save and close the editor to continue")
+        
+        # Chọn và mở editor
+        default_editor = env.get("EDITOR")
+        editor = choose_editor(default_editor)
+        
+        # Hủy nếu người dùng không chọn editor
+        if not editor:
+            os.unlink(temp_path)
+            info("\n❌ Configuration entry canceled.")
+            return {}
+        
+        # Mở editor
+        subprocess.run([editor, temp_path])
+        
+        # Đọc cấu hình từ file
+        with open(temp_path, 'r') as f:
+            config_content = f.read()
+        
+        # Xóa file tạm
+        os.unlink(temp_path)
+        
+        # Parse cấu hình
+        for line in config_content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    params[key.strip()] = value.strip()
+    else:
+        # TODO: Implement interactive parameter collection for each remote type
+        error("🚧 Interactive parameter collection not implemented yet")
+        return {}
+    
+    return params
+
+
+def ensure_remotes_available(rclone_manager: RcloneManager) -> List[str]:
+    """
+    Kiểm tra và lấy danh sách remote có sẵn.
+    
+    Args:
+        rclone_manager: Manager để quản lý remote
+        
+    Returns:
+        List[str]: Danh sách tên remote
     """
     remotes = rclone_manager.list_remotes()
     if not remotes:
         error("❌ No remotes configured. Please add a remote first.")
-        wait_for_enter(True)
-    
+        return []
     return remotes
 
 
-def create_remote_choices(remotes: List[str], config_manager=None) -> List[Dict]:
+def create_remote_choices(remotes: List[str], config_manager: Any) -> List[Dict[str, str]]:
     """
-    Create a list of choices for remote selection with display names.
+    Tạo danh sách lựa chọn cho remote.
     
     Args:
-        remotes: List of remote names
-        config_manager: Optional RcloneConfigManager instance
+        remotes (List[str]): Danh sách tên remote
+        config_manager: Manager để lấy thông tin remote
         
     Returns:
-        List of formatted choices for questionary select
+        List[Dict[str, str]]: Danh sách lựa chọn
     """
-    remote_choices = []
-    
+    choices = []
     for remote in remotes:
-        # Get remote type for more informative display if config_manager is provided
-        if config_manager:
-            config = config_manager.get_remote_config(remote)
-            remote_type = config.get("type", "unknown") if config else "unknown"
-            display_type = get_remote_type_display_name(remote_type)
-            remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-        else:
-            remote_choices.append({"name": remote, "value": remote})
-    
-    remote_choices.append({"name": "Cancel", "value": "cancel"})
-    return remote_choices
+        config = config_manager.get_remote_config(remote)
+        if config:
+            remote_type = config.get("type", "unknown")
+            display_type = RemoteConfig.get_display_type(remote_type)
+            choices.append({
+                "name": f"{remote} ({display_type})",
+                "value": remote
+            })
+    return choices
 
 
 def select_remote(remotes: List[str], prompt_text: str = "Select remote:", 

@@ -70,33 +70,6 @@ class BaseExtension(ABC):
         """
         return None
     
-    @log_call
-    def check_compatibility(self, php_version: str) -> bool:
-        """
-        Check if this extension is compatible with a specific PHP version.
-        
-        Args:
-            php_version: PHP version to check
-            
-        Returns:
-            bool: True if compatible, False otherwise
-        """
-        constraints = self.php_version_constraints
-        if not constraints:
-            return True
-        
-        # Check required versions
-        requires = constraints.get("requires", [])
-        if requires and php_version not in requires:
-            return False
-        
-        # Check incompatible versions
-        incompatible = constraints.get("incompatible", [])
-        if incompatible and php_version in incompatible:
-            return False
-        
-        return True
-    
     @abstractmethod
     def install(self, domain: str) -> bool:
         """

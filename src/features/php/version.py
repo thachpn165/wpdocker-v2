@@ -6,23 +6,97 @@ including changing versions and checking available versions.
 """
 
 import os
+import re
 import requests
 from typing import Optional, Dict, Any, List, Tuple
 
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from src.common.logging import log_call, debug, error, info
+from src.common.logging import log_call, debug, error, info, warn
 from src.common.utils.environment import env
 from src.core.containers.compose import Compose
 from src.features.website.utils import get_site_config, set_site_config
 from src.features.website.models.site_config import SitePHP
 from src.features.php.client import init_php_client
-from src.features.php.utils import get_php_container_name
+from src.features.php.utils import get_php_container_name, AVAILABLE_PHP_VERSIONS
 
 
 # Constants for Docker Hub
 BITNAMI_IMAGE_PREFIX = "bitnami/php-fpm"
 DOCKER_HUB_URL = "https://hub.docker.com/v2/repositories/{image}/tags/{version}"
+
+
+def validate_php_version(version: str) -> bool:
+    """
+    Validate PHP version format and availability.
+    
+    Args:
+        version: PHP version to validate
+        
+    Returns:
+        bool: True if version is valid and available, False otherwise
+    """
+    try:
+        # Check format (e.g., 8.2, 8.2.0)
+        if not re.match(r'^\d+\.\d+(\.\d+)?$', version):
+            error(f"Invalid PHP version format: {version}")
+            return False
+            
+        # Check if version is in available versions
+        major_minor = '.'.join(version.split('.')[:2])
+        if major_minor not in AVAILABLE_PHP_VERSIONS:
+            error(f"PHP version {version} is not in supported versions: {AVAILABLE_PHP_VERSIONS}")
+            return False
+            
+        # Check if version exists on Docker Hub
+        image_url = DOCKER_HUB_URL.format(
+            image=BITNAMI_IMAGE_PREFIX.replace('/', '%2F'),
+            version=version
+        )
+        response = requests.get(image_url)
+        if response.status_code != 200:
+            error(f"PHP version {version} doesn't exist on Docker Hub!")
+            return False
+            
+        return True
+    except Exception as e:
+        error(f"Error validating PHP version: {e}")
+        return False
+
+
+def check_version_compatibility(current_version: str, new_version: str) -> bool:
+    """
+    Check if new PHP version is compatible with current version.
+    
+    Args:
+        current_version: Current PHP version
+        new_version: New PHP version to check
+        
+    Returns:
+        bool: True if versions are compatible, False otherwise
+    """
+    try:
+        current_major = current_version.split('.')[0]
+        new_major = new_version.split('.')[0]
+        
+        # Major version changes may have breaking changes
+        if current_major != new_major:
+            warn(f"⚠️ Major version change detected: {current_version} -> {new_version}")
+            warn("This may have breaking changes. Please check compatibility.")
+            return True
+            
+        # Minor version changes are usually safe
+        current_minor = current_version.split('.')[1]
+        new_minor = new_version.split('.')[1]
+        if current_minor != new_minor:
+            info(f"Minor version change: {current_version} -> {new_version}")
+            return True
+            
+        # Patch version changes are always safe
+        return True
+    except Exception as e:
+        error(f"Error checking version compatibility: {e}")
+        return False
 
 
 @log_call
@@ -41,24 +115,23 @@ def change_php_version(domain: str, php_version: str) -> bool:
         bool: True if change was successful, False otherwise
     """
     try:
+        # Validate version
+        if not validate_php_version(php_version):
+            return False
+            
+        # Get current version
+        current_version = get_current_php_version(domain)
+        if current_version:
+            # Check compatibility
+            if not check_version_compatibility(current_version, php_version):
+                return False
+                
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             transient=True
         ) as progress:
-            task = progress.add_task(f"Checking PHP version {php_version} on Docker Hub...", total=None)
-
-            # Check if the version exists on Docker Hub
-            image_url = DOCKER_HUB_URL.format(
-                image=BITNAMI_IMAGE_PREFIX.replace('/', '%2F'),
-                version=php_version
-            )
-            response = requests.get(image_url)
-
-            if response.status_code != 200:
-                progress.stop()
-                error(f"❌ PHP version {php_version} doesn't exist on Docker Hub!")
-                return False
+            task = progress.add_task(f"Changing PHP version to {php_version}...", total=None)
 
             # Update site config
             progress.update(task, description=f"Updating config for {domain}...")
@@ -127,19 +200,23 @@ def change_php_version(domain: str, php_version: str) -> bool:
 @log_call
 def get_current_php_version(domain: str) -> Optional[str]:
     """
-    Get the current PHP version for a website.
+    Get current PHP version for a website.
     
     Args:
         domain: Website domain name
         
     Returns:
-        Optional[str]: PHP version or None if not found
+        Optional[str]: Current PHP version if found, None otherwise
     """
-    site_config = get_site_config(domain)
-    if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+    try:
+        site_config = get_site_config(domain)
+        if not site_config or not hasattr(site_config, 'php') or not site_config.php:
+            return None
+            
+        return site_config.php.php_version
+    except Exception as e:
+        error(f"Error getting current PHP version: {e}")
         return None
-    
-    return site_config.php.php_version
 
 
 @log_call
