@@ -7,7 +7,7 @@ text editors available on the system.
 
 import shutil
 from typing import Dict, List, Optional
-
+from src.common.logging import info, error, success, debug
 import questionary
 
 
@@ -66,7 +66,7 @@ def choose_editor(default: Optional[str] = None) -> Optional[str]:
     available_editors = [editor for editor in COMMON_EDITORS if shutil.which(editor)]
 
     if not available_editors:
-        print("❌ No text editors found on the system.")
+        error("❌ No text editors found on the system.")
         return None
 
     default_choice = default if default in available_editors else available_editors[0]
@@ -79,13 +79,13 @@ def choose_editor(default: Optional[str] = None) -> Optional[str]:
 
     if selected in EDITOR_GUIDES:
         guide = EDITOR_GUIDES[selected]
-        print("\n📘 Editor usage guide:")
+        info("\n📘 Editor usage guide:")
         for key, val in guide.items():
-            print(f"- {key}: {val}")
+            info(f"- {key}: {val}")
 
     confirm = questionary.confirm("Do you want to continue with this editor?").ask()
     if not confirm:
-        print("❌ Editor opening cancelled.")
+        error("❌ Editor opening cancelled.")
         return None
 
     return selected

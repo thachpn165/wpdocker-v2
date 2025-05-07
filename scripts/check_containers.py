@@ -10,7 +10,7 @@ import os
 import sys
 import subprocess
 from typing import List, Dict, Any
-
+from src.common.logging import info, error, success, debug
 # Add the project root to the sys path to allow imports
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
@@ -19,8 +19,8 @@ try:
     from src.common.utils.environment import env, load_environment
     from src.core.containers.compose import Compose
 except ImportError as e:
-    print(f"Error importing project modules: {e}")
-    print("Make sure you're running this script from the project root directory")
+    error(f"Error importing project modules: {e}")
+    info("Make sure you're running this script from the project root directory")
     sys.exit(1)
 
 # Container names to check
@@ -45,7 +45,7 @@ def check_and_restart_containers() -> bool:
         project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
         env_file = os.path.join(project_root, "core.env")
         if not os.path.exists(env_file):
-            print(f"Environment file not found: {env_file}")
+            info(f"Environment file not found: {env_file}")
             return False
             
         # Load environment variables
@@ -185,11 +185,11 @@ if __name__ == "__main__":
     success_msg = "✅ All containers are running" 
     error_msg = "❌ Some containers failed to start"
     
-    print("\n🐳 Docker Container Check and Restart Utility 🐳\n")
+    info("\n🐳 Docker Container Check and Restart Utility 🐳\n")
     
     if check_and_restart_containers():
-        print(f"\n{success_msg}\n")
+        success(f"\n{success_msg}\n")
         sys.exit(0)
     else:
-        print(f"\n{error_msg}\n")
+        error(f"\n{error_msg}\n")
         sys.exit(1)

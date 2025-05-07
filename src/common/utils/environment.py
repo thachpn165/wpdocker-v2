@@ -10,7 +10,6 @@ import os
 import sys
 from typing import Dict, List, Optional, Any
 
-
 def load_environment(env_file: str = None) -> Dict[str, str]:
     """
     Load environment variables from a specified file.

@@ -14,7 +14,7 @@ from src.common.logging import log_call, info, warn, error, success
 from src.features.website.utils import is_website_exists
 from src.features.website.manager import create_website
 from src.features.wordpress.cli.install import cli_install_wordpress
-from src.common.utils.validate import is_valid_domain
+from src.common.utils.validation import is_valid_domain
 
 @log_call
 def validate_domain(domain: str) -> bool:

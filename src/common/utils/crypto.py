@@ -12,7 +12,7 @@ from typing import Optional
 
 from src.common.logging import log_call
 from src.common.utils.environment import env_required
-
+from src.common.logging import info, error, success, debug
 
 @log_call
 def get_secret_file_path() -> str:
@@ -39,7 +39,7 @@ def get_secret_key() -> str:
         key = base64.urlsafe_b64encode(os.urandom(32)).decode()
         with open(secret_file, "w") as f:
             f.write(key)
-        print("🔐 Created new .secret_key")
+        success("🔐 Created new .secret_key")
     else:
         key = Path(secret_file).read_text().strip()
     return key

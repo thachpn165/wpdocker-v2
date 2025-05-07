@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from src.common.logging import Debug
 from src.common.utils.environment import get_env_value
 from src.interfaces.IStorageProvider import IStorageProvider
-
+from src.common.utils.validation import validate_directory
 
 class LocalStorage(IStorageProvider):
     """Local filesystem storage provider for backups."""
@@ -34,7 +34,7 @@ class LocalStorage(IStorageProvider):
             
             # Create a central backups directory for this case
             self.backups_dir = os.path.join(self.sites_dir, "backups")
-            os.makedirs(self.backups_dir, exist_ok=True)
+            validate_directory(self.backups_dir, create=True)
         
         self.debug.info(f"Using sites directory: {self.sites_dir}")
     

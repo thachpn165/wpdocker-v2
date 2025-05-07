@@ -15,6 +15,7 @@ from typing import Dict, Optional, Any
 from src.common.logging import log_call, debug, info, warn, error
 from src.common.utils.environment import env_required, get_env_value
 from src.features.website.utils import get_site_config, set_site_config, get_sites_dir
+from src.common.utils.validation import validate_directory
 
 # Global state for tracking backup progress
 BACKUP_TEMP_STATE: Dict[str, str] = {}
@@ -31,11 +32,12 @@ def backup_create_structure(domain: str) -> None:
     sites_dir = get_sites_dir()
     debug(f"Sites dir: {sites_dir}")
     base_dir = os.path.join(sites_dir, domain, "backups")
-    os.makedirs(base_dir, exist_ok=True)
+    #os.makedirs(base_dir, exist_ok=True)
+    validate_directory(base_dir, create=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = os.path.join(base_dir, f"backup_{timestamp}")
-    os.makedirs(backup_path)
-
+    #os.makedirs(backup_path)
+    validate_directory(backup_path, create=True)
     BACKUP_TEMP_STATE["backup_path"] = backup_path
     info(f"📁 Backup directory created: {backup_path}")
 

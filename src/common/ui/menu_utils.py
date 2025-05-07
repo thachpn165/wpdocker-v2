@@ -7,7 +7,7 @@ This module provides common menu-related functionality used throughout the appli
 import functools
 from typing import Callable, Any, TypeVar, cast
 
-from src.common.logging import debug
+from src.common.logging import debug, error, success, info
 
 # Define a generic type for functions
 F = TypeVar('F', bound=Callable[..., Any])
@@ -34,7 +34,7 @@ def with_pause(func: F) -> F:
             return result
         except (KeyboardInterrupt, EOFError):
             # Handle user interruption gracefully
-            print("\nOperation cancelled.")
+            error("\nOperation cancelled.")
             input("\n⏎ Press Enter to continue...")
             return None
         except Exception as e:
@@ -60,4 +60,4 @@ def pause_after_action(message: str = "\n⏎ Press Enter to continue...") -> Non
         input(message)
     except (KeyboardInterrupt, EOFError):
         # Handle user interruption gracefully
-        print("\nOperation cancelled.")
+        error("\nOperation cancelled.")

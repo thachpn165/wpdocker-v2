@@ -109,7 +109,6 @@ class IoncubeLoaderExtension(BaseExtension):
         # Get PHP version and architecture
         php_version = container.exec(["php", "-r", "echo PHP_VERSION;"]).strip().split(".")[:2]
         php_version = ".".join(php_version)
-        arch = container.exec(["uname", "-m"]).strip()
 
         if is_arm():
             error("❌ IonCube Loader is not compatible with ARM architecture")

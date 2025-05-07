@@ -30,14 +30,14 @@ def prompt_restore_from_cloud():
     from src.features.website.utils import website_list
     from src.features.rclone.manager import RcloneManager
     from src.features.rclone.backup_integration import RcloneBackupIntegration
-    
+    from src.common.ui.menu_utils import pause_after_action
     # Check if Rclone is available
     rclone_manager = RcloneManager()
     remotes = rclone_manager.list_remotes()
     
     if not remotes:
-        print("\n❌ No Rclone remotes configured. Please add a remote in the Rclone management menu first.")
-        input("\nPress Enter to continue...")
+        debug.error("\n❌ No Rclone remotes configured. Please add a remote in the Rclone management menu first.")
+        pause_after_action()
         return
     
     # Select remote
@@ -57,7 +57,7 @@ def prompt_restore_from_cloud():
     remote_name = remote_answer["remote"]
     
     # List backups on the remote
-    print(f"\n🔍 Listing backups on {remote_name}...")
+    debug.info(f"\n🔍 Listing backups on {remote_name}...")
     
     integration = RcloneBackupIntegration()
     
@@ -65,16 +65,16 @@ def prompt_restore_from_cloud():
     website_dirs = rclone_manager.list_files(remote_name, "backups")
     
     if not website_dirs:
-        print(f"\n❌ No backups found on {remote_name}")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ No backups found on {remote_name}")
+        pause_after_action()
         return
     
     # Filter for directories only
     website_dirs = [d for d in website_dirs if d.get("IsDir", False)]
     
     if not website_dirs:
-        print(f"\n❌ No website backup directories found on {remote_name}")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ No website backup directories found on {remote_name}")
+        pause_after_action()
         return
     
     # Select website backup directory
@@ -100,16 +100,16 @@ def prompt_restore_from_cloud():
     backup_files = rclone_manager.list_files(remote_name, f"backups/{website_name}")
     
     if not backup_files:
-        print(f"\n❌ No backup files found for {website_name} on {remote_name}")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ No backup files found for {website_name} on {remote_name}")
+        pause_after_action()
         return
     
     # Filter non-directory files
     backup_files = [f for f in backup_files if not f.get("IsDir", False)]
     
     if not backup_files:
-        print(f"\n❌ No backup files found for {website_name} on {remote_name}")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ No backup files found for {website_name} on {remote_name}")
+        pause_after_action()
         return
     
     # Sort backup files by modification time (newest first)
@@ -159,7 +159,7 @@ def prompt_restore_from_cloud():
     backup_choices.append("Cancel")
     
     # Print a summary of available backups
-    print(f"\n📋 Found {len(backup_files)} backup files for {website_name}:")
+    debug.info(f"\n📋 Found {len(backup_files)} backup files for {website_name}:")
     
     # Group backups by type
     database_backups = [b for b in backup_files if b.get("Name", "").endswith(".sql")]
@@ -174,7 +174,7 @@ def prompt_restore_from_cloud():
             db_date = mod_time.strftime("%d/%m/%Y %H:%M:%S")
         except:
             pass
-        print(f"   Most recent database backup: {db_name} (created on {db_date})")
+        debug.info(f"   Most recent database backup: {db_name} (created on {db_date})")
     
     if files_backups:
         most_recent_file = files_backups[0]
@@ -185,7 +185,7 @@ def prompt_restore_from_cloud():
             file_date = mod_time.strftime("%d/%m/%Y %H:%M:%S")
         except:
             pass
-        print(f"   Most recent files backup: {file_name} (created on {file_date})")
+        debug.info(f"   Most recent files backup: {file_name} (created on {file_date})")
     
     # Select backup file
     backup_question = [
@@ -207,8 +207,8 @@ def prompt_restore_from_cloud():
         return
     
     if selected_display not in backup_files_dict:
-        print(f"\n❌ Error: Cannot find selected backup information")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ Error: Cannot find selected backup information")
+        pause_after_action()
         return
         
     selected_backup_info = backup_files_dict[selected_display]
@@ -217,8 +217,8 @@ def prompt_restore_from_cloud():
     
     # Check for missing information
     if not selected_backup_name:
-        print(f"\n❌ Error: Backup name is missing")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ Error: Backup name is missing")
+        pause_after_action()
         return
     
     # Find the full backup information for display in confirmation
@@ -241,13 +241,13 @@ def prompt_restore_from_cloud():
     sites_dir = get_env_value("SITES_DIR")
     wordpress_dir = os.path.join(sites_dir, website_name, "wordpress")
     
-    print(f"\n📋 Backup Details:")
-    print(f"   Website: {website_name}")
-    print(f"   Backup file: {selected_backup_name}")
-    print(f"   Type: {backup_type}")
-    print(f"   Created: {backup_date}")
-    print(f"   Source: {remote_name}:{selected_backup_path}")
-    print(f"   Standard restore path: {wordpress_dir}")
+    debug.info(f"\n📋 Backup Details:")
+    debug.info(f"   Website: {website_name}")
+    debug.info(f"   Backup file: {selected_backup_name}")
+    debug.info(f"   Type: {backup_type}")
+    debug.info(f"   Created: {backup_date}")
+    debug.info(f"   Source: {remote_name}:{selected_backup_path}")
+    debug.info(f"   Standard restore path: {wordpress_dir}")
     
     confirm_question = [
         inquirer.Confirm(
@@ -263,12 +263,12 @@ def prompt_restore_from_cloud():
         return
     
     # Download backup file
-    print(f"\n📥 Downloading backup file {selected_backup_name}...")
+    debug.info(f"\n📥 Downloading backup file {selected_backup_name}...")
     
     # Use website's backup directory instead of BACKUP_DIR
     if not sites_dir:
-        print("\n❌ Error: SITES_DIR environment variable is not set")
-        input("\nPress Enter to continue...")
+        debug.error("\n❌ Error: SITES_DIR environment variable is not set")
+        pause_after_action()
         return
     
     # Create path to website's backup directory
@@ -278,10 +278,10 @@ def prompt_restore_from_cloud():
     if not os.path.exists(website_backup_dir):
         try:
             os.makedirs(website_backup_dir, exist_ok=True)
-            print(f"\n✅ Created backup directory: {website_backup_dir}")
+            debug.success(f"\n✅ Created backup directory: {website_backup_dir}")
         except Exception as e:
-            print(f"\n❌ Error creating backup directory: {str(e)}")
-            input("\nPress Enter to continue...")
+            debug.error(f"\n❌ Error creating backup directory: {str(e)}")
+            pause_after_action()
             return
     
     local_path = os.path.join(website_backup_dir, selected_backup_name)
@@ -291,10 +291,10 @@ def prompt_restore_from_cloud():
     if not os.path.exists(website_dir):
         try:
             os.makedirs(website_dir, exist_ok=True)
-            print(f"\n✅ Created website directory: {website_dir}")
+            debug.success(f"\n✅ Created website directory: {website_dir}")
         except Exception as e:
-            print(f"\n❌ Error creating website directory: {str(e)}")
-            input("\nPress Enter to continue...")
+            debug.error(f"\n❌ Error creating website directory: {str(e)}")
+            pause_after_action()
             return
     
     # Download backup file
@@ -306,12 +306,12 @@ def prompt_restore_from_cloud():
     )
     
     if not success:
-        print(f"\n❌ {message}")
-        input("\nPress Enter to continue...")
+        debug.error(f"\n❌ {message}")
+        pause_after_action()
         return
     
     # Restore website from the downloaded backup
-    print(f"\n🔄 Restoring website from backup...")
+    debug.info(f"\n🔄 Restoring website from backup...")
     
     try:
         # Determine backup type
@@ -321,36 +321,36 @@ def prompt_restore_from_cloud():
         if is_database:
             # Restore database directly using MySQL module
             from src.features.mysql.import_export import import_database
-            print(f"\n🗃️ Restoring database from {selected_backup_name}...")
+            debug.info(f"\n🗃️ Restoring database from {selected_backup_name}...")
             import_database(website_name, local_path, reset=True)
             restore_success = True
             
         elif is_archive:
             # Restore source code using specialized functions
             from src.features.backup.backup_restore import restore_source_code
-            print(f"\n📦 Extracting WordPress files from {selected_backup_name}...")
+            debug.info(f"\n📦 Extracting WordPress files from {selected_backup_name}...")
             restore_success = restore_source_code(website_name, local_path)
             
         else:
-            print(f"\n❌ Unknown backup file type: {selected_backup_name}")
+            debug.error(f"\n❌ Unknown backup file type: {selected_backup_name}")
             restore_success = False
         
         # If restoration was successful, restart the website
         if restore_success:
-            print(f"\n🔄 Restarting website {website_name}...")
+            debug.info(f"\n🔄 Restarting website {website_name}...")
             from src.features.backup.backup_restore import restart_website
             restart_result = restart_website(website_name)
             
             if restart_result:
-                print(f"\n✅ Website {website_name} restarted successfully")
+                debug.success(f"\n✅ Website {website_name} restarted successfully")
             else:
-                print(f"\n⚠️ Website restored but could not be restarted automatically")
+                debug.warn(f"\n⚠️ Website restored but could not be restarted automatically")
             
-            print(f"\n✅ Website {website_name} restored successfully from cloud backup")
+            debug.success(f"\n✅ Website {website_name} restored successfully from cloud backup")
         else:
-            print(f"\n❌ Failed to restore website {website_name} from cloud backup")
+            debug.error(f"\n❌ Failed to restore website {website_name} from cloud backup")
     
     except Exception as e:
-        print(f"\n❌ Error during restoration: {str(e)}")
+        debug.error(f"\n❌ Error during restoration: {str(e)}")
     
-    input("\nPress Enter to continue...")
+    pause_after_action()

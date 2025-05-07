@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, Tuple, List, Union
 
 from src.common.logging import log_call, info, warn, error, success
 from src.common.utils.environment import env
-from src.common.utils.validation import is_valid_domain
+from src.common.utils.validation import is_valid_domain, validate_directory
 from src.features.nginx.manager import reload as nginx_reload
 
 
@@ -34,7 +34,7 @@ def install_selfsigned_ssl(domain: str) -> bool:
     cert_path = os.path.join(ssl_dir, "cert.crt")
     key_path = os.path.join(ssl_dir, "priv.key")
 
-    os.makedirs(ssl_dir, exist_ok=True)
+    validate_directory(ssl_dir, create=True)
 
     cmd = [
         "openssl", "req", "-x509", "-nodes", "-days", "365",
@@ -68,7 +68,7 @@ def install_manual_ssl(domain: str, cert_content: str, key_content: str) -> bool
         bool: True if installation was successful, False otherwise
     """
     ssl_dir = os.path.join(env["SITES_DIR"], domain, "ssl")
-    os.makedirs(ssl_dir, exist_ok=True)
+    validate_directory(ssl_dir, create=True)
 
     cert_path = os.path.join(ssl_dir, "cert.crt")
     key_path = os.path.join(ssl_dir, "priv.key")
@@ -102,6 +102,7 @@ def edit_ssl_cert(domain: str, new_cert: str, new_key: str) -> bool:
         bool: True if update was successful, False otherwise
     """
     ssl_dir = os.path.join(env["SITES_DIR"], domain, "ssl")
+    validate_directory(ssl_dir, create=True)
     cert_path = os.path.join(ssl_dir, "cert.crt")
     key_path = os.path.join(ssl_dir, "priv.key")
 
@@ -147,13 +148,8 @@ def install_letsencrypt_ssl(domain: str, email: str, staging: bool = False) -> b
     webroot = os.path.join(env["SITES_DIR"], domain, "wordpress")
     certbot_data = os.path.join(env["INSTALL_DIR"], ".certbot")
     ssl_dir = os.path.join(env["SITES_DIR"], domain, "ssl")
-
-    if not os.path.isdir(webroot):
-        error(f"❌ Webroot directory not found: {webroot}")
-        return False
-
-    os.makedirs(certbot_data, exist_ok=True)
-    os.makedirs(ssl_dir, exist_ok=True)
+    validate_directory(certbot_data, create=True)
+    validate_directory(ssl_dir, create=True)
 
     certbot_args = [
         "certonly",

@@ -63,17 +63,22 @@ def is_arm() -> bool:
     return False
 
 
-def validate_directory(directory_path: str) -> bool:
+def validate_directory(directory_path: str, create: bool = False) -> bool:
     """
-    Validate a directory exists and create it if it doesn't.
+    Validate a directory exists and optionally create it if it doesn't.
     
     Args:
         directory_path: Path to the directory to check/create
+        create: If True, create directory if it doesn't exist
         
     Returns:
         True if directory exists or was created successfully
     """
     if not os.path.exists(directory_path):
+        if not create:
+            debug(f"❌ Directory does not exist: {directory_path}")
+            return False
+            
         try:
             os.makedirs(directory_path, exist_ok=True)
             debug(f"✅ Created directory: {directory_path}")

@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple, Any
 
 from src.common.logging import log_call, debug, info, warn, error, success
 from src.features.website.utils import get_sites_dir, get_site_config
-
+from src.common.utils.validation import validate_directory, validate_file_path
 
 @log_call
 def get_backup_folders(domain: str) -> Tuple[str, List[str], Optional[Dict[str, Any]]]:
@@ -30,17 +30,13 @@ def get_backup_folders(domain: str) -> Tuple[str, List[str], Optional[Dict[str, 
     """
     sites_dir = get_sites_dir()
     backup_dir = os.path.join(sites_dir, domain, "backups")
-    
-    if not os.path.exists(backup_dir):
-        error(f"❌ Backup directory not found for website {domain}.")
-        return backup_dir, [], None
-    
+
+    validate_directory(backup_dir, create=True)
+
     # Find all backup folders in the backups directory
     backup_folders = [d for d in os.listdir(backup_dir) if os.path.isdir(os.path.join(backup_dir, d)) and d.startswith("backup_")]
     
-    if not backup_folders:
-        error(f"❌ No backups found for website {domain}.")
-        return backup_dir, [], None
+    validate_directory(backup_folders, create=False)
     
     # Get current backup info if available
     site_config = get_site_config(domain)
@@ -71,6 +67,7 @@ def get_backup_info(backup_dir: str, folder: str, last_backup_info: Optional[Dic
     Returns:
         Dictionary with backup information
     """
+    validate_directory(backup_dir, create=False)
     folder_path = os.path.join(backup_dir, folder)
     try:
         # Get creation time
@@ -139,6 +136,7 @@ def restore_database(domain: str, sql_file: str, reset_db: bool = True) -> bool:
         Success status
     """
     try:
+        validate_file_path(sql_file)
         # Import here to avoid circular imports
         from src.features.mysql.import_export import import_database
         import_database(domain, sql_file, reset=reset_db)
@@ -164,12 +162,15 @@ def restore_source_code(domain: str, archive_file: str) -> bool:
     sites_dir = get_sites_dir()
     wordpress_dir = os.path.join(sites_dir, domain, "wordpress")
     
+    validate_directory(wordpress_dir, create=False)
+    
     if not os.path.exists(wordpress_dir):
         error(f"❌ WordPress directory not found for website {domain}.")
         return False
         
     try:
         # Create a temporary directory for extraction
+        # remove the old temp_dir if it exists
         temp_dir = os.path.join(sites_dir, domain, "temp_extract")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
