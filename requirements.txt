@@ -9,3 +9,4 @@ pytest
 pytest-env
 python-crontab
 inquirer
+humanize

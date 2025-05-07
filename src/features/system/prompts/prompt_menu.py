@@ -50,10 +50,12 @@ def prompt_system_menu() -> None:
             style=custom_style
         ).ask()
         
-        if answer == "7":
+        if answer == "0":
+            return
+        elif answer == "7":
             from src.features.cron.prompts.prompt_menu import prompt_cron_menu
             prompt_cron_menu()
-        elif answer != "0":
+        else:
             not_implemented()
     except Exception as e:
         error(f"Error in system menu: {e}")

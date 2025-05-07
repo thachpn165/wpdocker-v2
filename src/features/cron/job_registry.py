@@ -43,3 +43,18 @@ def get_runner_for_job_type(job_type: str) -> Optional[Type]:
         _RUNNERS = _import_runners()
         
     return _RUNNERS.get(job_type)
+
+
+def get_available_job_types() -> list:
+    """
+    Get a list of available job types.
+    
+    Returns:
+        List of job type names
+    """
+    global _RUNNERS
+    
+    if not _RUNNERS:
+        _RUNNERS = _import_runners()
+        
+    return list(_RUNNERS.keys())
