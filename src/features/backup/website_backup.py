@@ -5,6 +5,7 @@ This module provides the main entry point for backing up a website,
 coordinating the backup process for database and files.
 """
 
+import os
 from src.common.logging import log_call, info, error
 
 
@@ -51,8 +52,13 @@ def backup_website(domain: str) -> str:
         # 5. Finalize and add metadata
         backup_path = backup_finalize(domain)
 
+        # Ensure we return a valid path or empty string
+        if not backup_path or not isinstance(backup_path, str) or not os.path.exists(backup_path):
+            error(f"❌ Final backup path invalid or file does not exist: {backup_path}")
+            rollback_backup(domain)
+            return ""
+
         info(f"✅ Website backup completed for {domain}.")
-        
         return backup_path
 
     except Exception as e:

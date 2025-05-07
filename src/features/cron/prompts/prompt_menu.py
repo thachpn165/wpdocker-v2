@@ -89,7 +89,6 @@ def display_job_info(job: CronJob) -> None:
     # Display information
     info(f"\n{'='*78}")
     info(f"Job ID: {job.id} {status_symbol}")
-    info(f"Description: {job.description or 'No description'}")
     info(f"Type: {job.job_type}")
     info(f"Target: {job.target_id}")
     info(f"Schedule: {schedule_desc}")
@@ -132,8 +131,7 @@ def list_cron_jobs() -> None:
         for i, job in enumerate(sorted(job_list, key=lambda j: j.created_at or "", reverse=True), 1):
             status = "✅ Enabled" if job.enabled else "❌ Disabled"
             last_run = job.last_run or "Never"
-            desc = job.description or f"{job.job_type} - {job.target_id}"
-            info(f"  {i}. {status} {desc}")
+            info(f"  {i}. {status} {job.job_type} - {job.target_id}")
     
     # Option to view job details
     should_view_details = questionary.confirm(
@@ -147,8 +145,7 @@ def list_cron_jobs() -> None:
         job_choices = []
         for job in jobs:
             status = "✅" if job.enabled else "❌"
-            desc = job.description or f"{job.job_type} - {job.target_id}"
-            job_choices.append({"name": f"{status} {desc}", "value": job.id})
+            job_choices.append({"name": f"{status} {job.job_type} - {job.target_id}", "value": job.id})
         
         job_choices.append({"name": "Cancel", "value": "cancel"})
         
@@ -182,8 +179,7 @@ def toggle_cron_job() -> None:
     job_choices = []
     for job in jobs:
         status = "✅" if job.enabled else "❌"
-        desc = job.description or f"{job.job_type} - {job.target_id}"
-        job_choices.append({"name": f"{status} {desc}", "value": job.id})
+        job_choices.append({"name": f"{status} {job.job_type} - {job.target_id}", "value": job.id})
     
     job_choices.append({"name": "Cancel", "value": "cancel"})
     
@@ -244,8 +240,7 @@ def delete_cron_job() -> None:
     job_choices = []
     for job in jobs:
         status = "✅" if job.enabled else "❌"
-        desc = job.description or f"{job.job_type} - {job.target_id}"
-        job_choices.append({"name": f"{status} {desc}", "value": job.id})
+        job_choices.append({"name": f"{status} {job.job_type} - {job.target_id}", "value": job.id})
     
     job_choices.append({"name": "Cancel", "value": "cancel"})
     
@@ -303,9 +298,8 @@ def run_cron_job() -> None:
     job_choices = []
     for job in jobs:
         status = "✅" if job.enabled else "❌"
-        desc = job.description or f"{job.job_type} - {job.target_id}"
         last_run = job.last_run or "Never"
-        job_choices.append({"name": f"{status} {desc} (Last run: {last_run})", "value": job.id})
+        job_choices.append({"name": f"{status} {job.job_type} - {job.target_id} (Last run: {last_run})", "value": job.id})
     
     job_choices.append({"name": "Cancel", "value": "cancel"})
     
@@ -440,11 +434,8 @@ def add_cron_job() -> None:
             input("\nPress Enter to continue...")
             return
     
-    # Get job description
-    description = questionary.text(
-        "Enter task description:",
-        style=custom_style
-    ).ask() or f"{job_type} task for {target_id}"
+    # Create default description
+    description = f"{job_type} task for {target_id}"
     
     # Job parameters based on type
     parameters = {}
@@ -494,7 +485,6 @@ def add_cron_job() -> None:
     info(f"  Type: {job.job_type}")
     info(f"  Target: {job.target_id}")
     info(f"  Schedule: {job.schedule}")
-    info(f"  Description: {job.description}")
     
     if parameters:
         info("  Parameters:")

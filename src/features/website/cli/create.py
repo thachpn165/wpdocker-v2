@@ -14,7 +14,7 @@ from src.common.logging import log_call, info, warn, error, success
 from src.features.website.utils import is_website_exists
 from src.features.website.manager import create_website
 from src.features.wordpress.cli.install import cli_install_wordpress
-
+from src.common.utils.validate import is_valid_domain
 
 @log_call
 def validate_domain(domain: str) -> bool:
@@ -28,12 +28,7 @@ def validate_domain(domain: str) -> bool:
         bool: True if domain is valid, False otherwise
     """
     # Basic domain validation with regex
-    pattern = r"^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
-    is_valid = bool(re.match(pattern, domain))
-    
-    if not is_valid:
-        error(f"❌ Invalid domain format: {domain}")
-        return False
+    is_valid_domain(domain)
         
     # Check if website already exists
     if is_website_exists(domain):

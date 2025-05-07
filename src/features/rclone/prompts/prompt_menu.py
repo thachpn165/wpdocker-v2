@@ -1,62 +1,50 @@
 """
 Rclone management menu prompt module.
 
-This module provides the user interface for Rclone management functinons.
+This module provides the user interface for Rclone management functions
+like adding/removing remotes, file operations, and cloud backup management.
 """
 
 import os
 import datetime
 import questionary
-from questionary import Style, prompt
+from questionary import prompt
 from typing import Dict, List, Optional, Tuple, Any
 
 from src.common.logging import info, error, debug, success
 from src.common.utils.environment import env
+from src.common.utils.editor import choose_editor
+from src.common.containers.path_utils import convert_host_path_to_container
+from src.common.containers.utils import handle_container_check
+from src.common.ui.prompt_helpers import (
+    custom_style, 
+    wait_for_enter, 
+    prompt_with_cancel,
+    execute_with_exception_handling
+)
 from src.features.rclone.manager import RcloneManager
 from src.features.rclone.config.manager import RcloneConfigManager
 from src.features.rclone.backup_integration import RcloneBackupIntegration
+from src.features.rclone.utils.remote_utils import (
+    format_size,
+    get_remote_type_display_name,
+    ensure_remotes_available,
+    create_directory_structure,
+    get_available_websites,
+    get_backup_files_for_website,
+    # New utility functions
+    create_remote_choices,
+    select_remote,
+    select_website,
+    select_backup_file,
+    process_backup_files,
+    validate_backup_path,
+    execute_rclone_operation
+)
 
-# Custom style for the menu
-custom_style = Style([
-    ('qmark', 'fg:cyan bold'),
-    ('question', 'fg:cyan bold'),
-    ('answer', 'fg:green bold'),
-    ('pointer', 'fg:cyan bold'),
-    ('highlighted', 'fg:green bold'),
-    ('selected', 'fg:green bold'),
-    ('separator', 'fg:cyan'),
-    ('instruction', 'fg:gray'),
-    ('text', ''),
-    ('disabled', 'fg:gray italic'),
-])
 
-def get_remote_type_display_name(remote_type: str) -> str:
-    """Get a user-friendly display name for a remote type.
-    
-    Args:
-        remote_type: The internal type name used by rclone
-        
-    Returns:
-        str: A user-friendly display name
-    """
-    display_names = {
-        "s3": "Amazon S3 / Wasabi / DO Spaces",
-        "drive": "Google Drive",
-        "dropbox": "Dropbox",
-        "onedrive": "Microsoft OneDrive",
-        "b2": "Backblaze B2",
-        "box": "Box",
-        "sftp": "SFTP",
-        "ftp": "FTP",
-        "webdav": "WebDAV",
-        "azureblob": "Azure Blob Storage",
-        "mega": "Mega.nz",
-        "pcloud": "pCloud",
-        "swift": "OpenStack Swift",
-        "yandex": "Yandex Disk",
-        "local": "Local Disk"
-    }
-    return display_names.get(remote_type, remote_type.capitalize())
+# Note: create_remote_choices function has been moved to remote_utils.py
+
 
 def prompt_remote_params(remote_type: str) -> Dict[str, str]:
     """Prompt for remote-specific parameters and provide detailed guidance.
@@ -202,7 +190,6 @@ Application Keys can be limited to a specific bucket or apply to the entire acco
         if use_manual_config:
             import tempfile
             import subprocess
-            from src.common.utils.editor import choose_editor
             
             # Create a temporary file for the user to enter configuration
             with tempfile.NamedTemporaryFile(suffix='.conf', delete=False, mode='w+') as temp_file:
@@ -425,22 +412,247 @@ After continuing, the system will guide you through the setup process.
     
     return {k: v for k, v in params.items() if v}  # Filter out empty values
 
-def prompt_manage_remotes() -> None:
-    """Display Rclone remotes management menu and handle user selection."""
-    rclone_manager = RcloneManager()
-    config_manager = RcloneConfigManager()
-    
-    try:
+
+def list_remotes() -> None:
+    """List all configured rclone remotes with their types."""
+    def _list_remotes():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        
         # Check if Rclone container is running
-        if not rclone_manager.is_container_running():
-            info("Starting Rclone container...")
-            if not rclone_manager.start_container():
-                error("❌ Failed to start Rclone container. Please check your Docker configuration.")
-                input("Press Enter to continue...")
-                return
+        if not handle_container_check(rclone_manager):
+            return
         
         # Get list of remotes
         remotes = rclone_manager.list_remotes()
+        if remotes:
+            info("\n📋 Configured Remotes:")
+            for i, remote in enumerate(remotes, 1):
+                # Get remote type for more detailed display
+                remote_config = config_manager.get_remote_config(remote)
+                remote_type = remote_config.get("type", "unknown") if remote_config else "unknown"
+                display_type = get_remote_type_display_name(remote_type)
+                
+                info(f"{i}. {remote} ({display_type})")
+        else:
+            info("No remotes configured yet.")
+        wait_for_enter()
+    
+    execute_with_exception_handling(_list_remotes, "Error listing remotes")
+
+
+def add_remote() -> None:
+    """Add a new rclone remote with interactive configuration."""
+    def _add_remote():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get remote name
+        remote_name = questionary.text(
+            "Enter name for the new remote:",
+            style=custom_style
+        ).ask()
+        
+        if not remote_name:
+            return
+        
+        # Extended list of remote types
+        remote_types = [
+            {"name": "S3 (Amazon S3, Wasabi, etc.)", "value": "s3"},
+            {"name": "Google Drive", "value": "drive"},
+            {"name": "Dropbox", "value": "dropbox"},
+            {"name": "Microsoft OneDrive", "value": "onedrive"},
+            {"name": "SFTP", "value": "sftp"},
+            {"name": "FTP", "value": "ftp"},
+            {"name": "WebDAV / Nextcloud", "value": "webdav"},
+            {"name": "Backblaze B2", "value": "b2"},
+            {"name": "Box", "value": "box"},
+            {"name": "Azure Blob Storage", "value": "azureblob"},
+            {"name": "Cancel", "value": "cancel"},
+        ]
+        
+        remote_type = questionary.select(
+            "Select remote type:",
+            choices=remote_types,
+            style=custom_style
+        ).ask()
+        
+        if remote_type == "cancel":
+            return
+        
+        # Use the prompt_remote_params function to get the parameters with detailed guidance
+        params = prompt_remote_params(remote_type)
+        
+        # Add the remote if parameters were provided
+        if params:
+            # If this is an OAuth method and there's a token, use ConfigManager directly
+            if remote_type in ["drive", "dropbox", "onedrive", "box"] and "token" in params:
+                # Add type to params for direct configuration
+                params["type"] = remote_type
+                
+                # Use ConfigManager to add directly to the config file
+                success_result = config_manager.add_remote(remote_name, params)
+                
+                if success_result:
+                    success(f"✅ Remote '{remote_name}' added successfully using manual configuration")
+                else:
+                    error(f"❌ Failed to add remote '{remote_name}' to config file")
+            else:
+                # Use the RcloneManager method to add the remote
+                success_result = rclone_manager.add_remote(remote_name, remote_type, params)
+                
+                if success_result:
+                    success(f"✅ Remote '{remote_name}' added successfully")
+                else:
+                    error(f"❌ Failed to add remote '{remote_name}'")
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_add_remote, "Error adding remote")
+
+
+def remove_remote() -> None:
+    """Remove a configured rclone remote with confirmation."""
+    def _remove_remote():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = rclone_manager.list_remotes()
+        if not remotes:
+            info("No remotes configured yet.")
+            wait_for_enter()
+            return
+        
+        # Select remote using utility function
+        remote_to_remove = select_remote(remotes, "Select remote to remove:", config_manager)
+        if not remote_to_remove:
+            return
+            
+        # Show clear warning with remote information
+        config = config_manager.get_remote_config(remote_to_remove)
+        if config:
+            remote_type = config.get("type", "unknown")
+            display_type = get_remote_type_display_name(remote_type)
+            info(f"\n⚠️  WARNING: You are about to delete the '{remote_to_remove}' ({display_type}) remote.")
+            info("    This action cannot be undone and will remove the configuration linked to this service.")
+            info("    Data stored on the service will not be affected.")
+        
+        # Confirm removal
+        confirm = questionary.confirm(
+            f"Are you sure you want to remove '{remote_to_remove}'?",
+            style=custom_style,
+            default=False
+        ).ask()
+        
+        if confirm:
+            # Use execute_rclone_operation utility
+            def remove_operation():
+                success_result = rclone_manager.remove_remote(remote_to_remove)
+                return success_result, f"Remote '{remote_to_remove}' removed" if success_result else "Failed to remove remote"
+            
+            execute_rclone_operation(
+                remove_operation,
+                f"Remote '{remote_to_remove}' removed successfully",
+                f"Failed to remove remote '{remote_to_remove}'"
+            )
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_remove_remote, "Error removing remote")
+
+
+def view_remote_config() -> None:
+    """View detailed configuration of a selected remote."""
+    def _view_remote_config():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = rclone_manager.list_remotes()
+        if not remotes:
+            info("No remotes configured yet.")
+            wait_for_enter()
+            return
+        
+        # Select remote using utility function
+        selected_remote = select_remote(remotes, "Select remote to view:", config_manager)
+        if not selected_remote:
+            return
+            
+        remote_config = config_manager.get_remote_config(selected_remote)
+        
+        if remote_config:
+            remote_type = remote_config.get("type", "unknown")
+            display_type = get_remote_type_display_name(remote_type)
+            
+            info(f"\nConfiguration details for '{selected_remote}' ({display_type}):")
+            info("="*80)
+            
+            # Group the information for better display
+            # Group 1: Basic information
+            info("BASIC INFORMATION:")
+            info(f"  Name: {selected_remote}")
+            info(f"  Type: {display_type}")
+            
+            # Group 2: Connection and authentication
+            info("\nCONNECTION DETAILS:")
+            for key, value in remote_config.items():
+                if key == "type":
+                    continue  # Already displayed above
+                
+                # User-friendly labels for fields
+                key_display = {
+                    "provider": "Provider",
+                    "access_key_id": "Access Key ID",
+                    "region": "Region",
+                    "endpoint": "Endpoint",
+                    "account": "Account",
+                    "user": "Username",
+                    "host": "Host",
+                    "port": "Port",
+                    "url": "URL"
+                }.get(key, key)
+                
+                # Mask sensitive information
+                if key in ["secret", "key", "pass", "password", "secret_access_key", "token", "client_secret"]:
+                    value = "********"
+                    key_display = f"{key_display} (hidden)"
+                    
+                info(f"  {key_display}: {value}")
+            
+            info("="*80)
+            
+            # Add usage information
+            info(f"\nNote: This shows the remote configuration. To manage data,")
+            info(f"use options like 'View backup files' or 'Backup to remote'.")
+        else:
+            error(f"❌ Failed to retrieve configuration for '{selected_remote}'")
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_view_remote_config, "Error viewing remote configuration")
+
+
+def prompt_manage_remotes() -> None:
+    """Display Rclone remotes management menu and handle user selection."""
+    def _prompt_manage_remotes():
+        # Check if Rclone container is running
+        rclone_manager = RcloneManager()
+        if not handle_container_check(rclone_manager):
+            return
         
         choices = [
             {"name": "1. List Remotes", "value": "1"},
@@ -450,680 +662,992 @@ def prompt_manage_remotes() -> None:
             {"name": "0. Back", "value": "0"},
         ]
         
-        while True:
-            answer = questionary.select(
-                "\n🛰️  Rclone Remotes Management:",
-                choices=choices,
-                style=custom_style
-            ).ask()
-            
-            if answer == "0":
-                break
-            elif answer == "1":
-                # List remotes
-                remotes = rclone_manager.list_remotes()
-                if remotes:
-                    info("\n📋 Configured Remotes:")
-                    for i, remote in enumerate(remotes, 1):
-                        # Get remote type for more detailed display
-                        remote_config = config_manager.get_remote_config(remote)
-                        remote_type = remote_config.get("type", "unknown") if remote_config else "unknown"
-                        display_type = get_remote_type_display_name(remote_type)
-                        
-                        info(f"{i}. {remote} ({display_type})")
-                else:
-                    info("No remotes configured yet.")
-                input("\nPress Enter to continue...")
-            
-            elif answer == "2":
-                # Add remote
-                remote_name = questionary.text(
-                    "Enter name for the new remote:",
-                    style=custom_style
-                ).ask()
-                
-                if not remote_name:
-                    continue
-                
-                # Extended list of remote types
-                remote_types = [
-                    {"name": "S3 (Amazon S3, Wasabi, etc.)", "value": "s3"},
-                    {"name": "Google Drive", "value": "drive"},
-                    {"name": "Dropbox", "value": "dropbox"},
-                    {"name": "Microsoft OneDrive", "value": "onedrive"},
-                    {"name": "SFTP", "value": "sftp"},
-                    {"name": "FTP", "value": "ftp"},
-                    {"name": "WebDAV / Nextcloud", "value": "webdav"},
-                    {"name": "Backblaze B2", "value": "b2"},
-                    {"name": "Box", "value": "box"},
-                    {"name": "Azure Blob Storage", "value": "azureblob"},
-                    {"name": "Cancel", "value": "cancel"},
-                ]
-                
-                remote_type = questionary.select(
-                    "Select remote type:",
-                    choices=remote_types,
-                    style=custom_style
-                ).ask()
-                
-                if remote_type == "cancel":
-                    continue
-                
-                # Use the prompt_remote_params function to get the parameters with detailed guidance
-                params = prompt_remote_params(remote_type)
-                
-                # Add the remote if parameters were provided
-                if params:
-                    # If this is an OAuth method and there's a token, use ConfigManager directly
-                    if remote_type in ["drive", "dropbox", "onedrive", "box"] and "token" in params:
-                        # Add type to params for direct configuration
-                        params["type"] = remote_type
-                        
-                        # Use ConfigManager to add directly to the config file
-                        success_result = config_manager.add_remote(remote_name, params)
-                        
-                        if success_result:
-                            success(f"✅ Remote '{remote_name}' added successfully using manual configuration")
-                        else:
-                            error(f"❌ Failed to add remote '{remote_name}' to config file")
-                    else:
-                        # Use the RcloneManager method to add the remote
-                        success_result = rclone_manager.add_remote(remote_name, remote_type, params)
-                        
-                        if success_result:
-                            success(f"✅ Remote '{remote_name}' added successfully")
-                        else:
-                            error(f"❌ Failed to add remote '{remote_name}'")
-                
-                input("\nPress Enter to continue...")
-            
-            elif answer == "3":
-                # Remove remote
-                remotes = rclone_manager.list_remotes()
-                if not remotes:
-                    info("No remotes configured yet.")
-                    input("\nPress Enter to continue...")
-                    continue
-                
-                remote_choices = []
-                for remote in remotes:
-                    # Get remote type for more informative display
-                    config = config_manager.get_remote_config(remote)
-                    remote_type = config.get("type", "unknown") if config else "unknown"
-                    display_type = get_remote_type_display_name(remote_type)
-                    remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-                
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                remote_to_remove = questionary.select(
-                    "Select remote to remove:",
-                    choices=remote_choices,
-                    style=custom_style
-                ).ask()
-                
-                if remote_to_remove != "cancel":
-                    # Show clear warning with remote information
-                    config = config_manager.get_remote_config(remote_to_remove)
-                    if config:
-                        remote_type = config.get("type", "unknown")
-                        display_type = get_remote_type_display_name(remote_type)
-                        info(f"\n⚠️  WARNING: You are about to delete the '{remote_to_remove}' ({display_type}) remote.")
-                        info("    This action cannot be undone and will remove the configuration linked to this service.")
-                        info("    Data stored on the service will not be affected.")
-                    
-                    # Confirm removal
-                    confirm = questionary.confirm(
-                        f"Are you sure you want to remove '{remote_to_remove}'?",
-                        style=custom_style,
-                        default=False
-                    ).ask()
-                    
-                    if confirm:
-                        success_result = rclone_manager.remove_remote(remote_to_remove)
-                        if success_result:
-                            success(f"✅ Remote '{remote_to_remove}' removed successfully")
-                        else:
-                            error(f"❌ Failed to remove remote '{remote_to_remove}'")
-                
-                input("\nPress Enter to continue...")
-            
-            elif answer == "4":
-                # View remote configuration
-                remotes = rclone_manager.list_remotes()
-                if not remotes:
-                    info("No remotes configured yet.")
-                    input("\nPress Enter to continue...")
-                    continue
-                
-                remote_choices = []
-                for remote in remotes:
-                    # Get remote type for more informative display
-                    config = config_manager.get_remote_config(remote)
-                    remote_type = config.get("type", "unknown") if config else "unknown"
-                    display_type = get_remote_type_display_name(remote_type)
-                    remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-                
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                selected_remote = questionary.select(
-                    "Select remote to view:",
-                    choices=remote_choices,
-                    style=custom_style
-                ).ask()
-                
-                if selected_remote != "cancel":
-                    remote_config = config_manager.get_remote_config(selected_remote)
-                    
-                    if remote_config:
-                        remote_type = remote_config.get("type", "unknown")
-                        display_type = get_remote_type_display_name(remote_type)
-                        
-                        info(f"\nConfiguration details for '{selected_remote}' ({display_type}):")
-                        info("="*80)
-                        
-                        # Group the information for better display
-                        # Group 1: Basic information
-                        info("BASIC INFORMATION:")
-                        info(f"  Name: {selected_remote}")
-                        info(f"  Type: {display_type}")
-                        
-                        # Group 2: Connection and authentication
-                        info("\nCONNECTION DETAILS:")
-                        for key, value in remote_config.items():
-                            if key == "type":
-                                continue  # Already displayed above
-                            
-                            # User-friendly labels for fields
-                            key_display = {
-                                "provider": "Provider",
-                                "access_key_id": "Access Key ID",
-                                "region": "Region",
-                                "endpoint": "Endpoint",
-                                "account": "Account",
-                                "user": "Username",
-                                "host": "Host",
-                                "port": "Port",
-                                "url": "URL"
-                            }.get(key, key)
-                            
-                            # Mask sensitive information
-                            if key in ["secret", "key", "pass", "password", "secret_access_key", "token", "client_secret"]:
-                                value = "********"
-                                key_display = f"{key_display} (hidden)"
-                                
-                            info(f"  {key_display}: {value}")
-                        
-                        info("="*80)
-                        
-                        # Add usage information
-                        info(f"\nNote: This shows the remote configuration. To manage data,")
-                        info(f"use options like 'View backup files' or 'Backup to remote'.")
-                    else:
-                        error(f"❌ Failed to retrieve configuration for '{selected_remote}'")
-                
-                input("\nPress Enter to continue...")
-            
-    
-    except Exception as e:
-        error(f"Error in remotes management menu: {e}")
-        input("Press Enter to continue...")
-
-def prompt_file_operations() -> None:
-    """Display Rclone file operations menu and handle user selection."""
-    rclone_manager = RcloneManager()
-    
-    try:
-        # Check if Rclone container is running
-        if not rclone_manager.is_container_running():
-            info("Starting Rclone container...")
-            if not rclone_manager.start_container():
-                error("❌ Failed to start Rclone container. Please check your Docker configuration.")
-                input("Press Enter to continue...")
-                return
+        answer = questionary.select(
+            "\n🛰️  Rclone Remotes Management:",
+            choices=choices,
+            style=custom_style
+        ).ask()
         
-        # Get list of remotes
-        remotes = rclone_manager.list_remotes()
-        if not remotes:
-            error("❌ No remotes configured. Please add a remote first.")
-            input("Press Enter to continue...")
+        if answer == "0":
+            return
+        elif answer == "1":
+            list_remotes()
+        elif answer == "2":
+            add_remote()
+        elif answer == "3":
+            remove_remote()
+        elif answer == "4":
+            view_remote_config()
+    
+    execute_with_exception_handling(_prompt_manage_remotes, "Error in remotes management menu")
+
+
+def list_remote_files() -> None:
+    """List files and directories on a remote storage."""
+    def _list_remote_files():
+        rclone_manager = RcloneManager()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
             return
         
-        choices = [
-            {"name": "1. List Files/Directories", "value": "1"},
-            {"name": "2. Sync Directories", "value": "2"},
-            {"name": "3. Copy Files", "value": "3"},
-            {"name": "0. Back", "value": "0"},
-        ]
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
         
-        while True:
-            answer = questionary.select(
-                "\n📁 Rclone File Operations:",
-                choices=choices,
+        # Select remote
+        remote_choices = create_remote_choices(remotes)
+        selected_remote = prompt_with_cancel(remote_choices, "Select remote:")
+        
+        if not selected_remote:
+            return
+        
+        # Get path
+        remote_path = questionary.text(
+            "Enter path on remote (leave empty for root):",
+            style=custom_style
+        ).ask() or ""
+        
+        # List files in remote path
+        files = rclone_manager.list_files(selected_remote, remote_path)
+        
+        if files:
+            info(f"\n📋 Files/directories in '{selected_remote}:{remote_path}':")
+            for i, file_info in enumerate(files, 1):
+                file_type = "📁" if file_info.get("IsDir", False) else "📄"
+                file_name = file_info.get("Name", "Unknown")
+                file_size = file_info.get("Size", 0)
+                size_str = format_size(file_size)
+                info(f"{i}. {file_type} {file_name} ({size_str})")
+        else:
+            info(f"No files found in '{selected_remote}:{remote_path}'")
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_list_remote_files, "Error listing remote files")
+
+
+def sync_directories() -> None:
+    """Sync directories between local and remote storage or between remotes."""
+    def _sync_directories():
+        rclone_manager = RcloneManager()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        # Select source type
+        source_choices = create_remote_choices(remotes)
+        source_choices.insert(0, {"name": "Local directory", "value": "local"})
+        
+        source_type = prompt_with_cancel(source_choices, "Select source type:")
+        
+        if not source_type:
+            return
+        
+        if source_type == "local":
+            # Local source, remote destination
+            source_path = questionary.text(
+                "Enter local source directory (absolute path):",
                 style=custom_style
             ).ask()
             
-            if answer == "0":
-                break
+            if not source_path:
+                return
             
-            elif answer == "1":
-                # List files/directories
-                remote_choices = [{"name": remote, "value": remote} for remote in remotes]
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                selected_remote = questionary.select(
-                    "Select remote:",
-                    choices=remote_choices,
+            # Validate source path exists
+            if not os.path.exists(source_path):
+                error(f"❌ Source path '{source_path}' does not exist")
+                wait_for_enter(True)
+                return
+            
+            # Select remote destination
+            dest_choices = create_remote_choices(remotes)
+            
+            dest_remote = prompt_with_cancel(dest_choices, "Select destination remote:")
+            
+            if not dest_remote:
+                return
+            
+            dest_path = questionary.text(
+                "Enter destination path on remote:",
+                style=custom_style
+            ).ask() or ""
+            
+            # Prepare destination
+            if not dest_remote.endswith(':'):
+                dest_remote = f"{dest_remote}:"
+            destination = f"{dest_remote}{dest_path}"
+        
+        else:
+            # Remote source
+            source_remote = source_type
+            
+            source_path = questionary.text(
+                f"Enter path on '{source_remote}':",
+                style=custom_style
+            ).ask() or ""
+            
+            # Prepare source
+            if not source_remote.endswith(':'):
+                source_remote = f"{source_remote}:"
+            source = f"{source_remote}{source_path}"
+            
+            # Select destination type
+            dest_choices = [
+                {"name": "Local directory", "value": "local"},
+                {"name": "Another remote", "value": "remote"},
+                {"name": "Cancel", "value": "cancel"},
+            ]
+            
+            dest_type = prompt_with_cancel(dest_choices, "Select destination type:")
+            
+            if not dest_type:
+                return
+            
+            if dest_type == "local":
+                # Local destination
+                destination = questionary.text(
+                    "Enter local destination directory (absolute path):",
                     style=custom_style
                 ).ask()
                 
-                if selected_remote == "cancel":
-                    continue
+                if not destination:
+                    return
                 
-                remote_path = questionary.text(
-                    "Enter path on remote (leave empty for root):",
+                # Ensure destination directory exists
+                os.makedirs(os.path.dirname(destination), exist_ok=True)
+            
+            else:
+                # Remote destination
+                remaining_remotes = [r for r in remotes if r != source_type]
+                dest_remote_choices = create_remote_choices(remaining_remotes)
+                
+                dest_remote = prompt_with_cancel(
+                    dest_remote_choices,
+                    "Select destination remote:"
+                )
+                
+                if not dest_remote:
+                    return
+                
+                dest_path = questionary.text(
+                    "Enter destination path on remote:",
                     style=custom_style
                 ).ask() or ""
                 
-                # List files in remote path
-                files = rclone_manager.list_files(selected_remote, remote_path)
-                
-                if files:
-                    info(f"\n📋 Files/directories in '{selected_remote}:{remote_path}':")
-                    for i, file_info in enumerate(files, 1):
-                        file_type = "📁" if file_info.get("IsDir", False) else "📄"
-                        file_name = file_info.get("Name", "Unknown")
-                        file_size = file_info.get("Size", 0)
-                        size_str = f"{file_size/1024/1024:.2f} MB" if file_size > 1024*1024 else f"{file_size/1024:.2f} KB"
-                        info(f"{i}. {file_type} {file_name} ({size_str})")
-                else:
-                    info(f"No files found in '{selected_remote}:{remote_path}'")
-                
-                input("\nPress Enter to continue...")
+                # Prepare destination
+                if not dest_remote.endswith(':'):
+                    dest_remote = f"{dest_remote}:"
+                destination = f"{dest_remote}{dest_path}"
+        
+        # Configure sync flags
+        flags = ["--progress"]
+        
+        if questionary.confirm(
+            "Add --dry-run flag to simulate the operation without actually transferring files?",
+            style=custom_style
+        ).ask():
+            flags.append("--dry-run")
+        
+        # Perform sync operation
+        if source_type == "local":
+            info(f"\n🔄 Syncing from {source_path} to {destination}...")
+            success_result, message = rclone_manager.sync(source_path, destination, flags)
+        else:
+            info(f"\n🔄 Syncing from {source} to {destination}...")
+            success_result, message = rclone_manager.sync(source, destination, flags)
+        
+        if success_result:
+            success("✅ Sync operation completed successfully")
+            info(message)
+        else:
+            error(f"❌ Sync operation failed: {message}")
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_sync_directories, "Error syncing directories")
+
+
+def copy_files() -> None:
+    """Copy files between local and remote storage or between remotes."""
+    def _copy_files():
+        rclone_manager = RcloneManager()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        # Select source type
+        source_choices = create_remote_choices(remotes)
+        source_choices.insert(0, {"name": "Local file", "value": "local"})
+        
+        source_type = prompt_with_cancel(source_choices, "Select source type:")
+        
+        if not source_type:
+            return
+        
+        if source_type == "local":
+            # Local source, remote destination
+            source_path = questionary.text(
+                "Enter local source file (absolute path):",
+                style=custom_style
+            ).ask()
             
-            elif answer == "2":
-                # Sync directories
-                remote_choices = [{"name": remote, "value": remote} for remote in remotes]
-                remote_choices.append({"name": "Local directory", "value": "local"})
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                source_type = questionary.select(
-                    "Select source type:",
-                    choices=remote_choices,
+            if not source_path:
+                return
+            
+            # Validate source path exists
+            if not os.path.exists(source_path):
+                error(f"❌ Source file '{source_path}' does not exist")
+                wait_for_enter(True)
+                return
+            
+            # Select remote destination
+            dest_choices = create_remote_choices(remotes)
+            
+            dest_remote = prompt_with_cancel(dest_choices, "Select destination remote:")
+            
+            if not dest_remote:
+                return
+            
+            dest_path = questionary.text(
+                "Enter destination path on remote:",
+                style=custom_style
+            ).ask() or ""
+            
+            # If destination is a directory (ends with / or is empty), append source filename
+            if not dest_path or dest_path.endswith('/'):
+                dest_path = f"{dest_path}{os.path.basename(source_path)}"
+            
+            # Prepare destination
+            if not dest_remote.endswith(':'):
+                dest_remote = f"{dest_remote}:"
+            destination = f"{dest_remote}{dest_path}"
+        
+        else:
+            # Remote source
+            source_remote = source_type
+            
+            # List remote files
+            files = rclone_manager.list_files(source_remote, "")
+            
+            if not files:
+                error(f"❌ No files found in remote '{source_remote}'")
+                wait_for_enter(True)
+                return
+            
+            # Create file choices
+            file_choices = [{"name": f["Name"], "value": f["Name"]} for f in files if not f.get("IsDir", False)]
+            
+            if not file_choices:
+                # If no files in root, prompt for path
+                source_path = questionary.text(
+                    f"No files found in root of '{source_remote}'. Enter specific path:",
                     style=custom_style
                 ).ask()
                 
-                if source_type == "cancel":
-                    continue
+                if not source_path:
+                    return
+            else:
+                # Add custom path option
+                file_choices.append({"name": "Enter custom path", "value": "custom"})
+                file_choices.append({"name": "Cancel", "value": "cancel"})
                 
-                if source_type == "local":
-                    # Local source, remote destination
-                    source_path = questionary.text(
-                        "Enter local source directory (absolute path):",
-                        style=custom_style
-                    ).ask()
-                    
-                    if not source_path:
-                        continue
-                    
-                    # Validate source path exists
-                    if not os.path.exists(source_path):
-                        error(f"❌ Source path '{source_path}' does not exist")
-                        input("Press Enter to continue...")
-                        continue
-                    
-                    # Select remote destination
-                    remaining_remotes = [r for r in remotes]
-                    dest_choices = [{"name": remote, "value": remote} for remote in remaining_remotes]
-                    dest_choices.append({"name": "Cancel", "value": "cancel"})
-                    
-                    dest_remote = questionary.select(
-                        "Select destination remote:",
-                        choices=dest_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if dest_remote == "cancel":
-                        continue
-                    
-                    dest_path = questionary.text(
-                        "Enter destination path on remote:",
-                        style=custom_style
-                    ).ask() or ""
-                    
-                    # Prepare destination
-                    if not dest_remote.endswith(':'):
-                        dest_remote = f"{dest_remote}:"
-                    destination = f"{dest_remote}{dest_path}"
+                source_file = questionary.select(
+                    f"Select file from '{source_remote}':",
+                    choices=file_choices,
+                    style=custom_style
+                ).ask()
                 
-                else:
-                    # Remote source
-                    source_remote = source_type
-                    
+                if source_file == "cancel":
+                    return
+                
+                if source_file == "custom":
                     source_path = questionary.text(
                         f"Enter path on '{source_remote}':",
                         style=custom_style
-                    ).ask() or ""
-                    
-                    # Prepare source
-                    if not source_remote.endswith(':'):
-                        source_remote = f"{source_remote}:"
-                    source = f"{source_remote}{source_path}"
-                    
-                    # Select destination type
-                    dest_choices = [
-                        {"name": "Local directory", "value": "local"},
-                        {"name": "Another remote", "value": "remote"},
-                        {"name": "Cancel", "value": "cancel"},
-                    ]
-                    
-                    dest_type = questionary.select(
-                        "Select destination type:",
-                        choices=dest_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if dest_type == "cancel":
-                        continue
-                    
-                    if dest_type == "local":
-                        # Local destination
-                        destination = questionary.text(
-                            "Enter local destination directory (absolute path):",
-                            style=custom_style
-                        ).ask()
-                        
-                        if not destination:
-                            continue
-                        
-                        # Ensure destination directory exists
-                        os.makedirs(os.path.dirname(destination), exist_ok=True)
-                    
-                    else:
-                        # Remote destination
-                        remaining_remotes = [r for r in remotes if r != source_type]
-                        dest_remote_choices = [{"name": remote, "value": remote} for remote in remaining_remotes]
-                        dest_remote_choices.append({"name": "Cancel", "value": "cancel"})
-                        
-                        dest_remote = questionary.select(
-                            "Select destination remote:",
-                            choices=dest_remote_choices,
-                            style=custom_style
-                        ).ask()
-                        
-                        if dest_remote == "cancel":
-                            continue
-                        
-                        dest_path = questionary.text(
-                            "Enter destination path on remote:",
-                            style=custom_style
-                        ).ask() or ""
-                        
-                        # Prepare destination
-                        if not dest_remote.endswith(':'):
-                            dest_remote = f"{dest_remote}:"
-                        destination = f"{dest_remote}{dest_path}"
-                
-                # Configure sync flags
-                flags = ["--progress"]
-                
-                if questionary.confirm(
-                    "Add --dry-run flag to simulate the operation without actually transferring files?",
-                    style=custom_style
-                ).ask():
-                    flags.append("--dry-run")
-                
-                # Perform sync operation
-                if source_type == "local":
-                    info(f"\n🔄 Syncing from {source_path} to {destination}...")
-                    success_result, message = rclone_manager.sync(source_path, destination, flags)
-                else:
-                    info(f"\n🔄 Syncing from {source} to {destination}...")
-                    success_result, message = rclone_manager.sync(source, destination, flags)
-                
-                if success_result:
-                    success("✅ Sync operation completed successfully")
-                    info(message)
-                else:
-                    error(f"❌ Sync operation failed: {message}")
-                
-                input("\nPress Enter to continue...")
-            
-            elif answer == "3":
-                # Copy files
-                remote_choices = [{"name": remote, "value": remote} for remote in remotes]
-                remote_choices.append({"name": "Local file", "value": "local"})
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                source_type = questionary.select(
-                    "Select source type:",
-                    choices=remote_choices,
-                    style=custom_style
-                ).ask()
-                
-                if source_type == "cancel":
-                    continue
-                
-                if source_type == "local":
-                    # Local source, remote destination
-                    source_path = questionary.text(
-                        "Enter local source file path (absolute path):",
-                        style=custom_style
                     ).ask()
                     
                     if not source_path:
-                        continue
-                    
-                    # Validate source file exists
-                    if not os.path.exists(source_path):
-                        error(f"❌ Source file '{source_path}' does not exist")
-                        input("Press Enter to continue...")
-                        continue
-                    
-                    # Select remote destination
-                    dest_choices = [{"name": remote, "value": remote} for remote in remotes]
-                    dest_choices.append({"name": "Cancel", "value": "cancel"})
-                    
-                    dest_remote = questionary.select(
-                        "Select destination remote:",
-                        choices=dest_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if dest_remote == "cancel":
-                        continue
-                    
-                    dest_path = questionary.text(
-                        "Enter destination path on remote (including filename):",
-                        style=custom_style
-                    ).ask() or os.path.basename(source_path)
-                    
-                    # Prepare destination
-                    if not dest_remote.endswith(':'):
-                        dest_remote = f"{dest_remote}:"
-                    destination = f"{dest_remote}{dest_path}"
-                    
-                    # Source path is already configured
-                    
+                        return
                 else:
-                    # Remote source
-                    source_remote = source_type
-                    
-                    # List files on remote to select
-                    remote_path = questionary.text(
-                        f"Enter directory path on '{source_remote}' to list files:",
-                        style=custom_style
-                    ).ask() or ""
-                    
-                    files = rclone_manager.list_files(source_remote, remote_path)
-                    
-                    if not files:
-                        error(f"❌ No files found in '{source_remote}:{remote_path}'")
-                        input("Press Enter to continue...")
-                        continue
-                    
-                    # Filter out directories
-                    files = [f for f in files if not f.get("IsDir", False)]
-                    
-                    if not files:
-                        error(f"❌ No files (non-directories) found in '{source_remote}:{remote_path}'")
-                        input("Press Enter to continue...")
-                        continue
-                    
-                    file_choices = [{"name": f["Name"], "value": f["Name"]} for f in files]
-                    file_choices.append({"name": "Enter path manually", "value": "manual"})
-                    file_choices.append({"name": "Cancel", "value": "cancel"})
-                    
-                    selected_file = questionary.select(
-                        "Select file to copy:",
-                        choices=file_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if selected_file == "cancel":
-                        continue
-                    
-                    if selected_file == "manual":
-                        source_file_path = questionary.text(
-                            f"Enter full file path on '{source_remote}':",
-                            style=custom_style
-                        ).ask()
-                        
-                        if not source_file_path:
-                            continue
-                    else:
-                        source_file_path = f"{remote_path}/{selected_file}" if remote_path else selected_file
-                    
-                    # Prepare source
-                    if not source_remote.endswith(':'):
-                        source_remote = f"{source_remote}:"
-                    source = f"{source_remote}{source_file_path}"
-                    
-                    # Select destination type
-                    dest_choices = [
-                        {"name": "Local file", "value": "local"},
-                        {"name": "Another remote", "value": "remote"},
-                        {"name": "Cancel", "value": "cancel"},
-                    ]
-                    
-                    dest_type = questionary.select(
-                        "Select destination type:",
-                        choices=dest_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if dest_type == "cancel":
-                        continue
-                    
-                    if dest_type == "local":
-                        # Local destination
-                        local_file_name = os.path.basename(source_file_path)
-                        destination = questionary.text(
-                            "Enter local destination path (absolute path, including filename):",
-                            default=local_file_name,
-                            style=custom_style
-                        ).ask()
-                        
-                        if not destination:
-                            continue
-                        
-                        # Ensure destination directory exists
-                        os.makedirs(os.path.dirname(destination), exist_ok=True)
-                    
-                    else:
-                        # Remote destination
-                        remaining_remotes = [r for r in remotes if r != source_type]
-                        dest_remote_choices = [{"name": remote, "value": remote} for remote in remaining_remotes]
-                        dest_remote_choices.append({"name": "Cancel", "value": "cancel"})
-                        
-                        dest_remote = questionary.select(
-                            "Select destination remote:",
-                            choices=dest_remote_choices,
-                            style=custom_style
-                        ).ask()
-                        
-                        if dest_remote == "cancel":
-                            continue
-                        
-                        remote_file_name = os.path.basename(source_file_path)
-                        dest_path = questionary.text(
-                            "Enter destination path on remote (including filename):",
-                            default=remote_file_name,
-                            style=custom_style
-                        ).ask() or remote_file_name
-                        
-                        # Prepare destination
-                        if not dest_remote.endswith(':'):
-                            dest_remote = f"{dest_remote}:"
-                        destination = f"{dest_remote}{dest_path}"
-                
-                # Configure copy flags
-                flags = ["--progress"]
-                
-                if questionary.confirm(
-                    "Add --dry-run flag to simulate the operation without actually transferring files?",
+                    source_path = source_file
+            
+            # Prepare source
+            if not source_remote.endswith(':'):
+                source_remote = f"{source_remote}:"
+            source = f"{source_remote}{source_path}"
+            
+            # Select destination type
+            dest_choices = [
+                {"name": "Local directory", "value": "local"},
+                {"name": "Another remote", "value": "remote"},
+                {"name": "Cancel", "value": "cancel"},
+            ]
+            
+            dest_type = questionary.select(
+                "Select destination type:",
+                choices=dest_choices,
+                style=custom_style
+            ).ask()
+            
+            if dest_type == "cancel":
+                return
+            
+            if dest_type == "local":
+                # Local destination
+                destination = questionary.text(
+                    "Enter local destination path (absolute path):",
                     style=custom_style
-                ).ask():
-                    flags.append("--dry-run")
+                ).ask()
                 
-                # Perform copy operation
-                info(f"\n📋 Copying {'from local file' if source_type == 'local' else 'from remote'} to {'local file' if dest_type == 'local' else 'remote'}...")
+                if not destination:
+                    return
                 
-                if source_type == "local":
-                    command = ["copy", source_path, destination] + flags
-                else:
-                    command = ["copy", source, destination] + flags
+                # If destination is a directory, append source filename
+                if os.path.isdir(destination):
+                    source_filename = os.path.basename(source_path)
+                    destination = os.path.join(destination, source_filename)
                 
-                success_result, message = rclone_manager.execute_command(command)
+                # Ensure destination directory exists
+                os.makedirs(os.path.dirname(destination), exist_ok=True)
+            
+            else:
+                # Remote destination
+                remaining_remotes = [r for r in remotes if r != source_type]
+                dest_remote_choices = create_remote_choices(remaining_remotes)
                 
-                if success_result:
-                    success("✅ Copy operation completed successfully")
-                else:
-                    error(f"❌ Copy operation failed: {message}")
+                dest_remote = prompt_with_cancel(
+                    dest_remote_choices,
+                    "Select destination remote:"
+                )
                 
-                input("\nPress Enter to continue...")
-    
-    except Exception as e:
-        error(f"Error in file operations menu: {e}")
-        input("Press Enter to continue...")
-
-def format_size(size_bytes: int) -> str:
-    """Format file size in human-readable format.
-    
-    Args:
-        size_bytes: Size in bytes
+                if not dest_remote:
+                    return
+                
+                dest_path = questionary.text(
+                    "Enter destination path on remote (including filename):",
+                    style=custom_style
+                ).ask()
+                
+                if not dest_path:
+                    # Use source filename if no path provided
+                    dest_path = os.path.basename(source_path)
+                
+                # Prepare destination
+                if not dest_remote.endswith(':'):
+                    dest_remote = f"{dest_remote}:"
+                destination = f"{dest_remote}{dest_path}"
         
-    Returns:
-        str: Formatted size string
-    """
-    if size_bytes < 1024:
-        return f"{size_bytes} B"
-    elif size_bytes < 1024 * 1024:
-        return f"{size_bytes/1024:.2f} KB"
-    elif size_bytes < 1024 * 1024 * 1024:
-        return f"{size_bytes/1024/1024:.2f} MB"
-    else:
-        return f"{size_bytes/1024/1024/1024:.2f} GB"
+        # Show summary and confirm
+        info("\n📋 Copy Operation Summary:")
+        if source_type == "local":
+            info(f"  Source: {source_path}")
+        else:
+            info(f"  Source: {source}")
+        info(f"  Destination: {destination}")
+        
+        confirm = questionary.confirm(
+            "Proceed with the copy operation?",
+            style=custom_style,
+            default=True
+        ).ask()
+        
+        if not confirm:
+            return
+        
+        # Configure flags
+        flags = ["--progress"]
+        
+        # Execute the copy
+        if source_type == "local":
+            # Convert the host path to container path for Rclone
+            container_source_path = convert_host_path_to_container(source_path, 'rclone')
+            info(f"\n📂 Copying from {source_path} to {destination}...")
+            success_result, message = rclone_manager.execute_command(
+                ["copyto", container_source_path, destination] + flags
+            )
+        else:
+            info(f"\n📂 Copying from {source} to {destination}...")
+            if dest_type == "local":
+                # Convert the host path to container path for Rclone
+                container_dest_path = convert_host_path_to_container(destination, 'rclone')
+                success_result, message = rclone_manager.execute_command(
+                    ["copyto", source, container_dest_path] + flags
+                )
+            else:
+                success_result, message = rclone_manager.execute_command(
+                    ["copyto", source, destination] + flags
+                )
+        
+        if success_result:
+            success("✅ Copy operation completed successfully")
+            info(message)
+        else:
+            error(f"❌ Copy operation failed: {message}")
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_copy_files, "Error copying files")
+
+
+def prompt_file_operations() -> None:
+    """Display Rclone file operations menu and handle user selection."""
+    def _prompt_file_operations():
+        # Check if Rclone container is running
+        rclone_manager = RcloneManager()
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        choices = [
+            {"name": "1. List Remote Files", "value": "1"},
+            {"name": "2. Copy Files", "value": "2"},
+            {"name": "3. Sync Directories", "value": "3"},
+            {"name": "0. Back", "value": "0"},
+        ]
+        
+        answer = questionary.select(
+            "\n📂 Rclone File Operations:",
+            choices=choices,
+            style=custom_style
+        ).ask()
+        
+        if answer == "0":
+            return
+        elif answer == "1":
+            list_remote_files()
+        elif answer == "2":
+            copy_files()
+        elif answer == "3":
+            sync_directories()
+    
+    execute_with_exception_handling(_prompt_file_operations, "Error in file operations menu")
+
+
+def list_remote_backups() -> None:
+    """List backups on a remote storage."""
+    def _list_remote_backups():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        backup_integration = RcloneBackupIntegration()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        # Select remote using utility function
+        selected_remote = select_remote(remotes, "Select remote to view backups:", config_manager)
+        if not selected_remote:
+            return
+            
+        # Optionally filter by website
+        website_name = questionary.text(
+            "Enter website name to filter backups (leave empty for all):",
+            style=custom_style
+        ).ask() or None
+        
+        # List backups
+        files = backup_integration.list_remote_backups(selected_remote, website_name)
+        
+        if files:
+            info(f"\n📋 Backups in '{selected_remote}' storage" + (f" for website '{website_name}'" if website_name else "") + ":")
+            info("="*80)
+            info(f"{'Name':40} {'Size':15} {'Type':15} {'Last Modified'}")
+            info("-"*80)
+            
+            for file_info in files:
+                file_type = "📁 Directory" if file_info.get("IsDir", False) else "📄 File"
+                file_name = file_info.get("Name", "Unknown")
+                file_size = file_info.get("Size", 0)
+                size_str = format_size(file_size)
+                mod_time = file_info.get("ModTime", "Unknown")
+                
+                # Truncate filename if too long
+                if len(file_name) > 37:
+                    display_name = file_name[:34] + "..."
+                else:
+                    display_name = file_name
+                    
+                info(f"{display_name:40} {size_str:15} {file_type:15} {mod_time}")
+            
+            info("="*80)
+        else:
+            info(f"No backups found" + (f" for website '{website_name}'" if website_name else "") + f" in '{selected_remote}'")
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_list_remote_backups, "Error listing remote backups")
+
+
+def upload_backup_to_cloud() -> None:
+    """Upload a backup to a remote storage."""
+    def _upload_backup_to_cloud():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        backup_integration = RcloneBackupIntegration()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        # Select remote using utility function
+        selected_remote = select_remote(remotes, "Select destination remote storage:", config_manager)
+        if not selected_remote:
+            return
+        
+        # Select website using utility function
+        website_name = select_website("Select website to backup:")
+        if not website_name:
+            error("❌ Website name is required for backup organization")
+            wait_for_enter(True)
+            return
+        
+        # Select backup file using utility function
+        backup_path = select_backup_file(website_name, "Select backup file to upload:")
+        if not backup_path:
+            return
+        
+        # Validate backup file
+        if not validate_backup_path(backup_path):
+            wait_for_enter(True)
+            return
+        
+        # Show summary and confirm
+        info("\n📤 Backup Summary:")
+        info(f"  Source: {backup_path}")
+        info(f"  Destination: {selected_remote}:backups/{website_name}/")
+        
+        confirm = questionary.confirm(
+            "Proceed with the upload?",
+            style=custom_style,
+            default=True
+        ).ask()
+        
+        if not confirm:
+            return
+        
+        # Upload the backup using execute_rclone_operation utility
+        info(f"\n☁️  Uploading backup to '{selected_remote}' storage...")
+        
+        def upload_operation():
+            return backup_integration.backup_to_remote(selected_remote, website_name, backup_path)
+        
+        success_result = execute_rclone_operation(
+            upload_operation,
+            f"Backup successfully uploaded to {selected_remote}",
+            f"Failed to upload backup to {selected_remote}"
+        )
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_upload_backup_to_cloud, "Error uploading backup")
+
+
+def download_backup_from_cloud() -> None:
+    """Download a backup from a remote storage."""
+    def _download_backup_from_cloud():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        backup_integration = RcloneBackupIntegration()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        # Select remote using utility function
+        selected_remote = select_remote(remotes, "Select source remote storage:", config_manager)
+        if not selected_remote:
+            return
+        
+        # List available websites in the backups folder
+        base_path = "backups"
+        websites = []
+        
+        try:
+            # List contents of the backups directory
+            base_files = rclone_manager.list_files(selected_remote, base_path)
+            
+            # Find directories (websites)
+            websites = [f["Name"] for f in base_files if f.get("IsDir", False)]
+        except Exception as e:
+            debug(f"Error listing website directories: {str(e)}")
+        
+        # Website name for folder filtering
+        if websites:
+            website_choices = [{"name": website, "value": website} for website in websites]
+            website_choices.append({"name": "Enter manually", "value": "manual"})
+            website_choices.append({"name": "Show all backups", "value": ""})
+            
+            website_option = questionary.select(
+                "Select website to download backups from:",
+                choices=website_choices,
+                style=custom_style
+            ).ask()
+            
+            if website_option == "manual":
+                website_name = questionary.text(
+                    "Enter website name:",
+                    style=custom_style
+                ).ask() or None
+            else:
+                website_name = website_option
+        else:
+            website_name = questionary.text(
+                "Enter website name to filter backups (leave empty for all):",
+                style=custom_style
+            ).ask() or None
+        
+        # List available backups
+        remote_path = "backups"
+        if website_name:
+            remote_path = f"{remote_path}/{website_name}"
+        
+        info(f"\n🔍 Searching for backups in {selected_remote}:{remote_path}...")
+        files = rclone_manager.list_files(selected_remote, remote_path)
+        
+        if not files:
+            error(f"❌ No backups found in '{selected_remote}:{remote_path}'")
+            wait_for_enter()
+            return
+        
+        # Build backup file choices using the utility function
+        file_choices = process_backup_files(files, remote_path, rclone_manager, selected_remote)
+        
+        if not file_choices:
+            error(f"❌ No valid backup files found in '{selected_remote}:{remote_path}'")
+            wait_for_enter()
+            return
+        
+        file_choices.append({"name": "Enter path manually", "value": "manual"})
+        file_choices.append({"name": "Cancel", "value": "cancel"})
+        
+        selected_backup = questionary.select(
+            "Select backup to download:",
+            choices=file_choices,
+            style=custom_style
+        ).ask()
+        
+        if selected_backup == "cancel":
+            return
+        
+        if selected_backup == "manual":
+            remote_file_path = questionary.text(
+                f"Enter full backup path on '{selected_remote}':",
+                style=custom_style
+            ).ask()
+            
+            if not remote_file_path:
+                return
+            
+            selected_backup = remote_file_path
+        elif selected_backup.startswith("dir:"):
+            # User selected a directory, let them pick a file
+            dir_path = selected_backup[4:]  # Remove 'dir:' prefix
+            subdir_files = rclone_manager.list_files(selected_remote, dir_path)
+            
+            if not subdir_files:
+                error(f"❌ No files found in directory '{dir_path}'")
+                wait_for_enter()
+                return
+            
+            # Filter out directories and create choices
+            subdir_choices = []
+            for subfile in [f for f in subdir_files if not f.get("IsDir", False)]:
+                subfile_name = subfile.get("Name", "Unknown")
+                subfile_size = subfile.get("Size", 0)
+                subsize_str = format_size(subfile_size)
+                subfile_mod_time = subfile.get("ModTime", "Unknown")
+                
+                subdir_choices.append({
+                    "name": f"📄 {subfile_name} ({subsize_str}) - {subfile_mod_time}",
+                    "value": f"{dir_path}/{subfile_name}"
+                })
+            
+            if not subdir_choices:
+                error(f"❌ No files found in directory '{dir_path}'")
+                wait_for_enter()
+                return
+                
+            subdir_choices.append({"name": "Cancel", "value": "cancel"})
+            
+            subdir_selection = questionary.select(
+                f"Select file from '{os.path.basename(dir_path)}':",
+                choices=subdir_choices,
+                style=custom_style
+            ).ask()
+            
+            if subdir_selection == "cancel":
+                return
+            
+            selected_backup = subdir_selection
+        elif selected_backup.startswith("more:"):
+            # User selected "more files", show the complete list
+            dir_path = selected_backup[5:]  # Remove 'more:' prefix
+            subdir_files = rclone_manager.list_files(selected_remote, dir_path)
+            
+            if not subdir_files:
+                error(f"❌ No files found in directory '{dir_path}'")
+                wait_for_enter()
+                return
+            
+            # Filter out directories and create choices
+            subdir_choices = []
+            for subfile in [f for f in subdir_files if not f.get("IsDir", False)]:
+                subfile_name = subfile.get("Name", "Unknown")
+                subfile_size = subfile.get("Size", 0)
+                subsize_str = format_size(subfile_size)
+                subfile_mod_time = subfile.get("ModTime", "Unknown")
+                
+                subdir_choices.append({
+                    "name": f"📄 {subfile_name} ({subsize_str}) - {subfile_mod_time}",
+                    "value": f"{dir_path}/{subfile_name}"
+                })
+            
+            if not subdir_choices:
+                error(f"❌ No files found in directory '{dir_path}'")
+                wait_for_enter()
+                return
+                
+            subdir_choices.append({"name": "Cancel", "value": "cancel"})
+            
+            subdir_selection = questionary.select(
+                f"Select file from '{os.path.basename(dir_path)}':",
+                choices=subdir_choices,
+                style=custom_style
+            ).ask()
+            
+            if subdir_selection == "cancel":
+                return
+            
+            selected_backup = subdir_selection
+        
+        # Determine a good default local path
+        default_local_path = ""
+        filename = os.path.basename(selected_backup)
+        
+        # Extract website name from path if not set
+        if not website_name and selected_backup.startswith("backups/"):
+            parts = selected_backup.split("/")
+            if len(parts) > 1:
+                website_name = parts[1]
+        
+        if website_name:
+            sites_dir = env.get("SITES_DIR")
+            if sites_dir and os.path.exists(os.path.join(sites_dir, website_name)):
+                site_backups_dir = os.path.join(sites_dir, website_name, "backups")
+                os.makedirs(site_backups_dir, exist_ok=True)
+                default_local_path = os.path.join(site_backups_dir, filename)
+        
+        # Local destination path
+        local_path = questionary.text(
+            "Enter local destination path (absolute path):",
+            default=default_local_path,
+            style=custom_style
+        ).ask()
+        
+        if not local_path:
+            return
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        
+        # Show summary and confirm
+        info("\n📥 Download Summary:")
+        info(f"  Source: {selected_remote}:{selected_backup}")
+        info(f"  Destination: {local_path}")
+        
+        confirm = questionary.confirm(
+            "Proceed with the download?",
+            style=custom_style,
+            default=True
+        ).ask()
+        
+        if not confirm:
+            return
+        
+        # Download the backup using execute_rclone_operation utility
+        info(f"\n☁️  Downloading backup from '{selected_remote}:{selected_backup}'...")
+        
+        def download_operation():
+            return backup_integration.restore_from_remote(
+                selected_remote, selected_backup, local_path, website_name
+            )
+        
+        success_result = execute_rclone_operation(
+            download_operation,
+            f"Backup successfully downloaded from {selected_remote}",
+            f"Failed to download backup from {selected_remote}"
+        )
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_download_backup_from_cloud, "Error downloading backup")
+
+
+def schedule_cloud_backup() -> None:
+    """Schedule regular cloud backups using the cron system."""
+    def _schedule_cloud_backup():
+        rclone_manager = RcloneManager()
+        config_manager = RcloneConfigManager()
+        backup_integration = RcloneBackupIntegration()
+        
+        # Check if Rclone container is running
+        if not handle_container_check(rclone_manager):
+            return
+        
+        # Get list of remotes
+        remotes = ensure_remotes_available(rclone_manager)
+        if not remotes:
+            return
+        
+        # Check if cron module is available
+        try:
+            from src.features.cron.manager import CronManager
+        except ImportError:
+            error("❌ Cron module not available. Cannot schedule backups.")
+            wait_for_enter()
+            return
+        
+        # Select remote using utility function
+        selected_remote = select_remote(remotes, "Select remote storage for scheduled backups:", config_manager)
+        if not selected_remote:
+            return
+        
+        # Select website using utility function
+        website_name = select_website("Select website to schedule backups for:")
+        if not website_name:
+            error("❌ Website name is required for scheduled backups")
+            wait_for_enter(True)
+            return
+        
+        # Schedule options with friendly descriptions
+        schedule_choices = [
+            {"name": "Daily (at 2:00 AM)", "value": "0 2 * * *"},
+            {"name": "Weekly (Sunday at 3:00 AM)", "value": "0 3 * * 0"}, 
+            {"name": "Monthly (1st day at 4:00 AM)", "value": "0 4 1 * *"},
+            {"name": "Custom", "value": "custom"},
+            {"name": "Cancel", "value": "cancel"},
+        ]
+        
+        selected_schedule = questionary.select(
+            "Select backup schedule:",
+            choices=schedule_choices,
+            style=custom_style
+        ).ask()
+        
+        if selected_schedule == "cancel":
+            return
+        
+        if selected_schedule == "custom":
+            info("\n📋 Cron Schedule Format Help:")
+            info("  ┌─────────── minute (0 - 59)")
+            info("  │ ┌───────── hour (0 - 23)")
+            info("  │ │ ┌─────── day of the month (1 - 31)")
+            info("  │ │ │ ┌───── month (1 - 12)")
+            info("  │ │ │ │ ┌─── day of the week (0 - 6) (Sunday to Saturday)")
+            info("  │ │ │ │ │")
+            info("  * * * * *")
+            info("\nExamples:")
+            info("  0 2 * * *     # Every day at 2:00 AM")
+            info("  0 3 * * 0     # Every Sunday at 3:00 AM")
+            info("  0 4 1 * *     # First day of each month at 4:00 AM")
+            info("  */10 * * * *  # Every 10 minutes")
+            
+            custom_schedule = questionary.text(
+                "Enter cron schedule expression:",
+                style=custom_style
+            ).ask()
+            
+            if not custom_schedule:
+                return
+            
+            selected_schedule = custom_schedule
+        
+        # Show summary and confirm
+        info("\n🕒 Backup Schedule Summary:")
+        info(f"  Website: {website_name}")
+        info(f"  Remote Storage: {selected_remote}")
+        info(f"  Schedule: {selected_schedule}")
+        
+        # Try to make the schedule more human-readable
+        if selected_schedule == "0 2 * * *":
+            info("  Runs: Daily at 2:00 AM")
+        elif selected_schedule == "0 3 * * 0":
+            info("  Runs: Every Sunday at 3:00 AM")
+        elif selected_schedule == "0 4 1 * *":
+            info("  Runs: First day of each month at 4:00 AM")
+        
+        confirm = questionary.confirm(
+            "Proceed with scheduling this backup?",
+            style=custom_style,
+            default=True
+        ).ask()
+        
+        if not confirm:
+            return
+        
+        # Schedule the backup using execute_rclone_operation utility
+        info(f"\n🕒 Scheduling backup of '{website_name}' to '{selected_remote}'...")
+        
+        def schedule_operation():
+            return backup_integration.schedule_remote_backup(
+                selected_remote, website_name, selected_schedule
+            )
+        
+        success_result = execute_rclone_operation(
+            schedule_operation,
+            f"Backup of {website_name} to {selected_remote} scheduled successfully with schedule: {selected_schedule}",
+            f"Failed to schedule backup"
+        )
+        
+        wait_for_enter()
+    
+    execute_with_exception_handling(_schedule_cloud_backup, "Error scheduling backup")
+
 
 def prompt_backup_operations() -> None:
     """Display Rclone backup operations menu and handle user selection."""
-    rclone_manager = RcloneManager()
-    config_manager = RcloneConfigManager()
-    backup_integration = RcloneBackupIntegration()
-    
-    try:
+    def _prompt_backup_operations():
         # Check if Rclone container is running
-        if not rclone_manager.is_container_running():
-            info("Starting Rclone container...")
-            if not rclone_manager.start_container():
-                error("❌ Failed to start Rclone container. Please check your Docker configuration.")
-                input("Press Enter to continue...")
-                return
+        rclone_manager = RcloneManager()
+        if not handle_container_check(rclone_manager):
+            return
         
         # Get list of remotes
-        remotes = rclone_manager.list_remotes()
+        remotes = ensure_remotes_available(rclone_manager)
         if not remotes:
-            error("❌ No remotes configured. Please add a remote first.")
-            input("Press Enter to continue...")
             return
         
         choices = [
@@ -1134,671 +1658,51 @@ def prompt_backup_operations() -> None:
             {"name": "0. Back", "value": "0"},
         ]
         
-        while True:
-            answer = questionary.select(
-                "\n☁️  Cloud Backup Operations:",
-                choices=choices,
-                style=custom_style
-            ).ask()
-            
-            if answer == "0":
-                break
-            
-            elif answer == "1":
-                # List remote backups
-                remote_choices = []
-                for remote in remotes:
-                    # Get remote type for more informative display
-                    config = config_manager.get_remote_config(remote)
-                    remote_type = config.get("type", "unknown") if config else "unknown"
-                    display_type = get_remote_type_display_name(remote_type)
-                    remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-                
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                selected_remote = questionary.select(
-                    "Select remote storage:",
-                    choices=remote_choices,
-                    style=custom_style
-                ).ask()
-                
-                if selected_remote == "cancel":
-                    continue
-                
-                # Optionally filter by website
-                website_name = questionary.text(
-                    "Enter website name to filter backups (leave empty for all):",
-                    style=custom_style
-                ).ask() or None
-                
-                # List backups
-                files = backup_integration.list_remote_backups(selected_remote, website_name)
-                
-                if files:
-                    info(f"\n📋 Backups in '{selected_remote}' storage" + (f" for website '{website_name}'" if website_name else "") + ":")
-                    info("="*80)
-                    info(f"{'Name':40} {'Size':15} {'Type':15} {'Last Modified'}")
-                    info("-"*80)
-                    
-                    for file_info in files:
-                        file_type = "📁 Directory" if file_info.get("IsDir", False) else "📄 File"
-                        file_name = file_info.get("Name", "Unknown")
-                        file_size = file_info.get("Size", 0)
-                        size_str = format_size(file_size)
-                        mod_time = file_info.get("ModTime", "Unknown")
-                        
-                        # Truncate filename if too long
-                        if len(file_name) > 37:
-                            display_name = file_name[:34] + "..."
-                        else:
-                            display_name = file_name
-                            
-                        info(f"{display_name:40} {size_str:15} {file_type:15} {mod_time}")
-                    
-                    info("="*80)
-                else:
-                    info(f"No backups found" + (f" for website '{website_name}'" if website_name else "") + f" in '{selected_remote}'")
-                
-                input("\nPress Enter to continue...")
-            
-            elif answer == "2":
-                # Upload backup to cloud
-                remote_choices = []
-                for remote in remotes:
-                    # Get remote type for more informative display
-                    config = config_manager.get_remote_config(remote)
-                    remote_type = config.get("type", "unknown") if config else "unknown"
-                    display_type = get_remote_type_display_name(remote_type)
-                    remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-                
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                selected_remote = questionary.select(
-                    "Select destination remote storage:",
-                    choices=remote_choices,
-                    style=custom_style
-                ).ask()
-                
-                if selected_remote == "cancel":
-                    continue
-                
-                # Website name
-                # Check if SITES_DIR exists and has subdirectories
-                sites_dir = env.get("SITES_DIR")
-                available_domains = []
-                
-                if sites_dir and os.path.exists(sites_dir):
-                    available_domains = [d for d in os.listdir(sites_dir) 
-                                        if os.path.isdir(os.path.join(sites_dir, d))]
-                
-                if available_domains:
-                    # Create choices including a custom option
-                    domain_choices = [{"name": domain, "value": domain} for domain in available_domains]
-                    domain_choices.append({"name": "Enter custom domain name", "value": "custom"})
-                    
-                    domain_selection = questionary.select(
-                        "Select website to backup:",
-                        choices=domain_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if domain_selection == "custom":
-                        website_name = questionary.text(
-                            "Enter website name (used for remote folder structure):",
-                            style=custom_style
-                        ).ask()
-                    else:
-                        website_name = domain_selection
-                else:
-                    # No domains found, ask for manual entry
-                    website_name = questionary.text(
-                        "Enter website name (used for remote folder structure):",
-                        style=custom_style
-                    ).ask()
-                
-                if not website_name:
-                    error("❌ Website name is required for backup organization")
-                    input("Press Enter to continue...")
-                    continue
-                
-                # Default backup location based on website name
-                default_path = ""
-                if sites_dir and os.path.exists(os.path.join(sites_dir, website_name)):
-                    site_backups_dir = os.path.join(sites_dir, website_name, "backups")
-                    if os.path.exists(site_backups_dir):
-                        # List backup files in the backups directory
-                        backup_files = [f for f in os.listdir(site_backups_dir) 
-                                      if os.path.isfile(os.path.join(site_backups_dir, f)) and 
-                                      (f.endswith('.zip') or f.endswith('.tar.gz') or f.endswith('.sql'))]
-                        
-                        if backup_files:
-                            # Sort by modification time, newest first
-                            backup_files.sort(key=lambda x: os.path.getmtime(os.path.join(site_backups_dir, x)), 
-                                            reverse=True)
-                            
-                            # Create list of files with dates
-                            backup_choices = []
-                            for f in backup_files:
-                                mtime = os.path.getmtime(os.path.join(site_backups_dir, f))
-                                date_str = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-                                size = os.path.getsize(os.path.join(site_backups_dir, f))
-                                size_str = format_size(size)
-                                backup_choices.append({
-                                    "name": f"{f} ({size_str}, {date_str})",
-                                    "value": os.path.join(site_backups_dir, f)
-                                })
-                            
-                            # Add manual option
-                            backup_choices.append({"name": "Enter path manually", "value": "manual"})
-                            
-                            backup_selection = questionary.select(
-                                "Select backup file to upload:",
-                                choices=backup_choices,
-                                style=custom_style
-                            ).ask()
-                            
-                            if backup_selection == "manual":
-                                backup_path = questionary.text(
-                                    "Enter local backup file path (absolute path):",
-                                    style=custom_style
-                                ).ask()
-                            else:
-                                backup_path = backup_selection
-                        else:
-                            default_path = site_backups_dir
-                            backup_path = questionary.text(
-                                "Enter local backup file path (absolute path):",
-                                default=default_path,
-                                style=custom_style
-                            ).ask()
-                    else:
-                        backup_path = questionary.text(
-                            "Enter local backup file path (absolute path):",
-                            style=custom_style
-                        ).ask()
-                else:
-                    backup_path = questionary.text(
-                        "Enter local backup file path (absolute path):",
-                        style=custom_style
-                    ).ask()
-                
-                if not backup_path:
-                    continue
-                
-                # Validate backup file exists
-                if not os.path.exists(backup_path):
-                    error(f"❌ Backup file '{backup_path}' does not exist")
-                    input("Press Enter to continue...")
-                    continue
-                
-                # Show summary and confirm
-                info("\n📤 Backup Summary:")
-                info(f"  Source: {backup_path}")
-                info(f"  Destination: {selected_remote}:backups/{website_name}/")
-                
-                confirm = questionary.confirm(
-                    "Proceed with the upload?",
-                    style=custom_style,
-                    default=True
-                ).ask()
-                
-                if not confirm:
-                    continue
-                
-                # Upload the backup
-                info(f"\n☁️  Uploading backup to '{selected_remote}' storage...")
-                success_result, message = backup_integration.backup_to_remote(
-                    selected_remote, website_name, backup_path
-                )
-                
-                if success_result:
-                    success(f"✅ {message}")
-                else:
-                    error(f"❌ {message}")
-                
-                input("\nPress Enter to continue...")
-            
-            elif answer == "3":
-                # Download backup from cloud
-                remote_choices = []
-                for remote in remotes:
-                    # Get remote type for more informative display
-                    config = config_manager.get_remote_config(remote)
-                    remote_type = config.get("type", "unknown") if config else "unknown"
-                    display_type = get_remote_type_display_name(remote_type)
-                    remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-                
-                remote_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                selected_remote = questionary.select(
-                    "Select source remote storage:",
-                    choices=remote_choices,
-                    style=custom_style
-                ).ask()
-                
-                if selected_remote == "cancel":
-                    continue
-                
-                # List available websites in the backups folder
-                base_path = "backups"
-                websites = []
-                
-                try:
-                    # List contents of the backups directory
-                    base_files = rclone_manager.list_files(selected_remote, base_path)
-                    
-                    # Find directories (websites)
-                    websites = [f["Name"] for f in base_files if f.get("IsDir", False)]
-                except Exception as e:
-                    debug(f"Error listing website directories: {str(e)}")
-                
-                # Website name for folder filtering
-                if websites:
-                    website_choices = [{"name": website, "value": website} for website in websites]
-                    website_choices.append({"name": "Enter manually", "value": "manual"})
-                    website_choices.append({"name": "Show all backups", "value": ""})
-                    
-                    website_option = questionary.select(
-                        "Select website to download backups from:",
-                        choices=website_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if website_option == "manual":
-                        website_name = questionary.text(
-                            "Enter website name:",
-                            style=custom_style
-                        ).ask() or None
-                    else:
-                        website_name = website_option
-                else:
-                    website_name = questionary.text(
-                        "Enter website name to filter backups (leave empty for all):",
-                        style=custom_style
-                    ).ask() or None
-                
-                # List available backups
-                remote_path = "backups"
-                if website_name:
-                    remote_path = f"{remote_path}/{website_name}"
-                
-                info(f"\n🔍 Searching for backups in {selected_remote}:{remote_path}...")
-                files = rclone_manager.list_files(selected_remote, remote_path)
-                
-                if not files:
-                    error(f"❌ No backups found in '{selected_remote}:{remote_path}'")
-                    input("\nPress Enter to continue...")
-                    continue
-                
-                # Filter out directories unless they contain backups
-                file_choices = []
-                
-                # First add files directly in the directory
-                direct_files = [f for f in files if not f.get("IsDir", False)]
-                for file_info in direct_files:
-                    file_name = file_info.get("Name", "Unknown")
-                    file_size = file_info.get("Size", 0)
-                    size_str = format_size(file_size)
-                    mod_time = file_info.get("ModTime", "Unknown")
-                    
-                    file_choices.append({
-                        "name": f"📄 {file_name} ({size_str}) - {mod_time}",
-                        "value": f"{remote_path}/{file_name}"
-                    })
-                
-                # Then check subdirectories
-                for file_info in files:
-                    if file_info.get("IsDir", False):
-                        # For directories, check if they contain backup files
-                        subdir_path = f"{remote_path}/{file_info['Name']}"
-                        subdir_files = rclone_manager.list_files(selected_remote, subdir_path)
-                        
-                        if subdir_files:
-                            # Add directory as a choice
-                            file_choices.append({
-                                "name": f"📁 {file_info['Name']}/ (directory with {len(subdir_files)} items)",
-                                "value": "dir:" + subdir_path
-                            })
-                            
-                            # Add direct files from the subdirectory
-                            non_dir_files = [f for f in subdir_files if not f.get("IsDir", False)]
-                            for subfile in non_dir_files[:3]:  # Show only the first 3 files
-                                subfile_name = subfile.get("Name", "Unknown")
-                                subfile_size = subfile.get("Size", 0)
-                                subsize_str = format_size(subfile_size)
-                                subfile_mod_time = subfile.get("ModTime", "Unknown")
-                                
-                                file_choices.append({
-                                    "name": f"  └─ 📄 {subfile_name} ({subsize_str}) - {subfile_mod_time}",
-                                    "value": f"{subdir_path}/{subfile_name}"
-                                })
-                            
-                            # If there are more files, show a count
-                            if len(non_dir_files) > 3:
-                                file_choices.append({
-                                    "name": f"  └─ ... {len(non_dir_files) - 3} more files",
-                                    "value": "more:" + subdir_path
-                                })
-                
-                if not file_choices:
-                    error(f"❌ No valid backup files found in '{selected_remote}:{remote_path}'")
-                    input("\nPress Enter to continue...")
-                    continue
-                
-                file_choices.append({"name": "Enter path manually", "value": "manual"})
-                file_choices.append({"name": "Cancel", "value": "cancel"})
-                
-                selected_backup = questionary.select(
-                    "Select backup to download:",
-                    choices=file_choices,
-                    style=custom_style
-                ).ask()
-                
-                if selected_backup == "cancel":
-                    continue
-                
-                if selected_backup == "manual":
-                    remote_file_path = questionary.text(
-                        f"Enter full backup path on '{selected_remote}':",
-                        style=custom_style
-                    ).ask()
-                    
-                    if not remote_file_path:
-                        continue
-                    
-                    selected_backup = remote_file_path
-                elif selected_backup.startswith("dir:"):
-                    # User selected a directory, let them pick a file
-                    dir_path = selected_backup[4:]  # Remove 'dir:' prefix
-                    subdir_files = rclone_manager.list_files(selected_remote, dir_path)
-                    
-                    if not subdir_files:
-                        error(f"❌ No files found in directory '{dir_path}'")
-                        input("\nPress Enter to continue...")
-                        continue
-                    
-                    # Filter out directories
-                    subdir_files = [f for f in subdir_files if not f.get("IsDir", False)]
-                    
-                    if not subdir_files:
-                        error(f"❌ No files found in directory '{dir_path}'")
-                        input("\nPress Enter to continue...")
-                        continue
-                    
-                    # Create choices for files in this directory
-                    subdir_choices = []
-                    for subfile in subdir_files:
-                        subfile_name = subfile.get("Name", "Unknown")
-                        subfile_size = subfile.get("Size", 0)
-                        subsize_str = format_size(subfile_size)
-                        subfile_mod_time = subfile.get("ModTime", "Unknown")
-                        
-                        subdir_choices.append({
-                            "name": f"📄 {subfile_name} ({subsize_str}) - {subfile_mod_time}",
-                            "value": f"{dir_path}/{subfile_name}"
-                        })
-                    
-                    subdir_choices.append({"name": "Cancel", "value": "cancel"})
-                    
-                    subdir_selection = questionary.select(
-                        f"Select file from '{os.path.basename(dir_path)}':",
-                        choices=subdir_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if subdir_selection == "cancel":
-                        continue
-                    
-                    selected_backup = subdir_selection
-                elif selected_backup.startswith("more:"):
-                    # User selected "more files", show the complete list
-                    dir_path = selected_backup[5:]  # Remove 'more:' prefix
-                    subdir_files = rclone_manager.list_files(selected_remote, dir_path)
-                    
-                    if not subdir_files:
-                        error(f"❌ No files found in directory '{dir_path}'")
-                        input("\nPress Enter to continue...")
-                        continue
-                    
-                    # Filter out directories
-                    subdir_files = [f for f in subdir_files if not f.get("IsDir", False)]
-                    
-                    if not subdir_files:
-                        error(f"❌ No files found in directory '{dir_path}'")
-                        input("\nPress Enter to continue...")
-                        continue
-                    
-                    # Create choices for files in this directory
-                    subdir_choices = []
-                    for subfile in subdir_files:
-                        subfile_name = subfile.get("Name", "Unknown")
-                        subfile_size = subfile.get("Size", 0)
-                        subsize_str = format_size(subfile_size)
-                        subfile_mod_time = subfile.get("ModTime", "Unknown")
-                        
-                        subdir_choices.append({
-                            "name": f"📄 {subfile_name} ({subsize_str}) - {subfile_mod_time}",
-                            "value": f"{dir_path}/{subfile_name}"
-                        })
-                    
-                    subdir_choices.append({"name": "Cancel", "value": "cancel"})
-                    
-                    subdir_selection = questionary.select(
-                        f"Select file from '{os.path.basename(dir_path)}':",
-                        choices=subdir_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if subdir_selection == "cancel":
-                        continue
-                    
-                    selected_backup = subdir_selection
-                
-                # Determine a good default local path
-                default_local_path = ""
-                filename = os.path.basename(selected_backup)
-                
-                if website_name:
-                    sites_dir = env.get("SITES_DIR")
-                    if sites_dir and os.path.exists(os.path.join(sites_dir, website_name)):
-                        site_backups_dir = os.path.join(sites_dir, website_name, "backups")
-                        os.makedirs(site_backups_dir, exist_ok=True)
-                        default_local_path = os.path.join(site_backups_dir, filename)
-                
-                # Local destination path
-                local_path = questionary.text(
-                    "Enter local destination path (absolute path):",
-                    default=default_local_path,
-                    style=custom_style
-                ).ask()
-                
-                if not local_path:
-                    continue
-                
-                # Ensure directory exists
-                os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                
-                # Show summary and confirm
-                info("\n📥 Download Summary:")
-                info(f"  Source: {selected_remote}:{selected_backup}")
-                info(f"  Destination: {local_path}")
-                
-                confirm = questionary.confirm(
-                    "Proceed with the download?",
-                    style=custom_style,
-                    default=True
-                ).ask()
-                
-                if not confirm:
-                    continue
-                
-                # Download the backup
-                info(f"\n☁️  Downloading backup from '{selected_remote}:{selected_backup}'...")
-                success_result, message = backup_integration.restore_from_remote(
-                    selected_remote, selected_backup, local_path, website_name
-                )
-                
-                if success_result:
-                    success(f"✅ {message}")
-                else:
-                    error(f"❌ {message}")
-                
-                input("\nPress Enter to continue...")
-            
-            elif answer == "4":
-                # Schedule cloud backup
-                try:
-                    # Check if cron module is available
-                    from src.features.cron.manager import CronManager
-                    
-                    # Remote selection
-                    remote_choices = []
-                    for remote in remotes:
-                        # Get remote type for more informative display
-                        config = config_manager.get_remote_config(remote)
-                        remote_type = config.get("type", "unknown") if config else "unknown"
-                        display_type = get_remote_type_display_name(remote_type)
-                        remote_choices.append({"name": f"{remote} ({display_type})", "value": remote})
-                    
-                    remote_choices.append({"name": "Cancel", "value": "cancel"})
-                    
-                    selected_remote = questionary.select(
-                        "Select remote storage for scheduled backups:",
-                        choices=remote_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if selected_remote == "cancel":
-                        continue
-                    
-                    # Check if SITES_DIR exists and has subdirectories for website selection
-                    sites_dir = env.get("SITES_DIR")
-                    available_domains = []
-                    
-                    if sites_dir and os.path.exists(sites_dir):
-                        available_domains = [d for d in os.listdir(sites_dir) 
-                                           if os.path.isdir(os.path.join(sites_dir, d))]
-                    
-                    if available_domains:
-                        # Create choices including a custom option
-                        domain_choices = [{"name": domain, "value": domain} for domain in available_domains]
-                        domain_choices.append({"name": "Enter custom domain name", "value": "custom"})
-                        
-                        domain_selection = questionary.select(
-                            "Select website to schedule backups for:",
-                            choices=domain_choices,
-                            style=custom_style
-                        ).ask()
-                        
-                        if domain_selection == "custom":
-                            website_name = questionary.text(
-                                "Enter website name:",
-                                style=custom_style
-                            ).ask()
-                        else:
-                            website_name = domain_selection
-                    else:
-                        # No domains found, ask for manual entry
-                        website_name = questionary.text(
-                            "Enter website name to schedule backups for:",
-                            style=custom_style
-                        ).ask()
-                    
-                    if not website_name:
-                        error("❌ Website name is required for scheduled backups")
-                        input("Press Enter to continue...")
-                        continue
-                    
-                    # Schedule options with friendly descriptions
-                    schedule_choices = [
-                        {"name": "Daily (at 2:00 AM)", "value": "0 2 * * *"},
-                        {"name": "Weekly (Sunday at 3:00 AM)", "value": "0 3 * * 0"}, 
-                        {"name": "Monthly (1st day at 4:00 AM)", "value": "0 4 1 * *"},
-                        {"name": "Custom", "value": "custom"},
-                        {"name": "Cancel", "value": "cancel"},
-                    ]
-                    
-                    selected_schedule = questionary.select(
-                        "Select backup schedule:",
-                        choices=schedule_choices,
-                        style=custom_style
-                    ).ask()
-                    
-                    if selected_schedule == "cancel":
-                        continue
-                    
-                    if selected_schedule == "custom":
-                        info("\n📋 Cron Schedule Format Help:")
-                        info("  ┌─────────── minute (0 - 59)")
-                        info("  │ ┌───────── hour (0 - 23)")
-                        info("  │ │ ┌─────── day of the month (1 - 31)")
-                        info("  │ │ │ ┌───── month (1 - 12)")
-                        info("  │ │ │ │ ┌─── day of the week (0 - 6) (Sunday to Saturday)")
-                        info("  │ │ │ │ │")
-                        info("  * * * * *")
-                        info("\nExamples:")
-                        info("  0 2 * * *     # Every day at 2:00 AM")
-                        info("  0 3 * * 0     # Every Sunday at 3:00 AM")
-                        info("  0 4 1 * *     # First day of each month at 4:00 AM")
-                        info("  */10 * * * *  # Every 10 minutes")
-                        
-                        custom_schedule = questionary.text(
-                            "Enter cron schedule expression:",
-                            style=custom_style
-                        ).ask()
-                        
-                        if not custom_schedule:
-                            continue
-                        
-                        selected_schedule = custom_schedule
-                    
-                    # Show summary and confirm
-                    info("\n🕒 Backup Schedule Summary:")
-                    info(f"  Website: {website_name}")
-                    info(f"  Remote Storage: {selected_remote}")
-                    info(f"  Schedule: {selected_schedule}")
-                    
-                    # Try to make the schedule more human-readable
-                    if selected_schedule == "0 2 * * *":
-                        info("  Runs: Daily at 2:00 AM")
-                    elif selected_schedule == "0 3 * * 0":
-                        info("  Runs: Every Sunday at 3:00 AM")
-                    elif selected_schedule == "0 4 1 * *":
-                        info("  Runs: First day of each month at 4:00 AM")
-                    
-                    confirm = questionary.confirm(
-                        "Proceed with scheduling this backup?",
-                        style=custom_style,
-                        default=True
-                    ).ask()
-                    
-                    if not confirm:
-                        continue
-                    
-                    # Schedule the backup
-                    info(f"\n🕒 Scheduling backup of '{website_name}' to '{selected_remote}'...")
-                    success_result, message = backup_integration.schedule_remote_backup(
-                        selected_remote, website_name, selected_schedule
-                    )
-                    
-                    if success_result:
-                        success(f"✅ {message}")
-                    else:
-                        error(f"❌ {message}")
-                    
-                except ImportError:
-                    error("❌ Cron module not available. Cannot schedule backups.")
-                
-                input("\nPress Enter to continue...")
+        answer = questionary.select(
+            "\n☁️  Cloud Backup Operations:",
+            choices=choices,
+            style=custom_style
+        ).ask()
+        
+        if answer == "0":
+            return
+        elif answer == "1":
+            list_remote_backups()
+        elif answer == "2":
+            upload_backup_to_cloud()
+        elif answer == "3":
+            download_backup_from_cloud()
+        elif answer == "4":
+            schedule_cloud_backup()
     
-    except Exception as e:
-        error(f"Error in backup operations menu: {e}")
-        input("Press Enter to continue...")
+    execute_with_exception_handling(_prompt_backup_operations, "Error in backup operations menu")
+
+
+def restart_rclone_container() -> None:
+    """Restart the Rclone container."""
+    def _restart_rclone_container():
+        rclone_manager = RcloneManager()
+        if rclone_manager.is_container_running():
+            info("Restarting Rclone container...")
+            if rclone_manager.restart_container():
+                success("✅ Rclone container restarted successfully")
+            else:
+                error("❌ Failed to restart Rclone container")
+        else:
+            info("Starting Rclone container...")
+            if rclone_manager.start_container():
+                success("✅ Rclone container started successfully")
+            else:
+                error("❌ Failed to start Rclone container")
+                
+        wait_for_enter()
+    
+    execute_with_exception_handling(_restart_rclone_container, "Error restarting container")
+
 
 def prompt_rclone_menu() -> None:
     """Display Rclone management menu and handle user selection."""
     try:
-        # Display the main Rclone management menu
         choices = [
             {"name": "1. Manage Remotes", "value": "1"},
             {"name": "2. File Operations", "value": "2"},
@@ -1807,37 +1711,22 @@ def prompt_rclone_menu() -> None:
             {"name": "0. Back to Main Menu", "value": "0"},
         ]
         
-        while True:
-            answer = questionary.select(
-                "\n☁️  Rclone Management:",
-                choices=choices,
-                style=custom_style
-            ).ask()
-            
-            if answer == "0":
-                break
-            elif answer == "1":
-                prompt_manage_remotes()
-            elif answer == "2":
-                prompt_file_operations()
-            elif answer == "3":
-                prompt_backup_operations()
-            elif answer == "4":
-                rclone_manager = RcloneManager()
-                if rclone_manager.is_container_running():
-                    info("Restarting Rclone container...")
-                    if rclone_manager.restart_container():
-                        success("✅ Rclone container restarted successfully")
-                    else:
-                        error("❌ Failed to restart Rclone container")
-                else:
-                    info("Starting Rclone container...")
-                    if rclone_manager.start_container():
-                        success("✅ Rclone container started successfully")
-                    else:
-                        error("❌ Failed to start Rclone container")
-                
-                input("\nPress Enter to continue...")
+        answer = questionary.select(
+            "\n☁️  Rclone Management:",
+            choices=choices,
+            style=custom_style
+        ).ask()
+        
+        if answer == "0":
+            return
+        elif answer == "1":
+            prompt_manage_remotes()
+        elif answer == "2":
+            prompt_file_operations()
+        elif answer == "3":
+            prompt_backup_operations()
+        elif answer == "4":
+            restart_rclone_container()
     except Exception as e:
         error(f"Error in Rclone menu: {e}")
-        input("Press Enter to continue...")
+        wait_for_enter(True)

@@ -41,8 +41,25 @@ class BackupManager:
         self.storage_providers = {}
         self._init_storage_providers()
         
+        # Get backup directory
+        backup_dir = get_env_value("BACKUP_DIR")
+        
+        # Handle case when BACKUP_DIR is not set
+        if not backup_dir:
+            # Try to use SITES_DIR as a base
+            sites_dir = get_env_value("SITES_DIR")
+            if sites_dir:
+                backup_dir = os.path.join(sites_dir, "backups")
+                self.debug.warn(f"BACKUP_DIR not set, using default: {backup_dir}")
+            else:
+                # Last resort - use a temporary directory
+                backup_dir = os.path.join("/tmp", "wp_docker_backups")
+                self.debug.error(f"BACKUP_DIR and SITES_DIR not set, using temporary directory: {backup_dir}")
+                self.debug.error("Please set BACKUP_DIR in your environment for proper backup storage")
+        
         # Temporary directory for operations
-        self.temp_dir = os.path.join(get_env_value("BACKUP_DIR"), "temp")
+        self.temp_dir = os.path.join(backup_dir, "temp")
+        self.debug.info(f"Using temporary directory: {self.temp_dir}")
         os.makedirs(self.temp_dir, exist_ok=True)
     
     def _init_storage_providers(self) -> None:
@@ -109,19 +126,36 @@ class BackupManager:
         Returns:
             Path to the backup file or None if backup failed
         """
+        if not website_name:
+            self.debug.error("Cannot backup website: website_name is empty or None")
+            return None
+            
         try:
             # Import here to avoid circular imports
             from src.features.backup.website_backup import backup_website as backup_website_func
             
+            self.debug.info(f"Calling backup_website_func for {website_name}")
             backup_path = backup_website_func(website_name)
+            self.debug.info(f"backup_website_func returned: {backup_path}, type: {type(backup_path)}")
             
-            if not backup_path or not os.path.exists(backup_path):
-                self.debug.error(f"Failed to create backup for {website_name}")
+            if not backup_path:
+                self.debug.error(f"Failed to create backup for {website_name}: empty path returned")
                 return None
                 
+            if not isinstance(backup_path, str):
+                self.debug.error(f"Failed to create backup for {website_name}: non-string path returned: {type(backup_path)}")
+                return None
+                
+            if not os.path.exists(backup_path):
+                self.debug.error(f"Failed to create backup for {website_name}: file does not exist at {backup_path}")
+                return None
+                
+            self.debug.info(f"Backup created successfully at: {backup_path}")
             return backup_path
         except Exception as e:
             self.debug.error(f"Error in backup_website: {str(e)}")
+            import traceback
+            self.debug.error(f"Traceback: {traceback.format_exc()}")
             return None
     
     def create_backup(self, website_name: str, storage_provider: str = "local") -> Tuple[bool, str]:
@@ -137,27 +171,62 @@ class BackupManager:
         """
         self.debug.info(f"Creating backup for website '{website_name}' using provider '{storage_provider}'")
         
+        # Check input parameters
+        if not website_name:
+            error_message = "Website name is empty or None"
+            self.debug.error(error_message)
+            return False, error_message
+            
+        if not storage_provider:
+            self.debug.warn("Storage provider is empty, defaulting to 'local'")
+            storage_provider = "local"
+        
         # Check if storage provider exists
         provider = self.get_storage_provider(storage_provider)
         if not provider:
             error_message = f"Storage provider '{storage_provider}' not found"
             self.debug.error(error_message)
             return False, error_message
+            
+        self.debug.info(f"Using storage provider: {provider.get_provider_name()}")
         
         try:
             # Create backup
+            self.debug.info(f"Starting backup process for website '{website_name}'")
             local_backup_path = self.backup_website(website_name)
+            self.debug.info(f"Backup creation completed with result: {local_backup_path if local_backup_path else 'None or empty'}")
             
-            if not local_backup_path or not os.path.exists(local_backup_path):
-                error_message = f"Failed to create backup for website '{website_name}'"
+            # Ensure backup path is valid and file exists
+            if not local_backup_path:
+                error_message = f"Failed to create backup for website '{website_name}': backup_website returned empty or None path"
+                self.debug.error(error_message)
+                self.debug.debug(f"Backup path: {local_backup_path}, type: {type(local_backup_path)}")
+                return False, error_message
+                
+            if not isinstance(local_backup_path, (str, bytes, os.PathLike)):
+                error_message = f"Failed to create backup for website '{website_name}': invalid path type {type(local_backup_path)}"
+                self.debug.error(error_message)
+                self.debug.debug(f"Backup path: {local_backup_path}")
+                return False, error_message
+                
+            if not os.path.exists(local_backup_path):
+                error_message = f"Failed to create backup for website '{website_name}': file does not exist at {local_backup_path}"
                 self.debug.error(error_message)
                 return False, error_message
+                
+            # Log the backup file details before storage
+            try:
+                file_size = os.path.getsize(local_backup_path)
+                self.debug.info(f"Backup file stats: size={file_size} bytes, path={local_backup_path}")
+            except Exception as stat_error:
+                self.debug.warn(f"Could not get stats for backup file: {str(stat_error)}")
             
             # Store backup using the selected provider
+            self.debug.info(f"Storing backup file using provider '{storage_provider}'")
             success, result = provider.store_backup(website_name, local_backup_path)
             
             if success:
-                self.debug.success(f"Backup for website '{website_name}' created and stored successfully")
+                self.debug.success(f"Backup for website '{website_name}' created and stored successfully at {result}")
                 return True, result
             else:
                 error_message = f"Failed to store backup: {result}"

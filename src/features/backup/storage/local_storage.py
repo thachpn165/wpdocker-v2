@@ -22,14 +22,25 @@ class LocalStorage(IStorageProvider):
     def __init__(self):
         """Initialize the local storage provider."""
         self.debug = Debug("LocalStorage")
-        self.backup_dir = get_env_value("BACKUP_DIR")
         
-        # Ensure backup directory exists
-        os.makedirs(self.backup_dir, exist_ok=True)
+        # Get SITES_DIR which is the base for all website directories
+        self.sites_dir = get_env_value("SITES_DIR")
+        
+        if not self.sites_dir:
+            # Last resort - use a temporary directory if SITES_DIR is not set
+            self.sites_dir = os.path.join("/tmp", "wp_docker_sites")
+            self.debug.error(f"SITES_DIR not set, using temporary directory: {self.sites_dir}")
+            self.debug.error("Please set SITES_DIR in your environment for proper backup storage")
+            
+            # Create a central backups directory for this case
+            self.backups_dir = os.path.join(self.sites_dir, "backups")
+            os.makedirs(self.backups_dir, exist_ok=True)
+        
+        self.debug.info(f"Using sites directory: {self.sites_dir}")
     
     def store_backup(self, website_name: str, backup_file_path: str) -> Tuple[bool, str]:
         """
-        Store a backup file in the local backup directory.
+        Store a backup file in the website-specific backups directory.
         
         Args:
             website_name: The name of the website
@@ -39,8 +50,35 @@ class LocalStorage(IStorageProvider):
             Tuple of (success, destination_path or error_message)
         """
         try:
+            # Add defensive checks for parameters
+            if not website_name:
+                error_message = "Website name is empty or None"
+                self.debug.error(error_message)
+                return False, error_message
+                
+            if not backup_file_path:
+                error_message = "Backup file path is empty or None"
+                self.debug.error(error_message)
+                return False, error_message
+                
+            # Log values for debugging
+            self.debug.info(f"Storing backup for website '{website_name}'")
+            self.debug.info(f"Backup file path: '{backup_file_path}', type: {type(backup_file_path)}")
+                
+            # Check if backup file exists
+            if not os.path.exists(backup_file_path):
+                error_message = f"Backup file does not exist: {backup_file_path}"
+                self.debug.error(error_message)
+                return False, error_message
+            
+            # Determine the website-specific backup directory (SITES_DIR/website_name/backups)
+            if hasattr(self, 'backups_dir'):  # For fallback case when SITES_DIR is not set
+                website_backup_dir = os.path.join(self.backups_dir, website_name)
+            else:
+                website_backup_dir = os.path.join(self.sites_dir, website_name, "backups")
+                
             # Create website-specific backup directory if it doesn't exist
-            website_backup_dir = os.path.join(self.backup_dir, website_name)
+            self.debug.info(f"Using website backup directory: {website_backup_dir}")
             os.makedirs(website_backup_dir, exist_ok=True)
             
             # Get backup filename
@@ -58,11 +96,12 @@ class LocalStorage(IStorageProvider):
         except Exception as e:
             error_message = f"Failed to store backup: {str(e)}"
             self.debug.error(error_message)
+            self.debug.error(f"website_name: {website_name}, backup_file_path: {backup_file_path}")
             return False, error_message
     
     def retrieve_backup(self, website_name: str, backup_name: str, destination_path: str) -> Tuple[bool, str]:
         """
-        Retrieve a backup file from the local backup directory.
+        Retrieve a backup file from the website-specific backups directory.
         
         Args:
             website_name: The name of the website
@@ -73,8 +112,11 @@ class LocalStorage(IStorageProvider):
             Tuple of (success, file_path or error_message)
         """
         try:
-            # Website backup directory
-            website_backup_dir = os.path.join(self.backup_dir, website_name)
+            # Determine the website-specific backup directory (SITES_DIR/website_name/backups)
+            if hasattr(self, 'backups_dir'):  # For fallback case when SITES_DIR is not set
+                website_backup_dir = os.path.join(self.backups_dir, website_name)
+            else:
+                website_backup_dir = os.path.join(self.sites_dir, website_name, "backups")
             
             # Source backup path
             source_path = os.path.join(website_backup_dir, backup_name)
@@ -97,7 +139,7 @@ class LocalStorage(IStorageProvider):
     
     def list_backups(self, website_name: Optional[str] = None) -> List[Dict]:
         """
-        List available backups in the local backup directory.
+        List available backups for websites.
         
         Args:
             website_name: Optional filter for website backups
@@ -110,15 +152,33 @@ class LocalStorage(IStorageProvider):
         try:
             # If website_name is provided, only list backups for that website
             if website_name:
-                website_backup_dir = os.path.join(self.backup_dir, website_name)
+                # Determine the website-specific backup directory
+                if hasattr(self, 'backups_dir'):  # Fallback case
+                    website_backup_dir = os.path.join(self.backups_dir, website_name)
+                else:
+                    website_backup_dir = os.path.join(self.sites_dir, website_name, "backups")
+                
                 if os.path.exists(website_backup_dir):
                     self._list_backups_for_website(website_name, website_backup_dir, backups)
+                else:
+                    self.debug.info(f"Backup directory for website '{website_name}' not found: {website_backup_dir}")
             else:
-                # List backups for all websites
-                for website_dir in os.listdir(self.backup_dir):
-                    website_backup_dir = os.path.join(self.backup_dir, website_dir)
-                    if os.path.isdir(website_backup_dir):
-                        self._list_backups_for_website(website_dir, website_backup_dir, backups)
+                # List backups for all websites by scanning SITES_DIR
+                if hasattr(self, 'backups_dir'):  # Fallback case
+                    # If using the fallback directory, scan it directly
+                    for website_dir in os.listdir(self.backups_dir):
+                        website_backup_dir = os.path.join(self.backups_dir, website_dir)
+                        if os.path.isdir(website_backup_dir):
+                            self._list_backups_for_website(website_dir, website_backup_dir, backups)
+                else:
+                    # Scan SITES_DIR for website directories
+                    for website_dir in os.listdir(self.sites_dir):
+                        site_path = os.path.join(self.sites_dir, website_dir)
+                        if os.path.isdir(site_path):
+                            # Check if this site has a backups directory
+                            website_backup_dir = os.path.join(site_path, "backups")
+                            if os.path.exists(website_backup_dir) and os.path.isdir(website_backup_dir):
+                                self._list_backups_for_website(website_dir, website_backup_dir, backups)
             
             # Sort backups by modification time (newest first)
             backups.sort(key=lambda x: x.get("modified", 0), reverse=True)

@@ -42,8 +42,7 @@ def list_jobs():
             print(f"Last Run: {job.last_run}")
             print(f"Last Status: {job.last_status or 'Unknown'}")
             
-        if job.description:
-            print(f"Description: {job.description}")
+        # Description is no longer explicitly shown
             
         print("-" * 80)
 

@@ -38,7 +38,7 @@ core/wp/wp-cli.phar
 
 # Logs
 *.log
-
+logs/
 # Docs
 docs/
 
@@ -46,3 +46,4 @@ docs/
 README_NEW_STRUCTURE.md
 migrate.py 
 MIGRATION.md
+ai_node.md

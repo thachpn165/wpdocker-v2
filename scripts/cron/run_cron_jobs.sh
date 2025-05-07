@@ -6,14 +6,6 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
-# Set environment variables
-export WP_DOCKER_HOME="$PROJECT_ROOT"
-export PYTHONPATH="$PROJECT_ROOT"
-export PATH="$PROJECT_ROOT/bin:$PATH"
-
-# Python virtual environment
-VENV_DIR="$PROJECT_ROOT/.venv"
-
 # Create logs directory
 LOG_DIR="$PROJECT_ROOT/logs/cron"
 mkdir -p "$LOG_DIR"
@@ -21,6 +13,22 @@ mkdir -p "$LOG_DIR"
 # Create log filename with timestamp
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="$LOG_DIR/cron_$TIMESTAMP.log"
+
+# Set environment variables
+export WP_DOCKER_HOME="$PROJECT_ROOT"
+
+# Set PYTHONPATH to include both the project root and INSTALL_DIR from environment if available
+if [ -n "$INSTALL_DIR" ]; then
+    export PYTHONPATH="$PROJECT_ROOT:$INSTALL_DIR"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Using INSTALL_DIR from environment: $INSTALL_DIR" | tee -a "$LOG_FILE"
+else
+    export PYTHONPATH="$PROJECT_ROOT"
+fi
+
+export PATH="$PROJECT_ROOT/bin:$PATH"
+
+# Python virtual environment
+VENV_DIR="$PROJECT_ROOT/.venv"
 
 # Job ID if provided
 JOB_ID="$1"

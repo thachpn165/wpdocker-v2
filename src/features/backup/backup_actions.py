@@ -168,7 +168,7 @@ def backup_finalize(domain: Optional[str] = None) -> str:
         domain: The website domain (optional)
         
     Returns:
-        Path to the backup archive
+        Path to the backup archive or empty string if backup failed
     """
     backup_path = BACKUP_TEMP_STATE.get("backup_path", "")
     wordpress_archive = BACKUP_TEMP_STATE.get("wordpress_archive", "")
@@ -179,11 +179,15 @@ def backup_finalize(domain: Optional[str] = None) -> str:
         if wordpress_archive and os.path.exists(wordpress_archive):
             archive_size = os.path.getsize(wordpress_archive) / (1024*1024)
             info(f"   📦 Website source code: {wordpress_archive} ({archive_size:.2f} MB)")
+        else:
+            error(f"❌ Website source code archive not found or invalid")
+            wordpress_archive = ""
     else:
         warn("⚠️ Backup path not found to finalize the process.")
+        wordpress_archive = ""
     
     # Get result path before clearing the state
-    result_path = wordpress_archive
+    result_path = wordpress_archive if wordpress_archive and os.path.exists(wordpress_archive) else ""
     
     # Clear the state
     BACKUP_TEMP_STATE.clear()
