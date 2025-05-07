@@ -13,7 +13,7 @@ from src.common.logging import Debug, log_call
 from src.common.utils.environment import env
 from src.core.bootstrap.base import BaseBootstrap
 from src.core.utils.downloader import Downloader
-
+from src.common.utils.validation import validate_directory
 
 class MiscBootstrap(BaseBootstrap):
     """Handles miscellaneous initialization tasks."""
@@ -97,8 +97,8 @@ class MiscBootstrap(BaseBootstrap):
                 return True
                 
             # Download WP-CLI
-            self.debug.info("Downloading WordPress CLI...")
-            os.makedirs(os.path.dirname(wp_cli_path), exist_ok=True)
+            self.debug.info("wp-cli.phar not exists , downloading WordPress CLI...")
+            validate_directory(os.path.dirname(wp_cli_path))
             
             downloader = Downloader(
                 url="https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar",

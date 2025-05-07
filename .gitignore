@@ -30,7 +30,7 @@ docker-compose/docker-compose.runtime.yml
 docker-compose.override.yml
 
 # WP CLI
-core/wp/wp-cli.phar
+wp-cli.phar
 
 # Archive and backup files
 *.tar.gz
