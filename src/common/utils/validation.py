@@ -108,3 +108,25 @@ def validate_file_path(file_path: str, create_parent: bool = True) -> bool:
         return validate_directory(parent_dir)
     
     return False
+
+
+def validate_email(email: str) -> bool:
+    """
+    Validate email format.
+    
+    Checks:
+    - Not empty
+    - Has valid format like user@domain.com
+    - Domain has valid TLD
+    
+    Args:
+        email: Email address to validate
+        
+    Returns:
+        True if email format is valid, False otherwise
+    """
+    if not email:
+        return False
+        
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return bool(re.match(pattern, email))

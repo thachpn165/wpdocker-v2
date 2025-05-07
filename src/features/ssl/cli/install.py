@@ -6,34 +6,17 @@ of SSL certificates on websites.
 """
 
 import sys
-import re
 from questionary import text, select, confirm
 from typing import Optional, Dict, Any
 
 from src.common.logging import log_call, info, warn, error, success
+from src.common.utils.validation import validate_email
 from src.features.website.utils import select_website
 from src.features.ssl.installer import (
     install_selfsigned_ssl,
     install_manual_ssl,
     install_letsencrypt_ssl
 )
-
-
-@log_call
-def validate_email(email: str) -> bool:
-    """
-    Validate email format.
-    
-    Args:
-        email: Email address to validate
-        
-    Returns:
-        bool: True if email format is valid, False otherwise
-    """
-    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    if not re.match(pattern, email):
-        return False
-    return True
 
 
 @log_call
