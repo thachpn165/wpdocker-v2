@@ -7,6 +7,10 @@ from src.common.logging import error
 from src.common.utils.validation import is_valid_domain
 from src.features.cache.core.fastcgi import setup_fastcgi_cache
 from src.features.cache.constants import CACHE_TYPES
+from src.features.cache.core.supercache import setup_super_cache
+from src.features.cache.core.w3total import setup_w3_total_cache
+from src.features.cache.core.wpfastest import setup_wp_fastest_cache
+from src.features.cache.core.nocache import setup_no_cache
 # Có thể import thêm các loại cache khác trong tương lai, ví dụ:
 # from src.features.cache.core.w3total import setup_w3total_cache
 # from src.features.cache.core.supercache import setup_super_cache
@@ -21,11 +25,17 @@ def setup_cache(domain: str, cache_type: str) -> bool:
         return False
     if cache_type == "fastcgi-cache":
         return setup_fastcgi_cache(domain)
+    elif cache_type == "wp-super-cache":
+        return setup_super_cache(domain)
+    elif cache_type == "w3-total-cache":
+        return setup_w3_total_cache(domain)
+    elif cache_type == "wp-fastest-cache":
+        return setup_wp_fastest_cache(domain)
+    elif cache_type == "no-cache":
+        return setup_no_cache(domain)
     # Có thể mở rộng cho các loại cache khác:
     # elif cache_type == "w3-total-cache":
     #     return setup_w3total_cache(domain)
-    # elif cache_type == "wp-super-cache":
-    #     return setup_super_cache(domain)
     else:
         error(f"Cache type '{cache_type}' is not supported yet.")
         return False 
