@@ -1,18 +1,22 @@
 import os
 import subprocess
 from src.common.logging import info, error
+from src.common.utils.environment import env
 
-NGINX_CONF_DIR = "/etc/nginx/conf.d/"
-NGINX_CACHE_INCLUDE = "/etc/nginx/cache/"
-NGINX_CONTAINER = "nginx"  # Tên container, có thể lấy từ env/config nếu cần
+# Không dùng NGINX_CONF_DIR và NGINX_CACHE_INCLUDE hard code nữa
+# NGINX_HOST_CONFIG_FILE sẽ lấy từ env
 
 
 def update_nginx_cache_config(domain: str, cache_type: str) -> bool:
     """
     Update NGINX config file for the domain to use the specified cache_type.
+    Sử dụng đường dẫn file trên host lấy từ biến môi trường NGINX_HOST_CONFIG_FILE.
     """
-    conf_file = os.path.join(NGINX_CONF_DIR, f"{domain}.conf")
-    include_line = f"include {NGINX_CACHE_INCLUDE}{cache_type}.conf;"
+    conf_file = env.get("NGINX_HOST_CONFIG_FILE")
+    if not conf_file:
+        error("NGINX_HOST_CONFIG_FILE is not set in environment.")
+        return False
+    include_line = f"include /etc/nginx/cache/{cache_type}.conf;"
     try:
         if not os.path.exists(conf_file):
             error(f"NGINX config file not found: {conf_file}")

@@ -6,7 +6,7 @@ including installation, configuration, and plugin/theme management.
 """
 
 # Core utilities
-from src.features.wordpress.utils import run_wp_cli, get_php_container_name
+from src.features.wordpress.utils import run_wp_cli, get_php_container_name, run_wpcli_in_wpcli_container
 
 # Installation and management
 from src.features.wordpress.installer import install_wordpress, uninstall_wordpress
@@ -29,6 +29,7 @@ __all__ = [
     # Core utilities
     'run_wp_cli',
     'get_php_container_name',
+    'run_wpcli_in_wpcli_container',
     
     # Installation and management
     'install_wordpress',

@@ -17,7 +17,7 @@ from src.features.wordpress.cli.install import cli_install_wordpress
 from src.common.utils.validation import is_valid_domain
 
 @log_call
-def validate_domain(domain: str) -> bool:
+def is_valid_domain(domain: str) -> bool:
     """
     Validate that a domain name is properly formatted.
     
@@ -64,7 +64,7 @@ def prompt_website_create() -> Optional[Dict[str, Any]]:
                 return None
             
             # Manually call validation function after user completes their input
-            if validate_domain(domain_input):
+            if is_valid_domain(domain_input):
                 domain = domain_input
                 valid_domain = True
             else:

@@ -10,6 +10,7 @@ from questionary import Style
 from typing import Optional
 from src.features.cache.core.setup import setup_fastcgi_cache
 from src.common.logging import info, error, debug, success
+from src.features.website.utils import select_website
 
 def not_implemented() -> None:
     """Handle not implemented features."""
@@ -41,7 +42,10 @@ def prompt_cache_menu() -> None:
             ]
         ).ask()
         if answer == "fastcgi":
-            domain = questionary.text("Nhập domain website cần cài cache:").ask()
+            domain = select_website("Chọn website cần cài cache:")
+            if not domain:
+                info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+                continue
             if setup_fastcgi_cache(domain):
                 info(f"Đã cài đặt FastCGI cache thành công cho {domain}")
             else:
