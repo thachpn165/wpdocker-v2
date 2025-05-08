@@ -18,9 +18,7 @@ from src.features.website.utils import get_site_config, set_site_config
 from src.features.nginx.manager import reload as reload_nginx
 from src.common.utils.environment import env
 from src.features.wordpress.utils import get_wp_path
-
-CACHE_TYPE = "fastcgi-cache"
-PLUGIN_SLUGS = ["redis-cache", "nginx-helper"]
+from src.features.cache.constants import CACHE_TYPES, CACHE_PLUGINS, CACHE_SETUP_NOTICE
 
 
 def insert_redis_defines_to_wp_config(domain: str) -> bool:
@@ -51,6 +49,10 @@ def insert_redis_defines_to_wp_config(domain: str) -> bool:
         return False
 
 
+def print_cache_setup_notice(domain: str):
+    print(CACHE_SETUP_NOTICE["fastcgi-cache"].format(domain=domain))
+
+
 def setup_fastcgi_cache(domain: str) -> bool:
     """
     Set up fastcgi-cache for a WordPress site and configure NGINX.
@@ -76,18 +78,18 @@ def setup_fastcgi_cache(domain: str) -> bool:
         return False
 
     # Install and activate plugins
-    for plugin_slug in PLUGIN_SLUGS:
+    for plugin_slug in CACHE_PLUGINS["fastcgi-cache"]:
         if not install_and_activate_plugin(domain, plugin_slug):
             error(f"Failed to install/activate plugin: {plugin_slug}")
             return False
 
     # Update wp-config.php for cache defines
-    if not update_wp_config_cache(domain, CACHE_TYPE):
+    if not update_wp_config_cache(domain, "fastcgi-cache"):
         error("Failed to update wp-config.php for cache.")
         return False
 
     # Update NGINX config to use fastcgi-cache
-    if not update_nginx_cache_config(domain, CACHE_TYPE):
+    if not update_nginx_cache_config(domain, "fastcgi-cache"):
         error("Failed to update NGINX cache config.")
         return False
 
@@ -97,7 +99,7 @@ def setup_fastcgi_cache(domain: str) -> bool:
         return False
 
     # Update site config metadata
-    site_config.cache = CACHE_TYPE
+    site_config.cache = "fastcgi-cache"
     set_site_config(domain, site_config)
 
     # Thêm các dòng define vào wp-config.php
@@ -115,4 +117,5 @@ def setup_fastcgi_cache(domain: str) -> bool:
         return False
 
     success(f"✅ FastCGI cache successfully set up for {domain}")
+    print_cache_setup_notice(domain)
     return True 

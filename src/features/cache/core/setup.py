@@ -6,6 +6,7 @@ This module is designed for extensibility and separation of concerns.
 from src.common.logging import error
 from src.common.utils.validation import is_valid_domain
 from src.features.cache.core.fastcgi import setup_fastcgi_cache
+from src.features.cache.constants import CACHE_TYPES
 # Có thể import thêm các loại cache khác trong tương lai, ví dụ:
 # from src.features.cache.core.w3total import setup_w3total_cache
 # from src.features.cache.core.supercache import setup_super_cache

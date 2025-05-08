@@ -11,6 +11,7 @@ from typing import Optional
 from src.features.cache.core.setup import setup_fastcgi_cache
 from src.common.logging import info, error, debug, success
 from src.features.website.utils import select_website
+from src.features.cache.constants import CACHE_TYPES
 
 def not_implemented() -> None:
     """Handle not implemented features."""
@@ -37,18 +38,18 @@ def prompt_cache_menu() -> None:
         answer = questionary.select(
             "\n🗄️ Cache Management Menu:",
             choices=[
-                {"name": "1. Cài đặt FastCGI Cache cho WordPress", "value": "fastcgi"},
+                {"name": f"1. Cài đặt {CACHE_TYPES[0].replace('-', ' ').title()} cho WordPress", "value": CACHE_TYPES[0]},
                 {"name": "0. Quay lại menu chính", "value": "exit"},
             ]
         ).ask()
-        if answer == "fastcgi":
+        if answer == CACHE_TYPES[0]:
             domain = select_website("Chọn website cần cài cache:")
             if not domain:
                 info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
                 continue
             if setup_fastcgi_cache(domain):
-                info(f"Đã cài đặt FastCGI cache thành công cho {domain}")
+                info(f"Đã cài đặt {CACHE_TYPES[0]} thành công cho {domain}")
             else:
-                error(f"Cài đặt FastCGI cache thất bại cho {domain}")
+                error(f"Cài đặt {CACHE_TYPES[0]} thất bại cho {domain}")
         elif answer == "exit":
             break

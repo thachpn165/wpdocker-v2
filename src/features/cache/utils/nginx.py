@@ -38,20 +38,4 @@ def update_nginx_cache_config(domain: str, cache_type: str) -> bool:
         return True
     except Exception as e:
         error(f"Failed to update NGINX config: {e}")
-        return False
-
-def reload_nginx() -> bool:
-    """
-    Reload NGINX inside the container.
-    """
-    try:
-        result = subprocess.run(["docker", "exec", NGINX_CONTAINER, "nginx", "-s", "reload"], capture_output=True, text=True)
-        if result.returncode == 0:
-            info("Reloaded NGINX successfully.")
-            return True
-        else:
-            error(f"NGINX reload failed: {result.stderr}")
-            return False
-    except Exception as e:
-        error(f"Error reloading NGINX: {e}")
         return False 
