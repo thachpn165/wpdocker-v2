@@ -40,6 +40,7 @@ from src.features.nginx.manager import restart as nginx_restart
 from src.features.ssl.installer import install_selfsigned_ssl
 from src.features.php.client import init_php_client
 from src.common.utils.crypto import encrypt
+from src.features.webserver.site_manager_factory import get_site_manager
 
 
 @log_call
@@ -262,54 +263,14 @@ def cleanup_compose_php(domain: str) -> None:
         info(f"🗑️ Removed PHP docker-compose file for {domain}")
 
 
-@log_call
-def setup_nginx_vhost(domain: str) -> None:
-    """
-    Create NGINX virtual host configuration for the website.
-    
-    Args:
-        domain: Website domain name
-    """
-    install_dir = env["INSTALL_DIR"]
-    nginx_template = os.path.join(
-        install_dir, "src", "templates", "nginx", "nginx-vhost.conf.template")
-    nginx_target_dir = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d")
-    nginx_target_path = os.path.join(nginx_target_dir, f"{domain}.conf")
-
-    if not os.path.exists(nginx_target_dir):
-        os.makedirs(nginx_target_dir, exist_ok=True)
-
-    if os.path.isfile(nginx_template):
-        with open(nginx_template, "r") as f:
-            content = f.read().replace("${DOMAIN}", domain)
-        with open(nginx_target_path, "w") as f:
-            f.write(content)
-        nginx_restart()
+def setup_webserver_vhost(domain: str) -> None:
+    manager = get_site_manager()
+    manager.create_website(domain)
 
 
-def cleanup_nginx_vhost(domain: str) -> None:
-    """
-    Remove NGINX virtual host configuration for the website.
-    
-    Args:
-        domain: Website domain name
-    """
-    nginx_target_path = os.path.join(
-        env["CONFIG_DIR"], "nginx", "conf.d", f"{domain}.conf")
-    if os.path.isfile(nginx_target_path):
-        os.remove(nginx_target_path)
-        info(f"🗑️ Removed NGINX vhost file for {domain}")
-
-
-def cleanup_database(domain: str) -> None:
-    """
-    Remove database and database user for the website.
-    
-    Args:
-        domain: Website domain name
-    """
-    delete_database(domain)
-    delete_database_user(domain)
+def cleanup_webserver_vhost(domain: str) -> None:
+    manager = get_site_manager()
+    manager.delete_website(domain)
 
 
 @log_call
@@ -328,19 +289,30 @@ def setup_ssl(domain: str, php_version: str = None) -> None:
         warn(f"⚠️ Failed to install self-signed SSL certificate for {domain}")
 
 
+def cleanup_database(domain: str) -> None:
+    """
+    Remove database and database user for the website.
+    Args:
+        domain: Website domain name
+    """
+    # Hiện tại chỉ có MySQL, sau này nếu webserver khác có DB riêng thì mở rộng qua manager
+    delete_database(domain)
+    delete_database_user(domain)
+
+
 # Setup and cleanup action pairs for website creation
 WEBSITE_SETUP_ACTIONS = [
     (setup_directories, cleanup_directories),
     (setup_php_configs, None),
     (setup_compose_php, cleanup_compose_php),
     (setup_ssl, None),
-    (setup_nginx_vhost, cleanup_nginx_vhost),
+    (setup_webserver_vhost, cleanup_webserver_vhost),
     (setup_config, cleanup_config),  # Keep this last
 ]
 
 # Actions for website cleanup/deletion
 WEBSITE_CLEANUP_ACTIONS = [
-    cleanup_nginx_vhost,
+    cleanup_webserver_vhost,
     cleanup_compose_php,
     cleanup_database,
     cleanup_config,

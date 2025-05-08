@@ -16,26 +16,7 @@ from src.features.website.manager import create_website
 from src.features.wordpress.cli.install import cli_install_wordpress
 from src.common.utils.validation import is_valid_domain
 
-@log_call
-def is_valid_domain(domain: str) -> bool:
-    """
-    Validate that a domain name is properly formatted.
-    
-    Args:
-        domain: Domain name to validate
-        
-    Returns:
-        bool: True if domain is valid, False otherwise
-    """
-    # Basic domain validation with regex
-    is_valid_domain(domain)
-        
-    # Check if website already exists
-    if is_website_exists(domain):
-        warn(f"⚠️ Website {domain} already exists.")
-        return False
-        
-    return True
+
 
 
 @log_call
