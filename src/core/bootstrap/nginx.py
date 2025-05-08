@@ -13,6 +13,8 @@ from src.common.utils.environment import env
 from src.core.bootstrap.base import BaseBootstrap
 from src.core.containers.compose import Compose
 from src.core.containers.container import Container
+from src.features.website.utils import website_list, get_site_config
+from questionary import confirm
 
 
 class NginxBootstrap(BaseBootstrap):
@@ -91,6 +93,10 @@ class NginxBootstrap(BaseBootstrap):
                 
             # Step 3: Set proper permissions
             if not self._set_directory_permissions():
+                return False
+                
+            # Step 4: Check and (optionally) recreate missing website configs
+            if not self._check_and_recreate_site_configs():
                 return False
                 
             self.debug.success("NGINX bootstrap completed successfully")
@@ -259,4 +265,35 @@ class NginxBootstrap(BaseBootstrap):
             return True
         except Exception as e:
             self.debug.error(f"Failed to set directory permissions: {e}")
+            return False
+
+    def _check_and_recreate_site_configs(self) -> bool:
+        """
+        Kiểm tra và tái tạo file cấu hình NGINX cho từng website nếu thiếu.
+        """
+        try:
+            sites = website_list()
+            nginx_conf_dir = os.path.join(env["CONFIG_DIR"], "nginx", "conf.d")
+            template_path = os.path.join(env["TEMPLATES_DIR"], "nginx", "nginx-domain.conf.template")
+            for domain in sites:
+                conf_file = os.path.join(nginx_conf_dir, f"{domain}.conf")
+                if not os.path.exists(conf_file):
+                    self.debug.warn(f"⚠️ NGINX config missing for website {domain}: {conf_file}")
+                    answer = confirm(f"File cấu hình NGINX cho website {domain} bị thiếu. Bạn có muốn tái tạo file này không? ({conf_file})").ask()
+                    if answer:
+                        site_config = get_site_config(domain)
+                        with open(template_path, "r") as f:
+                            content = f.read()
+                        # Thay thế biến trong template
+                        content = content.replace("${DOMAIN}", domain)
+                        # Có thể bổ sung các biến khác nếu cần
+                        os.makedirs(nginx_conf_dir, exist_ok=True)
+                        with open(conf_file, "w") as f:
+                            f.write(content)
+                        self.debug.success(f"Đã tái tạo file cấu hình NGINX cho website {domain}: {conf_file}")
+                    else:
+                        self.debug.error(f"Người dùng từ chối tái tạo file cấu hình cho {domain}. Website này sẽ không hoạt động!")
+            return True
+        except Exception as e:
+            self.debug.error(f"Lỗi khi kiểm tra/tái tạo file cấu hình NGINX cho website: {e}")
             return False
