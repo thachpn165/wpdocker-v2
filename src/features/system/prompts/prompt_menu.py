@@ -41,6 +41,7 @@ def prompt_system_menu() -> None:
             {"name": "5. Change Version Channel", "value": "5"},
             {"name": "6. Clean Docker", "value": "6"},
             {"name": "7. Manage Scheduled Tasks", "value": "7"},
+            {"name": "8. NGINX Web Server", "value": "8"},
             {"name": "0. Back to Main Menu", "value": "0"},
         ]
         
@@ -55,6 +56,9 @@ def prompt_system_menu() -> None:
         elif answer == "7":
             from src.features.cron.prompts.prompt_menu import prompt_cron_menu
             prompt_cron_menu()
+        elif answer == "8":
+            from src.features.nginx.prompts.prompt_menu import prompt_nginx_menu
+            prompt_nginx_menu()
         else:
             not_implemented()
     except Exception as e:

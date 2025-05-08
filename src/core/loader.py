@@ -44,7 +44,7 @@ class CoreLoader:
         self._initialized = True
         self.debug = Debug("CoreLoader")
         self.required_modules = {
-            "python-on-whales": "python-on-whales",
+            "python_on_whales": "python-on-whales",
             "questionary": "questionary",
             "rich": "rich",
             "requests": "requests",

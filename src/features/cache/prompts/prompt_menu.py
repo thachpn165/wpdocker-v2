@@ -8,7 +8,7 @@ like installing and configuring different caching plugins and systems.
 import questionary
 from questionary import Style
 from typing import Optional
-
+from src.features.cache.core.setup import setup_fastcgi_cache
 from src.common.logging import info, error, debug, success
 
 def not_implemented() -> None:
@@ -31,20 +31,20 @@ custom_style = Style([
 ])
 
 def prompt_cache_menu() -> None:
-    """Display WP cache setup menu and handle user selection."""
-    choices = [
-        {"name": "1. Install W3 Total Cache", "value": "1"},
-        {"name": "2. Install WP Fastest Cache", "value": "2"},
-        {"name": "3. Install WP Super Cache", "value": "3"},
-        {"name": "4. Configure FastCGI Cache", "value": "4"},
-        {"name": "0. Back to Main Menu", "value": "0"},
-    ]
-    
-    answer = questionary.select(
-        "\n⚡ WP Cache Setup:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    
-    if answer != "0":
-        not_implemented()
+    """Hiển thị menu quản lý cache cho website WordPress."""
+    while True:
+        answer = questionary.select(
+            "\n🗄️ Cache Management Menu:",
+            choices=[
+                {"name": "1. Cài đặt FastCGI Cache cho WordPress", "value": "fastcgi"},
+                {"name": "0. Quay lại menu chính", "value": "exit"},
+            ]
+        ).ask()
+        if answer == "fastcgi":
+            domain = questionary.text("Nhập domain website cần cài cache:").ask()
+            if setup_fastcgi_cache(domain):
+                info(f"Đã cài đặt FastCGI cache thành công cho {domain}")
+            else:
+                error(f"Cài đặt FastCGI cache thất bại cho {domain}")
+        elif answer == "exit":
+            break

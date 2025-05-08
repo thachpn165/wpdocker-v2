@@ -99,3 +99,17 @@ def restart() -> bool:
     except Exception as e:
         error(f"❌ Error restarting NGINX: {e}")
         return False
+
+
+@log_call
+def apply_config() -> bool:
+    """
+    Apply the NGINX configuration changes.
+    
+    This function is required for webserver compatibility.
+    It simply calls reload() to apply changes.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    return reload()
