@@ -8,6 +8,7 @@ based on the system configuration. Currently, it supports NGINX by default.
 # It will automatically load the configured web server module
 
 from src.common.webserver.utils import get_current_webserver
+import subprocess
 
 try:
     webserver_type = get_current_webserver()
@@ -30,3 +31,20 @@ else:
     test_config = reload = restart = apply_config = not_implemented
     
     __all__ = ['test_config', 'reload', 'restart', 'apply_config']
+
+class WebserverReload:
+    @staticmethod
+    def webserver_reload():
+        webserver = get_current_webserver()
+        if webserver == "nginx":
+            # Reload nginx (bạn có thể điều chỉnh lệnh này cho phù hợp môi trường Docker/local)
+            try:
+                subprocess.run(["docker", "exec", "nginx", "nginx", "-s", "reload"], check=True)
+            except Exception:
+                # Nếu không chạy trong docker/nginx container, thử lệnh hệ thống
+                subprocess.run(["nginx", "-s", "reload"], check=True)
+        # Có thể mở rộng cho các webserver khác
+        # elif webserver == "apache":
+        #     subprocess.run(["systemctl", "reload", "apache2"], check=True)
+        else:
+            raise NotImplementedError(f"Reload not supported for webserver: {webserver}")
