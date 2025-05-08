@@ -19,6 +19,7 @@ from src.features.nginx.manager import reload as reload_nginx
 from src.common.utils.environment import env
 from src.features.wordpress.utils import get_wp_path
 from src.features.cache.constants import CACHE_TYPES, CACHE_PLUGINS, CACHE_SETUP_NOTICE
+from src.common.webserver.utils import get_current_webserver
 
 
 def insert_redis_defines_to_wp_config(domain: str) -> bool:
@@ -61,6 +62,10 @@ def setup_fastcgi_cache(domain: str) -> bool:
     Returns:
         bool: True if successful
     """
+    webserver = get_current_webserver()
+    if webserver != "nginx":
+        raise NotImplementedError(f"FastCGI cache setup is not implemented for webserver: {webserver}")
+
     # Validate domain
     if not is_valid_domain(domain):
         error(f"Invalid domain: {domain}")

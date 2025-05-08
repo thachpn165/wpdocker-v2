@@ -14,6 +14,7 @@ from src.features.wordpress.utils import (
 from src.features.website.utils import get_site_config, set_site_config
 from src.features.nginx.manager import reload as reload_nginx
 from src.features.cache.constants import CACHE_PLUGINS, CACHE_SETUP_NOTICE
+from src.common.webserver.utils import get_current_webserver
 
 
 def print_cache_setup_notice(domain: str):
@@ -28,6 +29,10 @@ def setup_wp_fastest_cache(domain: str) -> bool:
     Returns:
         bool: True if successful
     """
+    webserver = get_current_webserver()
+    if webserver != "nginx":
+        raise NotImplementedError(f"WP Fastest Cache setup is not implemented for webserver: {webserver}")
+
     # Validate domain
     if not is_valid_domain(domain):
         error(f"Invalid domain: {domain}")
