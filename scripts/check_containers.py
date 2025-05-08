@@ -11,6 +11,7 @@ import sys
 import subprocess
 from typing import List, Dict, Any
 from src.common.logging import info, error, success, debug
+from src.common.webserver.utils import get_current_webserver
 # Add the project root to the sys path to allow imports
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
@@ -25,12 +26,21 @@ except ImportError as e:
 
 # Container names to check
 CONTAINERS = [
-    "MYSQL_CONTAINER_NAME", 
-    "NGINX_CONTAINER_NAME", 
-    "REDIS_CONTAINER_NAME", 
-    "WPCLI_CONTAINER_NAME", 
+    "MYSQL_CONTAINER_NAME",
+    # Webserver container sẽ được thêm động phía dưới
+    "REDIS_CONTAINER_NAME",
+    "WPCLI_CONTAINER_NAME",
     "RCLONE_CONTAINER_NAME"
 ]
+
+# Thêm container webserver động vào CONTAINERS
+try:
+    webserver = get_current_webserver()
+    webserver_env_var = f"{webserver.upper()}_CONTAINER_NAME"
+    if webserver_env_var not in CONTAINERS:
+        CONTAINERS.insert(1, webserver_env_var)
+except Exception as e:
+    error(f"Could not determine webserver: {e}")
 
 def check_and_restart_containers() -> bool:
     """
@@ -150,8 +160,8 @@ def create_container(container_name: str) -> bool:
         # Determine which compose file to use based on container name
         if container_name == env.get("MYSQL_CONTAINER_NAME"):
             template = "mysql"
-        elif container_name == env.get("NGINX_CONTAINER_NAME"):
-            template = "nginx"
+        elif container_name == env.get(webserver_env_var):
+            template = webserver
         elif container_name == env.get("REDIS_CONTAINER_NAME"):
             template = "redis"
         elif container_name == env.get("WPCLI_CONTAINER_NAME"):

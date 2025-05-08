@@ -13,9 +13,9 @@ from src.core.bootstrap.config import ConfigBootstrap
 from src.core.bootstrap.system import SystemBootstrap
 from src.core.bootstrap.docker import DockerBootstrap
 from src.core.bootstrap.mysql import MySQLBootstrap
-from src.core.bootstrap.nginx import NginxBootstrap
-from src.core.bootstrap.redis import RedisBootstrap
+from src.core.bootstrap.webserver import get_webserver_bootstrap
 from src.core.bootstrap.wpcli import WPCLIBootstrap
+from src.core.bootstrap.redis import RedisBootstrap
 from src.core.bootstrap.rclone import RcloneBootstrap
 from src.core.bootstrap.misc import MiscBootstrap
 
@@ -38,7 +38,7 @@ class BootstrapController:
             SystemBootstrap,
             DockerBootstrap,
             MySQLBootstrap,
-            NginxBootstrap,
+            get_webserver_bootstrap,
             WPCLIBootstrap,
             RedisBootstrap,
             RcloneBootstrap,
@@ -57,8 +57,11 @@ class BootstrapController:
         
         result = True
         for bootstrap_class in self.bootstrap_sequence:
-            bootstrap = bootstrap_class()
-            component_name = bootstrap_class.__name__
+            if callable(bootstrap_class) and not isinstance(bootstrap_class, type):
+                bootstrap = bootstrap_class()
+            else:
+                bootstrap = bootstrap_class()
+            component_name = bootstrap.__class__.__name__
             
             self.debug.info(f"Bootstrapping {component_name}")
             if not bootstrap.bootstrap():
