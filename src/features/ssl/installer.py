@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, Tuple, List, Union
 from src.common.logging import log_call, info, warn, error, success
 from src.common.utils.environment import env
 from src.common.utils.validation import is_valid_domain, validate_directory
-from src.features.nginx.manager import reload as nginx_reload
+from src.features.webserver.webserver_reload import WebserverReload
 
 
 @log_call
@@ -47,7 +47,7 @@ def install_selfsigned_ssl(domain: str) -> bool:
     try:
         subprocess.run(cmd, check=True)
         success(f"✅ Self-signed SSL certificate created for {domain}")
-        nginx_reload()
+        WebserverReload.webserver_reload()
         return True
     except subprocess.CalledProcessError as e:
         error(f"❌ Error creating self-signed SSL for {domain}: {e}")
@@ -81,7 +81,7 @@ def install_manual_ssl(domain: str, cert_content: str, key_content: str) -> bool
             f.write(key_content.strip())
 
         success(f"✅ Manual SSL certificate installed for {domain}")
-        nginx_reload()
+        WebserverReload.webserver_reload()
         return True
     except Exception as e:
         error(f"❌ Cannot write manual SSL certificate: {e}")
@@ -117,7 +117,7 @@ def edit_ssl_cert(domain: str, new_cert: str, new_key: str) -> bool:
             f.write(new_key.strip())
 
         success(f"✅ SSL certificate updated for {domain}")
-        nginx_reload()
+        WebserverReload.webserver_reload()
         return True
     except Exception as e:
         error(f"❌ Error updating SSL certificate: {e}")
@@ -196,7 +196,7 @@ def install_letsencrypt_ssl(domain: str, email: str, staging: bool = False) -> b
             f.write(key_content)
 
         success(f"✅ Let's Encrypt SSL certificate installed successfully for {domain}")
-        nginx_reload()
+        WebserverReload.webserver_reload()
         return True
 
     except Exception as e:

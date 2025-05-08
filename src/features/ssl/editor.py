@@ -12,7 +12,7 @@ from src.common.logging import log_call, info, error
 from src.common.utils.environment import env
 from src.common.utils.editor import choose_editor
 from src.features.website.utils import get_site_config
-from src.features.nginx.manager import reload as nginx_reload
+from src.features.webserver.webserver_reload import WebserverReload
 
 
 @log_call
@@ -53,7 +53,7 @@ def edit_ssl(domain: str) -> bool:
         subprocess.call([editor, key_path])
         
         info("Files have been edited. Reloading NGINX configuration...")
-        nginx_reload()
+        WebserverReload.webserver_reload()
         return True
     except Exception as e:
         error(f"Error editing SSL files: {e}")
@@ -165,7 +165,7 @@ def restore_ssl_backup(domain: str) -> bool:
                 dst.write(src.read())
 
         info(f"SSL files restored from backup")
-        nginx_reload()
+        WebserverReload.webserver_reload()
         return True
     except Exception as e:
         error(f"Error restoring SSL files: {e}")
