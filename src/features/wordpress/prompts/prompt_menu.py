@@ -17,10 +17,12 @@ from src.features.wordpress.cli.auto_update import (
 )
 from src.features.wordpress.cli.protect import cli_toggle_wp_login_protection
 
+
 def not_implemented() -> None:
     """Handle not implemented features."""
     error("🚧 Feature not implemented yet")
     input("Press Enter to continue...")
+
 
 # Custom style for the menu
 custom_style = Style([
@@ -35,6 +37,7 @@ custom_style = Style([
     ('text', ''),
     ('disabled', 'fg:gray italic'),
 ])
+
 
 def prompt_auto_update_menu() -> None:
     choices = [
@@ -58,6 +61,7 @@ def prompt_auto_update_menu() -> None:
     elif answer == "plugin":
         cli_toggle_plugin_auto_update(domain, interactive=True)
 
+
 def prompt_wordpress_menu() -> None:
     """Display WordPress tools menu and handle user selection."""
     choices = [
@@ -75,7 +79,8 @@ def prompt_wordpress_menu() -> None:
     if answer == "auto_update":
         prompt_auto_update_menu()
     elif answer == "wp_login_protect":
-        domain = select_website("Chọn website cần thay đổi bảo vệ wp-login.php:")
+        domain = select_website(
+            "Chọn website cần thay đổi bảo vệ wp-login.php:")
         if not domain:
             info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
             return
