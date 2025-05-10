@@ -15,11 +15,12 @@ from src.common.containers.container import Container
 from src.features.website.utils import ensure_www_data_ownership, get_site_config, set_site_config, delete_site_config
 from src.features.mysql.utils import get_domain_db_pass, detect_mysql_client
 from src.features.php.client import init_php_client
+from src.features.wordpress.manager import WordPressAutoUpdateManager
 
 # Configuration keys to save in config.json after WordPress installation
 CONFIG_KEYS_AFTER_INSTALL = {
     "cache": "no-cache",
-    "wordpress_installed": True,
+
 }
 
 
@@ -334,3 +335,10 @@ def delete_post_install_config(domain: str) -> bool:
         else:
             warn(f"⚠️ Config site.{domain}.{subkey} not found for deletion")
     return True
+
+
+def toggle_theme_auto_update_action(domain: str) -> bool:
+    return WordPressAutoUpdateManager().toggle_theme_auto_update(domain)
+
+def toggle_plugin_auto_update_action(domain: str) -> bool:
+    return WordPressAutoUpdateManager().toggle_plugin_auto_update(domain)

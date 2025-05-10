@@ -81,6 +81,13 @@ class SiteBackup:
 
 
 @dataclass
+class WordPressConfig:
+    """WordPress-specific configuration for a website."""
+    auto_update_theme: bool = False
+    auto_update_plugin: bool = False
+
+
+@dataclass
 class SiteConfig:
     """Main website configuration."""
     
@@ -90,3 +97,4 @@ class SiteConfig:
     mysql: Optional[SiteMySQL] = None
     php: Optional[SitePHP] = None
     backup: Optional[SiteBackup] = None
+    wordpress: Optional[WordPressConfig] = None

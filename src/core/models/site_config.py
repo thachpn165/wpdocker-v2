@@ -128,6 +128,15 @@ class SiteBackup:
     cloud_config: Optional[CloudConfig] = None
     job_id: Optional[str] = None
 
+@dataclass
+class WordPressConfig:
+    """
+    WordPress configuration for a website.
+    """
+    auto_update_plugin: bool = False
+    auto_update_theme: bool = False
+    wp_login_protect: bool = False
+
 
 @dataclass
 class SiteConfig:
@@ -148,3 +157,4 @@ class SiteConfig:
     mysql: Optional[SiteMySQL] = None
     php: Optional[SitePHP] = None
     backup: Optional[SiteBackup] = None
+    wordpress: Optional[WordPressConfig] = None
