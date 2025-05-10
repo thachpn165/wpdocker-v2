@@ -12,7 +12,7 @@ from typing import Optional, List, Dict, Any
 class SiteLogs:
     """
     Website log file paths.
-    
+
     Attributes:
         access: Path to access log file
         error: Path to error log file
@@ -29,7 +29,7 @@ class SiteLogs:
 class SiteMySQL:
     """
     MySQL database configuration for a website.
-    
+
     Attributes:
         db_name: Database name
         db_user: Database username
@@ -44,7 +44,7 @@ class SiteMySQL:
 class SitePHP:
     """
     PHP configuration for a website.
-    
+
     Attributes:
         php_version: PHP version
         php_container: PHP container name
@@ -59,7 +59,7 @@ class SitePHP:
 class SiteBackupInfo:
     """
     Backup information for a website.
-    
+
     Attributes:
         time: Timestamp of the backup
         file: Path to website files backup
@@ -74,7 +74,7 @@ class SiteBackupInfo:
 class BackupSchedule:
     """
     Automatic backup schedule configuration.
-    
+
     Attributes:
         enabled: Whether automatic backup is enabled
         schedule_type: Schedule type (daily, weekly, monthly)
@@ -99,7 +99,7 @@ class BackupSchedule:
 class CloudConfig:
     """
     Cloud storage configuration.
-    
+
     Attributes:
         provider: Cloud storage provider (currently only rclone)
         remote_name: Rclone remote name
@@ -116,7 +116,7 @@ class CloudConfig:
 class SiteBackup:
     """
     Complete backup configuration for a website.
-    
+
     Attributes:
         last_backup: Information about the last backup
         schedule: Backup schedule configuration
@@ -128,6 +128,7 @@ class SiteBackup:
     cloud_config: Optional[CloudConfig] = None
     job_id: Optional[str] = None
 
+
 @dataclass
 class WordPressConfig:
     """
@@ -135,14 +136,14 @@ class WordPressConfig:
     """
     auto_update_plugin: bool = False
     auto_update_theme: bool = False
-    wp_login_protect: bool = False
+    wp_login_protected: bool = False
 
 
 @dataclass
 class SiteConfig:
     """
     Complete website configuration.
-    
+
     Attributes:
         domain: Website domain name
         logs: Log file paths

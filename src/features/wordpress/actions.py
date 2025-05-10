@@ -28,10 +28,10 @@ CONFIG_KEYS_AFTER_INSTALL = {
 def check_containers(domain: str) -> bool:
     """
     Check if all required containers for WordPress installation are running.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if all containers are running, False otherwise
     """
@@ -57,10 +57,10 @@ def check_containers(domain: str) -> bool:
 def download_core(domain: str) -> bool:
     """
     Download WordPress core files to the website directory.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if download was successful, False otherwise
     """
@@ -69,13 +69,16 @@ def download_core(domain: str) -> bool:
     wordpress_path = os.path.join(sites_dir, domain, "wordpress")
 
     # Check if the directory on the host is empty
-    is_empty = not os.path.exists(wordpress_path) or not os.listdir(wordpress_path)
+    is_empty = not os.path.exists(
+        wordpress_path) or not os.listdir(wordpress_path)
 
     if is_empty:
         debug(f"📥 Downloading WordPress to {wordpress_path}...")
-        wpcli.exec(["wp", "core", "download"], workdir=f"/var/www/html/{domain}/wordpress")
+        wpcli.exec(["wp", "core", "download"],
+                   workdir=f"/var/www/html/{domain}/wordpress")
     else:
-        warn(f"📂 WordPress is already installed at {wordpress_path}. Skipping download.")
+        warn(
+            f"📂 WordPress is already installed at {wordpress_path}. Skipping download.")
 
     return True
 
@@ -84,7 +87,7 @@ def download_core(domain: str) -> bool:
 def delete_core(domain: str) -> None:
     """
     Delete WordPress core files from the website directory.
-    
+
     Args:
         domain: Website domain name
     """
@@ -98,16 +101,17 @@ def delete_core(domain: str) -> None:
 def generate_config(domain: str) -> bool:
     """
     Generate wp-config.php file from sample configuration.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if configuration was generated successfully, False otherwise
     """
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
     wordpress_path = f"/var/www/html/{domain}/wordpress"
-    wpcli.exec(["cp", "wp-config-sample.php", "wp-config.php"], workdir=wordpress_path)
+    wpcli.exec(["cp", "wp-config-sample.php", "wp-config.php"],
+               workdir=wordpress_path)
     return True
 
 
@@ -115,7 +119,7 @@ def generate_config(domain: str) -> bool:
 def delete_config(domain: str) -> None:
     """
     Delete wp-config.php file.
-    
+
     Args:
         domain: Website domain name
     """
@@ -129,22 +133,23 @@ def delete_config(domain: str) -> None:
 def configure_db(domain: str) -> bool:
     """
     Configure WordPress database settings in wp-config.php.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if database configuration was successful, False otherwise
     """
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
     wordpress_path = f"/var/www/html/{domain}/wordpress"
     site_config = get_site_config(domain)
-    db_info = site_config.mysql if site_config and hasattr(site_config, 'mysql') else None
-    
+    db_info = site_config.mysql if site_config and hasattr(
+        site_config, 'mysql') else None
+
     if not db_info:
         error("❌ Missing database information in configuration.")
         return False
-        
+
     db_name = getattr(db_info, "db_name", None)
     db_user = getattr(db_info, "db_user", None)
     db_pass = get_domain_db_pass(domain)
@@ -160,9 +165,10 @@ def configure_db(domain: str) -> bool:
         "password_here": db_pass,
         "localhost": db_host,
     }
-    
+
     for search, replace in replacements.items():
-        wpcli.exec(["sed", "-i", f"s/{search}/{replace}/g", "wp-config.php"], workdir=wordpress_path)
+        wpcli.exec(["sed", "-i", f"s/{search}/{replace}/g",
+                   "wp-config.php"], workdir=wordpress_path)
 
     return True
 
@@ -171,20 +177,21 @@ def configure_db(domain: str) -> bool:
 def check_database(domain: str) -> bool:
     """
     Verify database connection with WordPress credentials.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if database connection is successful, False otherwise
     """
     site_config = get_site_config(domain)
-    db_info = site_config.mysql if site_config and hasattr(site_config, 'mysql') else None
-    
+    db_info = site_config.mysql if site_config and hasattr(
+        site_config, 'mysql') else None
+
     if not db_info:
         error("❌ Missing database information in configuration.")
         return False
-        
+
     db_name = getattr(db_info, "db_name", None)
     db_user = getattr(db_info, "db_user", None)
     db_pass = get_domain_db_pass(domain)
@@ -195,21 +202,22 @@ def check_database(domain: str) -> bool:
 
     mysql = Container(env["MYSQL_CONTAINER_NAME"])
     client_cmd = detect_mysql_client(mysql)
-    check_cmd = [client_cmd, "-u", db_user, f"-p{db_pass}", "-e", f"USE {db_name};"]
-    
+    check_cmd = [client_cmd, "-u", db_user,
+                 f"-p{db_pass}", "-e", f"USE {db_name};"]
+
     if mysql.exec(check_cmd) is None:
         error("❌ Database connection failed.")
         return False
-        
+
     return True
 
 
 @log_call
-def core_install(domain: str, site_url: str, title: str, admin_user: str, 
-                admin_pass: str, admin_email: str) -> bool:
+def core_install(domain: str, site_url: str, title: str, admin_user: str,
+                 admin_pass: str, admin_email: str) -> bool:
     """
     Install WordPress core with given settings.
-    
+
     Args:
         domain: Website domain name
         site_url: Website URL
@@ -217,13 +225,13 @@ def core_install(domain: str, site_url: str, title: str, admin_user: str,
         admin_user: Admin username
         admin_pass: Admin password
         admin_email: Admin email
-        
+
     Returns:
         bool: True if installation was successful, False otherwise
     """
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
     wordpress_path = f"/var/www/html/{domain}/wordpress"
-    
+
     try:
         wpcli.exec([
             "wp", "core", "install",
@@ -244,18 +252,18 @@ def core_install(domain: str, site_url: str, title: str, admin_user: str,
 def uninstall(domain: str) -> None:
     """
     Remove WordPress installation completely.
-    
+
     Args:
         domain: Website domain name
     """
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
     wordpress_path = f"/var/www/html/{domain}/wordpress"
-    
+
     try:
         wpcli.exec(["wp", "db", "drop", "--yes"], workdir=wordpress_path)
     except Exception:
         pass  # Ignore if database drop fails
-        
+
     wpcli.exec(["rm", "-rf", wordpress_path])
     warn(f"🧨 Removed WordPress installation at {wordpress_path}.")
 
@@ -264,10 +272,10 @@ def uninstall(domain: str) -> None:
 def fix_permissions(domain: str) -> bool:
     """
     Fix file permissions for WordPress installation.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if permissions were fixed successfully, False otherwise
     """
@@ -280,10 +288,10 @@ def fix_permissions(domain: str) -> bool:
 def verify_installation(domain: str) -> bool:
     """
     Verify WordPress installation is complete and functioning.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if installation is verified, False otherwise
     """
@@ -297,10 +305,10 @@ def verify_installation(domain: str) -> bool:
 def save_post_install_config(domain: str) -> bool:
     """
     Save configuration after WordPress installation.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if configuration was saved successfully, False otherwise
     """
@@ -321,10 +329,10 @@ def save_post_install_config(domain: str) -> bool:
 def delete_post_install_config(domain: str) -> bool:
     """
     Delete post-installation configuration keys.
-    
+
     Args:
         domain: Website domain name
-        
+
     Returns:
         bool: True if configuration was deleted successfully, False otherwise
     """
@@ -340,5 +348,78 @@ def delete_post_install_config(domain: str) -> bool:
 def toggle_theme_auto_update_action(domain: str) -> bool:
     return WordPressAutoUpdateManager().toggle_theme_auto_update(domain)
 
+
 def toggle_plugin_auto_update_action(domain: str) -> bool:
     return WordPressAutoUpdateManager().toggle_plugin_auto_update(domain)
+
+
+@log_call
+def toggle_wp_login_protection(domain: str) -> tuple:
+    """
+    Bật/tắt tính năng bảo vệ wp-login.php cho một website.
+
+    Args:
+        domain: Tên miền website
+
+    Returns:
+        Tuple chứa (thành công, trạng thái mới, thông tin đăng nhập nếu có)
+    """
+    from src.features.website.utils import get_site_config, set_site_config
+    from src.features.wordpress.utils import create_or_update_htpasswd, init_config_wplogin_protection
+    from src.features.wordpress.utils import delete_htpasswd, delete_wplogin_protection
+    from src.features.wordpress.utils import add_protect_include_to_vhost, remove_protect_include_from_vhost
+    from src.features.webserver import WebserverReload
+
+    # Lấy cấu hình hiện tại
+    site_config = get_site_config(domain)
+    if not site_config:
+        error(f"❌ Không tìm thấy cấu hình cho website {domain}")
+        return False, False, None
+
+    # Kiểm tra và tạo WordPress config nếu cần
+    if not site_config.wordpress:
+        from src.features.website.models.site_config import WordPressConfig
+        site_config.wordpress = WordPressConfig()
+
+    # Lấy trạng thái bảo vệ hiện tại
+    current_status = site_config.wordpress.wp_login_protected
+    new_status = not current_status
+
+    # Cập nhật trạng thái trong cấu hình
+    site_config.wordpress.wp_login_protected = new_status
+    set_site_config(domain, site_config)
+
+    login_info = None
+
+    if new_status:
+        # Bật bảo vệ - tạo htpasswd và cấu hình webserver
+        login_info = create_or_update_htpasswd(domain)
+        if init_config_wplogin_protection(domain):
+            # Thêm include vào vhost
+            if not add_protect_include_to_vhost(domain):
+                error(
+                    f"❌ Không thể thêm include bảo vệ wp-login.php vào vhost cho {domain}")
+                return False, new_status, login_info
+            success(f"✅ Đã bật bảo vệ wp-login.php cho {domain}")
+        else:
+            error(f"❌ Không thể tạo cấu hình bảo vệ wp-login.php cho {domain}")
+            return False, new_status, login_info
+    else:
+        # Tắt bảo vệ - xóa htpasswd và cấu hình webserver
+        delete_htpasswd(domain)
+        if delete_wplogin_protection(domain):
+            # Xóa include khỏi vhost
+            if not remove_protect_include_from_vhost(domain):
+                error(
+                    f"❌ Không thể xóa include bảo vệ wp-login.php khỏi vhost cho {domain}")
+                return False, new_status, None
+            success(f"✅ Đã tắt bảo vệ wp-login.php cho {domain}")
+        else:
+            error(f"❌ Không thể xóa cấu hình bảo vệ wp-login.php cho {domain}")
+            return False, new_status, None
+
+    # Reload webserver để áp dụng thay đổi
+    info("🔄 Đang reload webserver để áp dụng thay đổi...")
+    WebserverReload.webserver_reload()
+
+    return True, new_status, login_info

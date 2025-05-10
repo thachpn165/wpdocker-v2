@@ -12,6 +12,7 @@ from typing import List, Optional
 from src.common.logging import log_call, info, warn, error, success
 from src.features.wordpress.cli.install import cli_install_wordpress
 from src.features.wordpress.cli.manage import cli_run_wp_command, cli_uninstall_wordpress
+from src.features.wordpress.cli.protect import cli_toggle_wp_login_protection
 
 
 @log_call
@@ -53,7 +54,18 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         "uninstall",
         help="Completely remove WordPress from a website"
     )
-    
+
+    # Protect wp-login.php
+    protect_parser = subparsers.add_parser(
+        "protect",
+        help="Toggle wp-login.php protection with HTTP Basic Authentication"
+    )
+    protect_parser.add_argument(
+        "domain",
+        nargs="?",
+        help="Website domain (if omitted, will prompt to select)"
+    )
+
     return parser.parse_args(args)
 
 
@@ -86,7 +98,10 @@ def main(args: Optional[List[str]] = None) -> int:
     
     elif parsed_args.command == "uninstall":
         return 0 if cli_uninstall_wordpress() else 1
-    
+
+    elif parsed_args.command == "protect":
+        return 0 if cli_toggle_wp_login_protection(parsed_args.domain) else 1
+
     else:
         error(f"Unknown command: {parsed_args.command}")
         return 1

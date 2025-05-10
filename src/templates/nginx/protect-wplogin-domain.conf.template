@@ -1,0 +1,5 @@
+location = /wp-login.php {
+    auth_basic "Protected Area";
+    auth_basic_user_file ${domain_htpasswd_file};
+    include /usr/local/openresty/nginx/conf/globals/php.conf;
+}

@@ -15,6 +15,7 @@ from src.features.wordpress.cli.auto_update import (
     cli_toggle_theme_auto_update,
     cli_toggle_plugin_auto_update,
 )
+from src.features.wordpress.cli.protect import cli_toggle_wp_login_protection
 
 def not_implemented() -> None:
     """Handle not implemented features."""
@@ -73,5 +74,12 @@ def prompt_wordpress_menu() -> None:
     ).ask()
     if answer == "auto_update":
         prompt_auto_update_menu()
+    elif answer == "wp_login_protect":
+        domain = select_website("Chọn website cần thay đổi bảo vệ wp-login.php:")
+        if not domain:
+            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+            return
+        cli_toggle_wp_login_protection(domain, interactive=True)
+        input("\nNhấn Enter để tiếp tục...")
     elif answer != "0":
         not_implemented()

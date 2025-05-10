@@ -12,7 +12,7 @@ from typing import Optional, List, Dict, Any
 @dataclass
 class SiteLogs:
     """Website log file paths."""
-    
+
     access: Optional[str] = None
     error: Optional[str] = None
     php_error: Optional[str] = None
@@ -22,7 +22,7 @@ class SiteLogs:
 @dataclass
 class SiteMySQL:
     """MySQL database configuration for a website."""
-    
+
     db_name: str
     db_user: str
     db_pass: str
@@ -31,7 +31,7 @@ class SiteMySQL:
 @dataclass
 class SitePHP:
     """PHP configuration for a website."""
-    
+
     php_version: str
     php_container: Optional[str] = None
     php_installed_extensions: Optional[List[str]] = None
@@ -40,7 +40,7 @@ class SitePHP:
 @dataclass
 class SiteBackupInfo:
     """Information about a specific backup."""
-    
+
     time: str
     file: str
     database: str
@@ -49,7 +49,7 @@ class SiteBackupInfo:
 @dataclass
 class BackupSchedule:
     """Automatic backup schedule configuration."""
-    
+
     enabled: bool = False
     schedule_type: str = "daily"  # daily, weekly, monthly
     hour: int = 0                 # Hour of the day (0-23)
@@ -63,7 +63,7 @@ class BackupSchedule:
 @dataclass
 class CloudConfig:
     """Cloud storage configuration."""
-    
+
     provider: str = "rclone"      # Currently only supports rclone
     remote_name: str = ""         # Rclone remote name
     remote_path: str = ""         # Path within the remote
@@ -73,7 +73,7 @@ class CloudConfig:
 @dataclass
 class SiteBackup:
     """Website backup configuration."""
-    
+
     last_backup: Optional[SiteBackupInfo] = None
     schedule: Optional[BackupSchedule] = None
     cloud_config: Optional[CloudConfig] = None
@@ -85,12 +85,13 @@ class WordPressConfig:
     """WordPress-specific configuration for a website."""
     auto_update_theme: bool = False
     auto_update_plugin: bool = False
+    wp_login_protected: bool = False
 
 
 @dataclass
 class SiteConfig:
     """Main website configuration."""
-    
+
     domain: str
     logs: SiteLogs
     cache: Optional[str] = None
