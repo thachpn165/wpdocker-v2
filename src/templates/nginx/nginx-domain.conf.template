@@ -17,15 +17,15 @@ server {
     ssl_certificate_key /etc/nginx/ssl/${DOMAIN}.key;
 
     # 🚀 Include some optimized Nginx files
-    include /etc/nginx/globals/security.conf;
-    include /etc/nginx/globals/gzip.conf;
-    include /etc/nginx/globals/cache-control.conf;
+    include /usr/local/openresty/nginx/conf/globals/security.conf;
+    include /usr/local/openresty/nginx/conf/globals/gzip.conf;
+    include /usr/local/openresty/nginx/conf/globals/cache-control.conf;
 
     # Support CloudFlare
-    include /etc/nginx/globals/cloudflare.conf;
+    include /usr/local/openresty/nginx/conf/globals/cloudflare.conf;
 
     # Integrate WAF, comment out the include below if not used
-    include /etc/nginx/globals/waf.conf;
+    include /usr/local/openresty/nginx/conf/globals/waf.conf;
 
     # 📥 **Include cache configuration (default is no-cache)**
     include /etc/nginx/cache/no-cache.conf;

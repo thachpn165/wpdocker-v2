@@ -14,6 +14,7 @@ import subprocess
 from src.common.logging import info, error
 from src.features.website.utils import get_site_config
 from src.common.utils.environment import env
+from src.features.cache.constants import CACHE_PLUGINS as CACHE_PLUGINS_DICT
 
 @log_call
 def get_php_container_name(domain: str) -> str:
@@ -120,14 +121,25 @@ def run_wpcli_in_wpcli_container(domain: str, args: List[str]) -> Optional[str]:
 def deactivate_all_cache_plugins(domain: str) -> bool:
     """
     Deactivate all common cache plugins for a given WordPress domain using WP CLI container.
+    Chỉ deactivate nếu plugin cache thực sự đang active.
     """
-    for plugin in CACHE_PLUGINS:
+    # Lấy danh sách plugin cache từ constants (dạng dict)
+    cache_plugin_slugs = set()
+    for v in CACHE_PLUGINS_DICT.values():
+        cache_plugin_slugs.update(v)
+    # Lấy danh sách plugin đang active
+    active_plugins = set(get_active_plugins(domain))
+    # Lọc ra các plugin cache đang active
+    active_cache_plugins = active_plugins.intersection(cache_plugin_slugs)
+    if not active_cache_plugins:
+        info(f"Không có plugin cache nào đang active cho {domain}")
+        return True
+    for plugin in active_cache_plugins:
         result = run_wpcli_in_wpcli_container(domain, ["plugin", "deactivate", plugin])
-        # Không fail nếu plugin không active, chỉ báo lỗi nếu có lỗi thực thi khác
         if result is None:
             error(f"Failed to deactivate {plugin} (may not be installed or another error)")
-    info(f"Đã deactivate tất cả plugin cache phổ biến cho {domain}")
-    return True 
+    info(f"Đã deactivate các plugin cache đang active cho {domain}: {', '.join(active_cache_plugins)}")
+    return True
 
 def install_and_activate_plugin(domain: str, plugin_slug: str) -> bool:
     """
