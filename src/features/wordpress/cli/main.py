@@ -13,7 +13,7 @@ from src.common.logging import log_call, info, warn, error, success
 from src.features.wordpress.cli.install import cli_install_wordpress
 from src.features.wordpress.cli.manage import cli_run_wp_command, cli_uninstall_wordpress
 from src.features.wordpress.cli.protect import cli_toggle_wp_login_protection
-from src.features.wordpress.utils import show_wp_user_list, reset_wp_user_password, get_wp_user_info
+from src.features.wordpress.utils import show_wp_user_list, reset_wp_user_password, get_wp_user_info, get_wp_roles, reset_wp_user_role
 
 
 @log_call
@@ -78,6 +78,17 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         help="Website domain (nếu bỏ trống sẽ chọn từ danh sách)"
     )
 
+    # Reset User Role
+    reset_role_parser = subparsers.add_parser(
+        "reset-user-role",
+        help="Reset user role cho website (có thể chọn role hoặc tất cả)"
+    )
+    reset_role_parser.add_argument(
+        "domain",
+        nargs="?",
+        help="Website domain (nếu bỏ trống sẽ chọn từ danh sách)"
+    )
+
     return parser.parse_args(args)
 
 
@@ -117,6 +128,9 @@ def main(args: Optional[List[str]] = None) -> int:
     elif parsed_args.command == "reset-admin-password":
         return 0 if cli_reset_admin_password(parsed_args.domain) else 1
 
+    elif parsed_args.command == "reset-user-role":
+        return 0 if cli_reset_user_role(parsed_args.domain) else 1
+
     else:
         error(f"Unknown command: {parsed_args.command}")
         return 1
@@ -148,6 +162,45 @@ def cli_reset_admin_password(domain: Optional[str] = None):
         return True
     else:
         error("❌ Không thể reset mật khẩu.")
+        return False
+
+
+def cli_reset_user_role(domain: Optional[str] = None):
+    from src.features.website.utils import select_website
+    from src.common.logging import info, error, success
+    if not domain:
+        domain = select_website("Chọn website cần reset user role:")
+        if not domain:
+            info("Không có website nào hoặc thao tác bị hủy.")
+            return False
+    roles = get_wp_roles(domain)
+    if not roles:
+        error("Không lấy được danh sách role từ website.")
+        return False
+    # Tạo danh sách lựa chọn
+    choices = [(role['name'], role['name']) for role in roles]
+    choices.append(("Tất cả roles", "__ALL__"))
+    print("Danh sách roles:")
+    for idx, (label, value) in enumerate(choices, 1):
+        print(f"{idx}. {label}")
+    sel = input("Chọn role cần reset (nhập số): ").strip()
+    try:
+        sel_idx = int(sel) - 1
+        if sel_idx < 0 or sel_idx >= len(choices):
+            raise ValueError
+    except Exception:
+        error("Lựa chọn không hợp lệ.")
+        return False
+    label, value = choices[sel_idx]
+    if value == "__ALL__":
+        ok = reset_wp_user_role(domain, all_roles=True)
+    else:
+        ok = reset_wp_user_role(domain, role=value.lower())
+    if ok:
+        success(f"✅ Đã reset role '{label}' cho website {domain}")
+        return True
+    else:
+        error("❌ Không thể reset role.")
         return False
 
 

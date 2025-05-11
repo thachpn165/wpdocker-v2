@@ -475,3 +475,33 @@ def get_wp_user_info(domain: str, user_id: str) -> Optional[dict]:
         except Exception:
             return None
     return None
+
+
+def get_wp_roles(domain: str) -> list:
+    """
+    Lấy danh sách role của website qua WP-CLI.
+    """
+    result = run_wpcli_in_wpcli_container(
+        domain, ["role", "list", "--format=json"])
+    if result:
+        import json
+        try:
+            return json.loads(result)
+        except Exception:
+            return []
+    return []
+
+
+def reset_wp_user_role(domain: str, role: Optional[str] = None, all_roles: bool = False) -> bool:
+    """
+    Reset user role cho website. Nếu all_roles=True thì reset tất cả roles.
+    """
+    args = ["role", "reset"]
+    if all_roles:
+        args.append("--all")
+    elif role:
+        args.append(role)
+    else:
+        return False
+    result = run_wpcli_in_wpcli_container(domain, args)
+    return result is not None
