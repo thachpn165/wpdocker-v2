@@ -434,3 +434,44 @@ def remove_protect_include_from_vhost(domain: str) -> bool:
     except Exception as e:
         error(f"Lỗi khi xóa include bảo vệ wp-login.php: {e}")
         return False
+
+
+def show_wp_user_list(domain: str) -> None:
+    """
+    Hiển thị danh sách user qua WP-CLI.
+    """
+    result = run_wpcli_in_wpcli_container(
+        domain, ["user", "list", "--format=table"])
+    if result:
+        print(result)
+    else:
+        print("Không thể lấy danh sách user.")
+
+
+def reset_wp_user_password(domain: str, user_id: str) -> Optional[str]:
+    """
+    Reset password cho user_id, trả về mật khẩu mới nếu thành công.
+    """
+    result = run_wpcli_in_wpcli_container(
+        domain, ["user", "reset-password", user_id,
+                 "--show-password", "--porcelain"]
+    )
+    if result:
+        return result.strip()
+    return None
+
+
+def get_wp_user_info(domain: str, user_id: str) -> Optional[dict]:
+    """
+    Lấy thông tin user (username, email, role, ...) theo user_id qua WP-CLI.
+    """
+    result = run_wpcli_in_wpcli_container(
+        domain, ["user", "get", user_id, "--format=json"]
+    )
+    if result:
+        import json
+        try:
+            return json.loads(result)
+        except Exception:
+            return None
+    return None

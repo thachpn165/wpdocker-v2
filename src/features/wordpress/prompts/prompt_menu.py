@@ -16,6 +16,7 @@ from src.features.wordpress.cli.auto_update import (
     cli_toggle_plugin_auto_update,
 )
 from src.features.wordpress.cli.protect import cli_toggle_wp_login_protection
+from src.features.wordpress.cli.main import cli_reset_admin_password
 
 
 def not_implemented() -> None:
@@ -85,6 +86,13 @@ def prompt_wordpress_menu() -> None:
             info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
             return
         cli_toggle_wp_login_protection(domain, interactive=True)
+        input("\nNhấn Enter để tiếp tục...")
+    elif answer == "reset_admin_pw":
+        domain = select_website("Chọn website cần reset mật khẩu admin:")
+        if not domain:
+            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+            return
+        cli_reset_admin_password(domain)
         input("\nNhấn Enter để tiếp tục...")
     elif answer != "0":
         not_implemented()

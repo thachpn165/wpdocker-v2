@@ -38,14 +38,14 @@ DIM = "\033[2m"
 
 class ColorFormatter(logging.Formatter):
     """Custom formatter that adds color based on log level."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         """
         Format log record with appropriate color.
-        
+
         Args:
             record: The log record to format
-            
+
         Returns:
             Formatted and colored log message
         """
@@ -72,7 +72,7 @@ logger.addHandler(stream_handler)
 def debug(msg: str) -> None:
     """
     Log a debug message.
-    
+
     Args:
         msg: The message to log
     """
@@ -82,7 +82,7 @@ def debug(msg: str) -> None:
 def info(msg: str) -> None:
     """
     Log an info message.
-    
+
     Args:
         msg: The message to log
     """
@@ -92,7 +92,7 @@ def info(msg: str) -> None:
 def warn(msg: str) -> None:
     """
     Log a warning message.
-    
+
     Args:
         msg: The message to log
     """
@@ -102,7 +102,7 @@ def warn(msg: str) -> None:
 def error(msg: str) -> None:
     """
     Log an error message.
-    
+
     Args:
         msg: The message to log
     """
@@ -112,7 +112,7 @@ def error(msg: str) -> None:
 def success(msg: str) -> None:
     """
     Log a success message.
-    
+
     Args:
         msg: The message to log
     """
@@ -126,11 +126,11 @@ F = TypeVar('F', bound=Callable[..., Any])
 def log_call(_func: Optional[F] = None, *, log_vars: Optional[List[str]] = None) -> Union[F, Callable[[F], F]]:
     """
     Decorator to automatically log function calls.
-    
+
     Args:
         _func: The function to decorate (used internally)
         log_vars: List of result dictionary keys to log
-        
+
     Returns:
         Decorated function
     """
@@ -140,7 +140,8 @@ def log_call(_func: Optional[F] = None, *, log_vars: Optional[List[str]] = None)
             frame = inspect.currentframe()
             if frame and frame.f_back:
                 caller_file = os.path.basename(frame.f_back.f_code.co_filename)
-                logger.debug(f"{DIM}CALL {func.__name__}() [{caller_file}]{RESET}")
+                logger.debug(
+                    f"{DIM}CALL {func.__name__}() [{caller_file}]{RESET}")
 
             result = func(*args, **kwargs)
 
@@ -151,7 +152,8 @@ def log_call(_func: Optional[F] = None, *, log_vars: Optional[List[str]] = None)
                     logger.debug(f"{DIM}  ↳ {var_name} = {value}{RESET}")
 
             if frame and frame.f_back:
-                logger.debug(f"{DIM}DONE {func.__name__} → {result} [{caller_file}]{RESET}")
+                logger.debug(
+                    f"{DIM}DONE {func.__name__} → {result} [{caller_file}]{RESET}")
             return result
         return cast(F, wrapper)
 
@@ -164,11 +166,11 @@ def log_call(_func: Optional[F] = None, *, log_vars: Optional[List[str]] = None)
 
 def enable_exception_hook() -> None:
     """Enable global exception hook to log uncaught exceptions."""
-    
+
     def handle_exception(exc_type: type, exc_value: BaseException, exc_traceback: Any) -> None:
         """
         Handle uncaught exceptions by logging them.
-        
+
         Args:
             exc_type: Exception type
             exc_value: Exception value
@@ -177,64 +179,65 @@ def enable_exception_hook() -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
-        logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-    
+        logger.error("Uncaught exception", exc_info=(
+            exc_type, exc_value, exc_traceback))
+
     sys.excepthook = handle_exception
 
 
 class Debug:
     """Helper class for module-specific debugging."""
-    
+
     def __init__(self, module_name: str):
         """
         Initialize with module name for logging context.
-        
+
         Args:
             module_name: Name of the module for log context
         """
         self.module_name = module_name
-    
+
     def debug(self, message: str) -> None:
         """
         Log a debug message.
-        
+
         Args:
             message: The message to log
         """
         if env["DEBUG_MODE"].lower() == "true":
             logger.debug(f"[{self.module_name}] 🐞 {message}")
-    
+
     def info(self, message: str) -> None:
         """
         Log an info message.
-        
+
         Args:
             message: The message to log
         """
         logger.info(f"[{self.module_name}] ℹ️  {message}")
-    
+
     def warn(self, message: str) -> None:
         """
         Log a warning message.
-        
+
         Args:
             message: The message to log
         """
         logger.warning(f"[{self.module_name}] ⚠️  {message}")
-    
+
     def error(self, message: str) -> None:
         """
         Log an error message.
-        
+
         Args:
             message: The message to log
         """
         logger.error(f"[{self.module_name}] ❌  {message}")
-    
+
     def success(self, message: str) -> None:
         """
         Log a success message.
-        
+
         Args:
             message: The message to log
         """
