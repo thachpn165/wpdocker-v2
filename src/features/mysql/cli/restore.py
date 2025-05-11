@@ -17,10 +17,10 @@ from src.features.mysql.import_export import import_database
 
 
 @log_call
-def prompt_database_restore() -> Optional[Dict[str, Any]]:
+def get_database_restore_params() -> Optional[Dict[str, Any]]:
     """
     Prompt the user for database restoration parameters.
-    
+
     Returns:
         Optional[Dict[str, Any]]: Dictionary with domain, db_file, and reset parameters
                                  if successful, None if cancelled
@@ -40,7 +40,7 @@ def prompt_database_restore() -> Optional[Dict[str, Any]]:
         # Guide the user to prepare backup file
         sites_dir = env.get("SITES_DIR", "/opt/wp-docker/data/sites")
         backup_path = os.path.join(sites_dir, domain, "backups")
-        
+
         info(f"📁 Please ensure the SQL file is placed in the directory: {backup_path}")
 
         # Check if backup directory exists, create if needed
@@ -118,21 +118,21 @@ def restore_database(domain: str, db_file: str, reset: bool = True) -> bool:
 def cli_restore_database() -> bool:
     """
     CLI entry point for database restoration.
-    
+
     Returns:
         bool: True if restoration was successful, False otherwise
     """
-    params = prompt_database_restore()
+    params = get_database_restore_params()
     if not params:
         return False
-    
+
     domain = params["domain"]
     db_file = params["db_file"]
     reset = params["reset"]
     file_name = params["file_name"]
-    
+
     success_status = restore_database(domain, db_file, reset)
-    
+
     if success_status:
         reset_text = "deleted old data" if reset else "kept old data"
         success(f"✅ Database restoration completed for website {domain}.")
@@ -141,7 +141,7 @@ def cli_restore_database() -> bool:
         info(f"  • Old data: {reset_text}")
     else:
         error(f"❌ Database restoration for website {domain} failed.")
-    
+
     return success_status
 
 

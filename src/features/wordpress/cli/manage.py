@@ -16,10 +16,10 @@ from src.features.wordpress.installer import uninstall_wordpress
 
 
 @log_call
-def prompt_wp_cli_command() -> Optional[Dict[str, Any]]:
+def get_wp_cli_command_params() -> Optional[Dict[str, Any]]:
     """
     Prompt the user for a WP-CLI command to run.
-    
+
     Returns:
         Optional[Dict[str, Any]]: Dictionary with domain and command if successful,
                                  None if cancelled
@@ -30,7 +30,7 @@ def prompt_wp_cli_command() -> Optional[Dict[str, Any]]:
         if not domain:
             warn("No website selected or no websites available.")
             return None
-        
+
         # Common WP-CLI commands
         common_commands = [
             "Custom command...",
@@ -46,27 +46,27 @@ def prompt_wp_cli_command() -> Optional[Dict[str, Any]]:
             "wp plugin update --all",
             "wp theme update --all"
         ]
-        
+
         selected = select(
             "Select WordPress command:",
             choices=common_commands
         ).ask()
-        
+
         if not selected:
             return None
-        
+
         if selected == "Custom command...":
             custom_command = text(
                 "Enter WP-CLI command (without 'wp' prefix):"
             ).ask()
-            
+
             if not custom_command:
                 return None
-                
+
             command = custom_command
         else:
             command = selected.replace("wp ", "")
-        
+
         return {
             "domain": domain,
             "command": command
@@ -80,20 +80,20 @@ def prompt_wp_cli_command() -> Optional[Dict[str, Any]]:
 def cli_run_wp_command() -> bool:
     """
     CLI entry point for running WP-CLI commands.
-    
+
     Returns:
         bool: True if command execution was successful, False otherwise
     """
-    params = prompt_wp_cli_command()
+    params = get_wp_cli_command_params()
     if not params:
         return False
-    
+
     domain = params["domain"]
     command = params["command"]
-    
+
     # Split command into list of arguments
     args = command.split()
-    
+
     result = run_wp_cli(domain, args)
     if result is not None:
         print("\nCommand output:")
@@ -106,10 +106,10 @@ def cli_run_wp_command() -> bool:
 
 
 @log_call
-def prompt_uninstall_wordpress() -> Optional[Dict[str, Any]]:
+def get_uninstall_wordpress_params() -> Optional[Dict[str, Any]]:
     """
     Prompt the user to uninstall WordPress from a website.
-    
+
     Returns:
         Optional[Dict[str, Any]]: Dictionary with domain if successful,
                                  None if cancelled
@@ -120,19 +120,19 @@ def prompt_uninstall_wordpress() -> Optional[Dict[str, Any]]:
         if not domain:
             warn("No website selected or no websites available.")
             return None
-        
+
         # Confirm uninstallation
         confirm_msg = f"⚠️ Are you sure you want to UNINSTALL WordPress from {domain}? "
         confirm_msg += "This will DELETE all WordPress files, database content, and configuration."
         if not confirm(confirm_msg).ask():
             warn("WordPress uninstallation cancelled.")
             return None
-        
+
         # Double-confirm
         if not confirm("⚠️ FINAL WARNING: This action cannot be undone! Continue?").ask():
             warn("WordPress uninstallation cancelled.")
             return None
-        
+
         return {
             "domain": domain
         }
@@ -145,14 +145,14 @@ def prompt_uninstall_wordpress() -> Optional[Dict[str, Any]]:
 def cli_uninstall_wordpress() -> bool:
     """
     CLI entry point for WordPress uninstallation.
-    
+
     Returns:
         bool: True if uninstallation was successful, False otherwise
     """
-    params = prompt_uninstall_wordpress()
+    params = get_uninstall_wordpress_params()
     if not params:
         return False
-    
+
     return uninstall_wordpress(params["domain"])
 
 

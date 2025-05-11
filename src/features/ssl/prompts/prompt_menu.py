@@ -12,10 +12,17 @@ from typing import Optional, Callable, Any
 from src.common.logging import info, error, debug, success
 from src.common.ui.menu_utils import with_pause, pause_after_action
 
+# Import prompts
+from src.features.ssl.prompts.prompt_install import prompt_install_ssl
+from src.features.ssl.prompts.prompt_check import prompt_check_ssl
+from src.features.ssl.prompts.prompt_edit import prompt_edit_ssl
+
+
 @with_pause
 def not_implemented() -> None:
     """Handle not implemented features."""
     error("🚧 Feature not implemented yet")
+
 
 # Custom style for the menu
 custom_style = Style([
@@ -31,6 +38,7 @@ custom_style = Style([
     ('disabled', 'fg:gray italic'),
 ])
 
+
 def prompt_ssl_menu() -> None:
     """Display SSL certificate management menu and handle user selection."""
     try:
@@ -40,34 +48,19 @@ def prompt_ssl_menu() -> None:
             {"name": "3. Edit Current Certificate", "value": "3"},
             {"name": "0. Back to Main Menu", "value": "0"},
         ]
-        
+
         answer = questionary.select(
             "\n🔒 SSL Certificate Management:",
             choices=choices,
             style=custom_style
         ).ask()
-        
+
         if answer == "1":
-            try:
-                from src.features.ssl.cli.install import cli_install_ssl
-                cli_install_ssl()
-                pause_after_action()
-            except ImportError:
-                not_implemented()
+            prompt_install_ssl()
         elif answer == "2":
-            try:
-                from src.features.ssl.cli.check import cli_check_ssl
-                cli_check_ssl()
-                pause_after_action()
-            except ImportError:
-                not_implemented()
+            prompt_check_ssl()
         elif answer == "3":
-            try:
-                from src.features.ssl.cli.edit import cli_edit_ssl
-                cli_edit_ssl()
-                pause_after_action()
-            except ImportError:
-                not_implemented()
+            prompt_edit_ssl()
         # answer "0" just returns to main menu
     except Exception as e:
         error(f"Error in SSL menu: {e}")

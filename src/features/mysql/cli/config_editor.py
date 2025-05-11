@@ -18,10 +18,10 @@ from src.features.mysql.config import (
 
 
 @log_call
-def prompt_config_action() -> Optional[str]:
+def get_mysql_config_action() -> Optional[str]:
     """
     Prompt the user to select a MySQL configuration action.
-    
+
     Returns:
         Optional[str]: Selected action or None if cancelled
     """
@@ -35,11 +35,11 @@ def prompt_config_action() -> Optional[str]:
                 "Cancel"
             ]
         ).ask()
-        
+
         if not action or action == "Cancel":
             info("Operation cancelled.")
             return None
-            
+
         return action
     except (KeyboardInterrupt, EOFError):
         info("\nOperation cancelled.")
@@ -50,29 +50,29 @@ def prompt_config_action() -> Optional[str]:
 def cli_mysql_config() -> bool:
     """
     CLI entry point for MySQL configuration management.
-    
+
     Returns:
         bool: True if the operation was successful, False otherwise
     """
-    action = prompt_config_action()
+    action = get_mysql_config_action()
     if not action:
         return False
-    
+
     if action == "Edit configuration":
         return edit_mysql_config()
-    
+
     elif action == "Backup configuration":
         backup_path = backup_mysql_config()
         return bool(backup_path)
-    
+
     elif action == "Restore configuration from backup":
         # Confirm restoration
         if not confirm("⚠️ Restore MySQL configuration from backup? This will overwrite current settings.").ask():
             info("Restoration cancelled.")
             return False
-        
+
         return restore_mysql_config()
-    
+
     return False
 
 

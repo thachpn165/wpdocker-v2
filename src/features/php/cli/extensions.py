@@ -55,10 +55,10 @@ def display_extensions_table(extensions: List[Dict[str, Any]], title: str) -> No
 
 
 @log_call
-def prompt_install_extension() -> Optional[Dict[str, Any]]:
+def get_extension_install_params() -> Optional[Dict[str, Any]]:
     """
     Prompt the user for extension installation parameters.
-    
+
     Returns:
         Optional[Dict[str, Any]]: Dictionary with domain and extension_id if successful,
                                  None if cancelled
@@ -66,17 +66,17 @@ def prompt_install_extension() -> Optional[Dict[str, Any]]:
     try:
         # Select website
         domain = select_website("Select website to install PHP extension for:")
-        
+
         if not domain:
             warn("No website selected or no websites available.")
             return None
-        
+
         # Get available extensions
         available_extensions = get_available_extensions(domain)
         if not available_extensions:
             error("No available extensions found for this website.")
             return None
-        
+
         # Create choices for questionary
         choices = [
             {
@@ -85,31 +85,31 @@ def prompt_install_extension() -> Optional[Dict[str, Any]]:
             }
             for ext in available_extensions
         ]
-        
+
         # Select extension
         extension_id = select(
             "Select PHP extension to install:",
             choices=choices
         ).ask()
-        
+
         if not extension_id:
             return None
-        
+
         # Get extension name for confirmation
         extension_name = next(
             (ext["name"] for ext in available_extensions if ext["id"] == extension_id),
             extension_id
         )
-        
+
         # Confirm installation
         confirm_install = confirm(
             f"Install {extension_name} for {domain}?"
         ).ask()
-        
+
         if not confirm_install:
             warn("Extension installation cancelled.")
             return None
-        
+
         return {
             "domain": domain,
             "extension_id": extension_id
@@ -120,10 +120,10 @@ def prompt_install_extension() -> Optional[Dict[str, Any]]:
 
 
 @log_call
-def prompt_uninstall_extension() -> Optional[Dict[str, Any]]:
+def get_extension_uninstall_params() -> Optional[Dict[str, Any]]:
     """
     Prompt the user for extension uninstallation parameters.
-    
+
     Returns:
         Optional[Dict[str, Any]]: Dictionary with domain and extension_id if successful,
                                  None if cancelled
@@ -131,17 +131,17 @@ def prompt_uninstall_extension() -> Optional[Dict[str, Any]]:
     try:
         # Select website
         domain = select_website("Select website to uninstall PHP extension from:")
-        
+
         if not domain:
             warn("No website selected or no websites available.")
             return None
-        
+
         # Get installed extensions
         installed_extensions = get_installed_extensions(domain)
         if not installed_extensions:
             error("No installed extensions found for this website.")
             return None
-        
+
         # Create choices for questionary
         choices = [
             {
@@ -150,31 +150,31 @@ def prompt_uninstall_extension() -> Optional[Dict[str, Any]]:
             }
             for ext in installed_extensions
         ]
-        
+
         # Select extension
         extension_id = select(
             "Select PHP extension to uninstall:",
             choices=choices
         ).ask()
-        
+
         if not extension_id:
             return None
-        
+
         # Get extension name for confirmation
         extension_name = next(
             (ext["name"] for ext in installed_extensions if ext["id"] == extension_id),
             extension_id
         )
-        
+
         # Confirm uninstallation
         confirm_uninstall = confirm(
             f"Uninstall {extension_name} from {domain}?"
         ).ask()
-        
+
         if not confirm_uninstall:
             warn("Extension uninstallation cancelled.")
             return None
-        
+
         return {
             "domain": domain,
             "extension_id": extension_id
@@ -219,14 +219,14 @@ def cli_list_extensions() -> bool:
 def cli_install_extension() -> bool:
     """
     CLI entry point for installing PHP extensions.
-    
+
     Returns:
         bool: True if installation was successful, False otherwise
     """
-    params = prompt_install_extension()
+    params = get_extension_install_params()
     if not params:
         return False
-    
+
     return install_php_extension(params["domain"], params["extension_id"])
 
 
@@ -234,14 +234,14 @@ def cli_install_extension() -> bool:
 def cli_uninstall_extension() -> bool:
     """
     CLI entry point for uninstalling PHP extensions.
-    
+
     Returns:
         bool: True if uninstallation was successful, False otherwise
     """
-    params = prompt_uninstall_extension()
+    params = get_extension_uninstall_params()
     if not params:
         return False
-    
+
     return uninstall_php_extension(params["domain"], params["extension_id"])
 
 

@@ -11,6 +11,14 @@ from questionary import Style
 from src.common.logging import error
 from src.common.ui.menu_utils import with_pause, pause_after_action
 
+# Import prompts
+from src.features.website.prompts.prompt_create import prompt_create_website
+from src.features.website.prompts.prompt_delete import prompt_delete_website
+from src.features.website.prompts.prompt_restart import prompt_restart_website
+from src.features.website.prompts.prompt_logs import prompt_view_logs
+from src.features.website.prompts.prompt_info import prompt_website_info
+from src.features.website.prompts.prompt_list import prompt_list_websites
+
 
 @with_pause
 def not_implemented() -> None:
@@ -54,45 +62,17 @@ def prompt_website_menu() -> None:
         ).ask()
 
         if answer == "1":
-            try:
-                from src.features.website.cli.create import cli_create_website
-                cli_create_website()
-                pause_after_action()
-            except ImportError:
-                not_implemented()
+            prompt_create_website()
         elif answer == "2":
-            try:
-                from src.features.website.cli.delete import cli_delete_website
-                cli_delete_website()
-                pause_after_action()
-            except ImportError:
-                not_implemented()
+            prompt_delete_website()
         elif answer == "3":
-            try:
-                from src.features.website.cli.list import list_websites
-                # Wrap the function call with pause_after_action
-                list_websites()
-                pause_after_action()
-            except ImportError:
-                not_implemented()
+            prompt_list_websites()
         elif answer == "4":
-            try:
-                from src.features.website.cli.restart import cli_restart_website
-                cli_restart_website()
-            except ImportError:
-                not_implemented()
+            prompt_restart_website()
         elif answer == "5":
-            try:
-                from src.features.website.cli.logs import cli_view_logs
-                cli_view_logs()
-            except ImportError:
-                not_implemented()
+            prompt_view_logs()
         elif answer == "6":
-            try:
-                from src.features.website.cli.info import cli_website_info
-                cli_website_info()
-            except ImportError:
-                not_implemented()
+            prompt_website_info()
         elif answer == "7":
             not_implemented()  # Migrate feature not implemented yet
         # answer "0" just returns to main menu

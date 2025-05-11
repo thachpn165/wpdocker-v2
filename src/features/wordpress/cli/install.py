@@ -22,10 +22,10 @@ from src.common.utils.password import strong_password
 def validate_email(email: str) -> bool:
     """
     Validate email format.
-    
+
     Args:
         email: Email address to validate
-        
+
     Returns:
         bool: True if email format is valid, False otherwise
     """
@@ -37,10 +37,10 @@ def validate_email(email: str) -> bool:
 def validate_password(password: str) -> bool:
     """
     Validate password strength.
-    
+
     Args:
         password: Password to validate
-        
+
     Returns:
         bool: True if password is strong enough, False otherwise
     """
@@ -50,14 +50,14 @@ def validate_password(password: str) -> bool:
 
 
 @log_call
-def prompt_wordpress_install(domain: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_wordpress_install_params(domain: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Prompt the user for WordPress installation parameters.
     With option to generate random user credentials.
-    
+
     Args:
         domain: Optional domain name. If provided, skips the website selection step.
-    
+
     Returns:
         Optional[Dict[str, Any]]: Dictionary with installation parameters if successful,
                                  None if cancelled
@@ -69,36 +69,36 @@ def prompt_wordpress_install(domain: Optional[str] = None) -> Optional[Dict[str,
             if not domain:
                 warn("No website selected or no websites available.")
                 return None
-        
+
         # Verify that the website exists
         if not is_website_exists(domain):
             warn(f"⚠️ Website {domain} does not exist.")
             return None
-        
+
         # Site URL
         default_url = f"https://{domain}"
         site_url = text(
             "Website URL:",
             default=default_url
         ).ask()
-        
+
         # Site title
         default_title = domain.split('.')[0].title()
         title = text(
             "Website title:",
             default=default_title
         ).ask()
-        
+
         # Ask if user wants random credentials
         use_random_credentials = confirm(
             "Would you like to generate random admin credentials?"
         ).ask()
-        
+
         if use_random_credentials:
             # Generate random admin username and password
             admin_user = ''.join(random.choices(string.ascii_lowercase, k=8))
             admin_pass = strong_password()
-            
+
             # Display generated credentials
             info(f"🔑 Generated admin username: {admin_user}")
             info(f"🔒 Generated admin password: {admin_pass}")
@@ -108,49 +108,49 @@ def prompt_wordpress_install(domain: Optional[str] = None) -> Optional[Dict[str,
                 "Admin username:",
                 default="admin"
             ).ask()
-            
+
             # Admin password
             while True:
                 admin_pass = password(
                     "Admin password (min 8 characters):"
                 ).ask()
-                
+
                 # Confirm password
                 confirm_pass = password(
                     "Confirm admin password:"
                 ).ask()
-                
+
                 if admin_pass != confirm_pass:
                     error("❌ Passwords do not match. Please try again.")
                     continue
-                
+
                 if validate_password(admin_pass):
                     break
                 error("❌ Password must be at least 8 characters long.")
-        
+
         # Default email based on domain
         default_email = f"contact@{domain}"
-        
+
         # Admin email
         while True:
             admin_email = text(
                 "Admin email address:",
                 default=default_email
             ).ask()
-            
+
             if validate_email(admin_email):
                 break
             error("❌ Invalid email format.")
-        
+
         # Confirmation
         confirm_install = confirm(
             f"Install WordPress on {domain} with these settings?"
         ).ask()
-        
+
         if not confirm_install:
             warn("WordPress installation cancelled.")
             return None
-        
+
         return {
             "domain": domain,
             "site_url": site_url,
@@ -168,17 +168,17 @@ def prompt_wordpress_install(domain: Optional[str] = None) -> Optional[Dict[str,
 def cli_install_wordpress(domain: Optional[str] = None) -> bool:
     """
     CLI entry point for WordPress installation.
-    
+
     Args:
         domain: Optional domain name. If provided, skips the website selection step.
-    
+
     Returns:
         bool: True if installation was successful, False otherwise
     """
-    params = prompt_wordpress_install(domain)
+    params = get_wordpress_install_params(domain)
     if not params:
         return False
-    
+
     # Actually install WordPress using the parameters
     return install_wordpress(
         params["domain"],
