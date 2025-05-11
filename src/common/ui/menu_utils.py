@@ -12,15 +12,16 @@ from src.common.logging import debug, error, success, info
 # Define a generic type for functions
 F = TypeVar('F', bound=Callable[..., Any])
 
+
 def with_pause(func: F) -> F:
     """
     Decorator that adds a pause (Press Enter to continue...) after a function executes.
-    
+
     This ensures users have time to read any output before returning to a menu.
-    
+
     Args:
         func: The function to wrap
-        
+
     Returns:
         Wrapped function with pause functionality
     """
@@ -43,16 +44,17 @@ def with_pause(func: F) -> F:
             input("\n⏎ Press Enter to continue...")
             # Re-raise exception so it can be handled by the caller
             raise
-            
+
     return cast(F, wrapper)
+
 
 def pause_after_action(message: str = "\n⏎ Press Enter to continue...") -> None:
     """
     Function to pause and wait for user input.
-    
+
     This can be called directly at the end of a menu action function
     when decorator approach isn't suitable.
-    
+
     Args:
         message: Custom message to display (defaults to "Press Enter to continue...")
     """

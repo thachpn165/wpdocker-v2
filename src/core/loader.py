@@ -53,7 +53,8 @@ class CoreLoader:
             "bcrypt": "bcrypt",
             "colorama": "colorama",
             "python-dotenv": "python-dotenv",
-            "tabulate": "tabulate"
+            "tabulate": "tabulate",
+            "psutil": "psutil"
         }
 
     @log_call

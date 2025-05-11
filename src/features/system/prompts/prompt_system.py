@@ -6,8 +6,10 @@ separate from container management.
 """
 
 from questionary import Style
+from rich.console import Console
 
 from src.common.logging import Debug
+from src.features.system.utils.system_info import show_system_info_table
 
 debug = Debug("SystemToolsPrompt")
 # Custom style for the menu
@@ -33,16 +35,9 @@ def not_implemented() -> None:
 
 def prompt_view_system_info() -> None:
     """Display system information."""
-    try:
-        # This would be implemented to show system info like:
-        # - Docker version
-        # - System resources
-        # - Disk usage
-        # - Environment info
-        not_implemented()
-    except Exception as e:
-        debug.error(f"Error displaying system information: {e}")
-        input("Press Enter to continue...")
+    console = Console()
+    show_system_info_table(console)
+    input("\nNhấn Enter để quay lại...")
 
 
 def prompt_clean_docker() -> None:
