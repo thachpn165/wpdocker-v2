@@ -6,17 +6,18 @@ and container setup.
 """
 
 import os
-from typing import Dict, Any, Optional
 
 from src.common.logging import Debug, log_call
 from src.common.utils.environment import env
-from src.common.utils.validation import validate_directory
 from src.core.bootstrap.base import BaseBootstrap
 from src.core.containers.compose import Compose
 
 
+@log_call
 class RcloneBootstrap(BaseBootstrap):
     """Handles Rclone initialization and configuration."""
+
+    debug = Debug("RcloneBootstrap")
 
     def __init__(self) -> None:
         """Initialize Rclone bootstrap."""
@@ -187,11 +188,9 @@ class RcloneBootstrap(BaseBootstrap):
         try:
             if not os.path.exists(self.rclone_config_file):
                 # Create an empty configuration file
-                with open(self.rclone_config_file, "w") as f:
-                    pass  # Empty file, will be populated by the Rclone manager
+                open(self.rclone_config_file, "w").close()  # Empty file, will be populated by the Rclone manager
 
                 self.debug.info(f"Created empty Rclone configuration file: {self.rclone_config_file}")
-            else:
                 self.debug.debug(f"Rclone configuration file already exists: {self.rclone_config_file}")
 
             return True

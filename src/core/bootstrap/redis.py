@@ -5,7 +5,6 @@ This module handles Redis container initialization and configuration.
 """
 
 import os
-from typing import Dict, Any, Optional
 
 from src.common.logging import Debug, log_call
 from src.common.utils.environment import env
@@ -13,8 +12,10 @@ from src.core.bootstrap.base import BaseBootstrap
 from src.core.containers.compose import Compose
 
 
+@log_call
 class RedisBootstrap(BaseBootstrap):
     """Handles Redis initialization and configuration."""
+    debug = Debug("RedisBootstrap")
 
     def __init__(self) -> None:
         """Initialize Redis bootstrap."""

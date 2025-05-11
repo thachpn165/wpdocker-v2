@@ -5,12 +5,11 @@ This module provides the user interface for system-specific management functions
 separate from container management.
 """
 
-import questionary
 from questionary import Style
-from typing import Optional
 
-from src.common.logging import info, error, debug, success
+from src.common.logging import Debug
 
+debug = Debug("SystemToolsPrompt")
 # Custom style for the menu
 custom_style = Style([
     ('qmark', 'fg:cyan bold'),
@@ -25,10 +24,12 @@ custom_style = Style([
     ('disabled', 'fg:gray italic'),
 ])
 
+
 def not_implemented() -> None:
     """Handle not implemented features."""
-    error("🚧 Feature not implemented yet")
+    debug.error("🚧 Feature not implemented yet")
     input("Press Enter to continue...")
+
 
 def prompt_view_system_info() -> None:
     """Display system information."""
@@ -40,8 +41,9 @@ def prompt_view_system_info() -> None:
         # - Environment info
         not_implemented()
     except Exception as e:
-        error(f"Error displaying system information: {e}")
+        debug.error(f"Error displaying system information: {e}")
         input("Press Enter to continue...")
+
 
 def prompt_clean_docker() -> None:
     """Clean up Docker resources."""
@@ -53,8 +55,9 @@ def prompt_clean_docker() -> None:
         # - Clear build cache
         not_implemented()
     except Exception as e:
-        error(f"Error cleaning Docker resources: {e}")
+        debug.error(f"Error cleaning Docker resources: {e}")
         input("Press Enter to continue...")
+
 
 def prompt_update_wpdocker() -> None:
     """Update WP Docker version."""
@@ -62,8 +65,9 @@ def prompt_update_wpdocker() -> None:
         # This would implement the version update functionality
         not_implemented()
     except Exception as e:
-        error(f"Error updating WP Docker: {e}")
+        debug.error(f"Error updating WP Docker: {e}")
         input("Press Enter to continue...")
+
 
 def prompt_rebuild_containers() -> None:
     """Rebuild core containers."""
@@ -71,5 +75,5 @@ def prompt_rebuild_containers() -> None:
         # This would implement container rebuild functionality
         not_implemented()
     except Exception as e:
-        error(f"Error rebuilding containers: {e}")
+        debug.error(f"Error rebuilding containers: {e}")
         input("Press Enter to continue...")

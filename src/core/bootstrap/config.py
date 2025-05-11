@@ -15,8 +15,10 @@ from src.core.config.manager import ConfigManager
 from src.core.models.core_config import CoreConfig
 
 
+@log_call
 class ConfigBootstrap(BaseBootstrap):
     """Handles core configuration initialization."""
+    debug = Debug("ConfigBootstrap")
 
     def __init__(self) -> None:
         """Initialize configuration bootstrap."""

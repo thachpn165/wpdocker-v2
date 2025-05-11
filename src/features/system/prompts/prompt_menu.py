@@ -7,9 +7,8 @@ like rebuilding containers, updating versions, and viewing system information.
 
 import questionary
 from questionary import Style
-from typing import Optional
 
-from src.common.logging import info, error, debug, success
+from src.common.logging import error
 from src.features.system.prompts.prompt_container import prompt_container_menu
 from src.features.system.prompts.prompt_system import (
     prompt_view_system_info,
@@ -33,6 +32,7 @@ custom_style = Style([
     ('disabled', 'fg:gray italic'),
 ])
 
+
 def prompt_system_menu() -> None:
     """Display system tools menu and handle user selection."""
     try:
@@ -48,13 +48,13 @@ def prompt_system_menu() -> None:
             {"name": "9. Container Management", "value": "9"},
             {"name": "0. Back to Main Menu", "value": "0"},
         ]
-        
+
         answer = questionary.select(
             "\n⚙️ System Tools:",
             choices=choices,
             style=custom_style
         ).ask()
-        
+
         if answer == "0":
             return
         elif answer == "1":

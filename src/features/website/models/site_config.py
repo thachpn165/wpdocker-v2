@@ -6,7 +6,7 @@ including site details, database settings, PHP settings, and backup information.
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 
 @dataclass

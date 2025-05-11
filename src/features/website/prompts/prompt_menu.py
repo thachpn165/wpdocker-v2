@@ -7,15 +7,16 @@ like creating, deleting, listing, and restarting websites.
 
 import questionary
 from questionary import Style
-from typing import Optional, Callable, Any
 
-from src.common.logging import info, error, debug, success
+from src.common.logging import error
 from src.common.ui.menu_utils import with_pause, pause_after_action
+
 
 @with_pause
 def not_implemented() -> None:
     """Handle not implemented features."""
     error("🚧 Feature not implemented yet")
+
 
 # Custom style for the menu
 custom_style = Style([
@@ -31,6 +32,7 @@ custom_style = Style([
     ('disabled', 'fg:gray italic'),
 ])
 
+
 def prompt_website_menu() -> None:
     """Display website management menu and handle user selection."""
     try:
@@ -44,13 +46,13 @@ def prompt_website_menu() -> None:
             {"name": "7. Migrate Data to WP Docker", "value": "7"},
             {"name": "0. Back to Main Menu", "value": "0"},
         ]
-        
+
         answer = questionary.select(
             "\n🌐 Website Management:",
             choices=choices,
             style=custom_style
         ).ask()
-        
+
         if answer == "1":
             try:
                 from src.features.website.cli.create import cli_create_website

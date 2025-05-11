@@ -6,18 +6,19 @@ and container setup.
 """
 
 import os
-from typing import Dict, Any, List, Optional
 
 from src.common.logging import Debug, log_call
 from src.common.utils.environment import env
 from src.core.bootstrap.base import BaseBootstrap
 from src.core.containers.compose import Compose
 from src.core.containers.container import Container
-from src.features.website.utils import website_list, get_site_config
+from src.features.website.utils import website_list
 from questionary import confirm
 
 
+@log_call
 class NginxBootstrap(BaseBootstrap):
+    debug = Debug("NginxBootstrap")
     """Handles NGINX initialization and configuration."""
 
     def __init__(self) -> None:
@@ -314,7 +315,6 @@ class NginxBootstrap(BaseBootstrap):
                     self.debug.warn(f"⚠️ NGINX config missing for website {domain}: {conf_file}")
                     answer = confirm(f"File cấu hình NGINX cho website {domain} bị thiếu. Bạn có muốn tái tạo file này không? ({conf_file})").ask()
                     if answer:
-                        site_config = get_site_config(domain)
                         with open(template_path, "r") as f:
                             content = f.read()
                         # Thay thế biến trong template

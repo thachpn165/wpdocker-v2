@@ -7,7 +7,7 @@ and password management.
 
 import os
 import questionary
-from typing import Dict, Any, Optional
+from typing import Optional
 
 from src.common.logging import Debug, log_call
 from src.common.utils.environment import env
@@ -23,6 +23,8 @@ from src.core.models.core_config import ContainerConfig
 
 class MySQLBootstrap(BaseBootstrap):
     """Handles MySQL initialization and configuration."""
+
+    debug = Debug("MySQLBootstrap")
 
     def __init__(self) -> None:
         """Initialize MySQL bootstrap."""
@@ -45,8 +47,8 @@ class MySQLBootstrap(BaseBootstrap):
             # Even if bootstrapped, ensure the config file exists
             config_path = env["MYSQL_CONFIG_FILE"]
             if not os.path.exists(config_path):
-                self.debug.warn(f"MySQL config file is missing but MySQL is considered bootstrapped")
-                self.debug.info(f"Attempting to recreate the MySQL config file")
+                self.debug.warn("MySQL config file is missing but MySQL is considered bootstrapped")
+                self.debug.info("Attempting to recreate the MySQL config file")
                 self.ensure_mysql_config_file()
 
             return True
@@ -86,7 +88,7 @@ class MySQLBootstrap(BaseBootstrap):
         # All bootstrap conditions satisfied
         self.debug.debug("✅ All MySQL bootstrap conditions satisfied:")
         self.debug.debug(f"  - MySQL version: {config_data.get('mysql', {}).get('version')}")
-        self.debug.debug(f"  - MySQL root password: Configured (encrypted in config)")
+        self.debug.debug("  - MySQL root password: Configured (encrypted in config)")
         self.debug.debug(f"  - MySQL config file: {config_path}")
         self.debug.debug(f"  - MySQL compose file: {compose_path}")
         return True
@@ -343,7 +345,7 @@ thread_cache_size = {thread_cache_size}
             # Check if MySQL container is running and restart it to apply changes
             container = Container(env["MYSQL_CONTAINER_NAME"])
             if container.running():
-                self.debug.info(f"MySQL container is running, restarting to apply new configuration")
+                self.debug.info("MySQL container is running, restarting to apply new configuration")
                 container.restart()
 
             return True
