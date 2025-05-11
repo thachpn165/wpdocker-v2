@@ -10,3 +10,4 @@ pytest-env
 python-crontab
 inquirer
 humanize
+tabulate
