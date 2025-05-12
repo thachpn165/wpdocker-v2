@@ -2,6 +2,11 @@ name: Build Nightly
 on:
   push:
     branches: [dev]
+
+# Define required permissions
+permissions:
+  contents: write  # Needed for creating releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,7 +27,9 @@ jobs:
           
       - name: Create nightly package
         run: |
+          mkdir -p dist
           python src/scripts/build_package.py --channel=nightly
+          ls -la dist/
           
       - name: Get current date
         id: date
@@ -35,4 +42,10 @@ jobs:
           name: "Nightly Build - ${{ steps.date.outputs.date }}"
           tag_name: nightly
           prerelease: true
-          body: "Automated nightly build from dev branch\nBuild date: ${{ steps.date.outputs.date }}"
+          generate_release_notes: true
+          body: |
+            ## Automated nightly build from dev branch
+            Build date: ${{ steps.date.outputs.date }}
+
+            ## Release Notes
+            *Automatically generated release notes appear below:*

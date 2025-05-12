@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+
+# Define required permissions
+permissions:
+  contents: write  # Needed for creating releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,10 +28,18 @@ jobs:
           
       - name: Create stable package
         run: |
+          mkdir -p dist
           python src/scripts/build_package.py --channel=stable
+          ls -la dist/
           
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          generate_release_notes: true
+          body: |
+            ## Stable Release
+
+            ## Release Notes
+            *Automatically generated release notes appear below:*
