@@ -463,12 +463,14 @@ class RcloneBackupIntegration:
                 self.debug.error("Cron module not available")
                 return False, "Cron module not available. Cannot schedule backup."
             
-            # Get script directory from environment
-            scripts_dir = env.get("SCRIPTS_DIR")
-            if not scripts_dir:
-                self.debug.error("SCRIPTS_DIR environment variable not set")
-                return False, "SCRIPTS_DIR environment variable not set. Cannot locate backup script."
-                
+            # Get script directory
+            install_dir = env.get("INSTALL_DIR")
+            if not install_dir:
+                self.debug.error("INSTALL_DIR environment variable not set")
+                return False, "INSTALL_DIR environment variable not set. Cannot locate backup script."
+
+            scripts_dir = os.path.join(install_dir, "src", "scripts")
+
             # Check if the backup script exists
             backup_script_path = os.path.join(scripts_dir, "backup_to_remote.sh")
             if not os.path.exists(backup_script_path):

@@ -7,16 +7,10 @@ including WP-CLI command execution, protection features, and other utilities.
 
 from typing import List, Optional, Tuple
 import os
-import hashlib
-import base64
-import random
-import string
-import subprocess
 from passlib.hash import apr_md5_crypt
 
 from src.common.logging import log_call, debug, info, error, success
 from src.common.containers.container import Container
-from src.features.website.utils import get_site_config
 from src.common.utils.environment import env
 from src.common.utils.password import strong_password
 from src.features.cache.constants import CACHE_PLUGINS as CACHE_PLUGINS_DICT
@@ -88,12 +82,12 @@ def update_wp_config_cache(domain: str, cache_type: str) -> bool:
         with open(wp_config, "r") as f:
             lines = f.readlines()
         # Remove old WP_CACHE define
-        lines = [l for l in lines if "define('WP_CACHE'" not in l]
+        lines = [line for line in lines if "define('WP_CACHE'" not in line]
         # Add new define at the top after <?php
-        for i, l in enumerate(lines):
-            if l.strip().startswith("<?php"):
+        for i, line in enumerate(lines):
+            if line.strip().startswith("<?php"):
                 lines.insert(
-                    i+1, f"define('WP_CACHE', true); // {cache_type}\n")
+                    i + 1, f"define('WP_CACHE', true); // {cache_type}\n")
                 break
         with open(wp_config, "w") as f:
             f.writelines(lines)
@@ -275,7 +269,7 @@ def init_config_wplogin_protection(domain: str) -> bool:
         install_dir = env.get("INSTALL_DIR", "/opt/wp-docker")
         template_path = None
         target_path = None
-        htpasswd_path_host = get_htpasswd_path(domain)
+        # htpasswd_path_host = get_htpasswd_path(domain)
         htpasswd_path_container = f"/var/www/{domain}/.htpasswd"
         if webserver == "nginx":
             template_path = os.path.join(
@@ -377,15 +371,15 @@ def add_protect_include_to_vhost(domain: str) -> bool:
         if not os.path.exists(vhost_file):
             error(f"NGINX vhost config file not found: {vhost_file}")
             return False
-        with open(vhost_file, "r") as f:
-            lines = f.readlines()
-        if any(include_line in l for l in lines):
+        with open(vhost_file, "r") as file:
+            lines = file.readlines()
+        if any(include_line in line for line in lines):
             info(
                 f"Dòng include bảo vệ wp-login.php đã tồn tại trong {vhost_file}")
             return True
         # Tìm vị trí '}' cuối cùng
         insert_idx = None
-        for i in range(len(lines)-1, -1, -1):
+        for i in range(len(lines) - 1, -1, -1):
             if lines[i].strip() == '}':
                 insert_idx = i
                 break
@@ -420,15 +414,15 @@ def remove_protect_include_from_vhost(domain: str) -> bool:
         if not os.path.exists(vhost_file):
             error(f"NGINX vhost config file not found: {vhost_file}")
             return False
-        with open(vhost_file, "r") as f:
-            lines = f.readlines()
-        new_lines = [l for l in lines if include_line not in l]
-        if len(new_lines) == len(lines):
+        with open(vhost_file, "r") as file:
+            lines = file.readlines()
+        updated_lines = [line for line in lines if include_line not in line]
+        if len(updated_lines) == len(lines):
             info(
                 f"Không tìm thấy dòng include bảo vệ wp-login.php trong {vhost_file}")
             return True
         with open(vhost_file, "w") as f:
-            f.writelines(new_lines)
+            f.writelines(updated_lines)
         success(f"Đã xóa include bảo vệ wp-login.php khỏi {vhost_file}")
         return True
     except Exception as e:

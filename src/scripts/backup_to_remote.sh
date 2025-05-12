@@ -79,7 +79,7 @@ BACKUP_PATH="${BACKUP_DIR}/${BACKUP_NAME}"
 
 # Create the backup
 info "Creating backup of ${WEBSITE_NAME}..."
-"$SCRIPTS_DIR/backup_website.sh" "$WEBSITE_NAME" "$BACKUP_NAME"
+"$INSTALL_DIR/src/scripts/backup_website.sh" "$WEBSITE_NAME" "$BACKUP_NAME"
 
 BACKUP_RESULT=$?
 if [ $BACKUP_RESULT -ne 0 ]; then

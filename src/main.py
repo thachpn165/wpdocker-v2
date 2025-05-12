@@ -6,9 +6,7 @@ This module provides the main entry point for the application,
 initializing the environment and starting the menu system.
 """
 
-import os
 import sys
-from typing import Optional, List, Dict, Any, Callable
 
 from src.common.logging import info, error, debug, enable_exception_hook, success
 from src.common.utils.environment import env, env_required
@@ -42,8 +40,8 @@ custom_style = Style([
 def display_banner() -> None:
     """Display application banner."""
     # Clear screen
-    #os.system('clear' if os.name != 'nt' else 'cls')
-    
+    # os.system('clear' if os.name != 'nt' else 'cls')
+
     # Display ASCII banner
     header = Text("""
 
@@ -200,7 +198,7 @@ def show_main_menu() -> bool:
     """Show the main menu and handle selection. Returns False to exit."""
     # Display banner
     display_banner()
-    
+
     # Create menu choices
     choices = [
         {"name": "1. Website Management", "value": "1"},
@@ -215,14 +213,14 @@ def show_main_menu() -> bool:
         {"name": "10. Check & Update WP Docker", "value": "10"},
         {"name": "0. Exit", "value": "0"},
     ]
-    
+
     # Show menu and get selection
     answer = questionary.select(
         "\n📋 Select a function:",
         choices=choices,
         style=custom_style
     ).ask()
-    
+
     # Handle the selection
     if answer == "1":
         handle_website_menu()
@@ -247,14 +245,14 @@ def show_main_menu() -> bool:
     elif answer == "0":
         success("Exiting WP Docker. Goodbye!")
         return False
-    
+
     return True
 
 
 def main() -> None:
     """
     Main entry point for the application.
-    
+
     This function:
     1. Loads the core environment using the CoreLoader
     2. Initializes the system using the BootstrapController
@@ -262,12 +260,12 @@ def main() -> None:
     """
     # Enable exception hook for better error handling
     enable_exception_hook()
-    
+
     # Step 1: Load core environment
     if not load_core():
         error("Failed to load core environment")
         sys.exit(1)
-    
+
     # Load required environment variables
     env_required([
         "DEBUG_MODE",
@@ -279,35 +277,35 @@ def main() -> None:
         "SITES_DIR",
         "DATA_DIR"
     ])
-    
+
     # Log startup information
-    info(f"Starting WP Docker")
+    info("Starting WP Docker")
     debug(f"Install directory: {env['INSTALL_DIR']}")
     debug(f"Debug mode: {env['DEBUG_MODE']}")
-    
+
     # Step 2: Initialize the system (run bootstraps)
     if not initialize_system():
         error("System initialization failed")
         sys.exit(1)
-    
+
     success("System initialized successfully")
-    
+
     try:
         # Ensure all containers are running
         debug("Ensuring all containers are running...")
         try:
-            from scripts.check_containers import check_and_restart_containers
+            from src.scripts.check_containers import check_and_restart_containers
             check_and_restart_containers()
         except Exception as e:
             debug(f"Failed to check containers: {e}")
-        
+
         # Step 3: Start the main menu loop
         exit_requested = False
         while not exit_requested:
             continue_menu = show_main_menu()
             if not continue_menu:
                 exit_requested = True
-        
+
     except KeyboardInterrupt:
         info("Application terminated by user")
         sys.exit(0)

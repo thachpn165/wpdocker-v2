@@ -1,0 +1,51 @@
+name: Build Nightly
+on:
+  push:
+    branches: [dev]
+
+# Define required permissions
+permissions:
+  contents: write  # Needed for creating releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install semver
+          
+      - name: Create nightly package
+        run: |
+          mkdir -p dist
+          python src/scripts/build_package.py --channel=nightly
+          ls -la dist/
+          
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create nightly release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          name: "Nightly Build - ${{ steps.date.outputs.date }}"
+          tag_name: nightly
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            ## Automated nightly build from dev branch
+            Build date: ${{ steps.date.outputs.date }}
+
+            ## Release Notes
+            *Automatically generated release notes appear below:*

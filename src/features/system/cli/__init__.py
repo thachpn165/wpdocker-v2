@@ -1,21 +1,19 @@
 """
 System CLI module initialization.
 
-This module exports the CLI command for the system tools.
+This module exports the CLI commands and functions for the system tools.
 """
 
 from src.features.system.cli.main import system_cli
-from src.features.system.cli.containers import (
-    cli_check_container_status,
-    cli_list_containers,
-    cli_restart_container,
-    cli_view_container_logs
-)
+from src.features.system.cli.system_info import view_system_info_cli
+from src.features.system.cli.rebuild import rebuild_core_cli
+from src.features.system.cli.change_language import cli_change_language, change_language_cli
+
 
 __all__ = [
     'system_cli',
-    'cli_check_container_status',
-    'cli_list_containers',
-    'cli_restart_container',
-    'cli_view_container_logs'
+    'view_system_info_cli',
+    'rebuild_core_cli',
+    'cli_change_language',
+    'change_language_cli'
 ]

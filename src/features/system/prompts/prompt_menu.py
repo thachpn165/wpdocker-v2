@@ -7,17 +7,18 @@ like rebuilding containers, updating versions, and viewing system information.
 
 import questionary
 from questionary import Style
-from typing import Optional
+import subprocess
+import sys
 
-from src.common.logging import info, error, debug, success
+from src.common.logging import error
 from src.features.system.prompts.prompt_container import prompt_container_menu
 from src.features.system.prompts.prompt_system import (
-    prompt_view_system_info,
     prompt_clean_docker,
     prompt_update_wpdocker,
-    prompt_rebuild_containers,
     not_implemented
 )
+from src.features.system.cli.system_info import view_system_info_cli
+from src.features.system.prompts.prompt_change_language import prompt_change_language
 
 # Custom style for the menu
 custom_style = Style([
@@ -32,6 +33,7 @@ custom_style = Style([
     ('text', ''),
     ('disabled', 'fg:gray italic'),
 ])
+
 
 def prompt_system_menu() -> None:
     """Display system tools menu and handle user selection."""
@@ -48,21 +50,24 @@ def prompt_system_menu() -> None:
             {"name": "9. Container Management", "value": "9"},
             {"name": "0. Back to Main Menu", "value": "0"},
         ]
-        
+
         answer = questionary.select(
             "\n⚙️ System Tools:",
             choices=choices,
             style=custom_style
         ).ask()
-        
+
         if answer == "0":
             return
         elif answer == "1":
-            prompt_rebuild_containers()
+            from src.features.system.prompts.prompt_rebuild_core_containers import prompt_rebuild_core_containers
+            prompt_rebuild_core_containers()
         elif answer == "2":
             prompt_update_wpdocker()
         elif answer == "3":
-            prompt_view_system_info()
+            view_system_info_cli()
+        elif answer == "4":
+            prompt_change_language()
         elif answer == "6":
             prompt_clean_docker()
         elif answer == "7":

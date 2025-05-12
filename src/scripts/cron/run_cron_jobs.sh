@@ -1,10 +1,11 @@
 #!/bin/bash
-# File: scripts/cron/run_cron_jobs.sh
+# File: src/scripts/cron/run_cron_jobs.sh
 # Script to execute cron jobs in the virtual environment.
 
 # Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+# Now scripts are in /src/scripts/cron, so we need to go up 3 levels to get to project root
+PROJECT_ROOT="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
 
 # Create logs directory
 LOG_DIR="$PROJECT_ROOT/logs/cron"

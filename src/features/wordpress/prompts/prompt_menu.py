@@ -10,19 +10,20 @@ from questionary import Style
 from typing import Optional
 
 from src.common.logging import info, error, debug, success
-from src.features.website.utils import select_website
-from src.features.wordpress.cli.auto_update import (
-    cli_toggle_theme_auto_update,
-    cli_toggle_plugin_auto_update,
-)
-from src.features.wordpress.cli.protect import cli_toggle_wp_login_protection
-from src.features.wordpress.cli.main import cli_reset_admin_password, cli_reset_user_role
+from src.common.ui.menu_utils import with_pause
+
+# Import prompts
+from src.features.wordpress.prompts.prompt_auto_update import prompt_auto_update_menu
+from src.features.wordpress.prompts.prompt_protect import prompt_toggle_wp_login_protection
+from src.features.wordpress.prompts.prompt_user import prompt_reset_admin_password, prompt_reset_user_role
+from src.features.wordpress.prompts.prompt_install import prompt_install_wordpress
+from src.features.wordpress.prompts.prompt_manage import prompt_run_wp_command, prompt_uninstall_wordpress
 
 
+@with_pause
 def not_implemented() -> None:
     """Handle not implemented features."""
     error("🚧 Feature not implemented yet")
-    input("Press Enter to continue...")
 
 
 # Custom style for the menu
@@ -40,36 +41,16 @@ custom_style = Style([
 ])
 
 
-def prompt_auto_update_menu() -> None:
-    choices = [
-        {"name": "1. Toggle Auto Update Theme", "value": "theme"},
-        {"name": "2. Toggle Auto Update Plugin", "value": "plugin"},
-        {"name": "0. Back", "value": "0"},
-    ]
-    answer = questionary.select(
-        "\n⚡ Auto Update Options:",
-        choices=choices,
-        style=custom_style
-    ).ask()
-    if answer == "0":
-        return
-    domain = select_website("Chọn website cần thao tác auto update:")
-    if not domain:
-        info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
-        return
-    if answer == "theme":
-        cli_toggle_theme_auto_update(domain, interactive=True)
-    elif answer == "plugin":
-        cli_toggle_plugin_auto_update(domain, interactive=True)
-
-
 def prompt_wordpress_menu() -> None:
     """Display WordPress tools menu and handle user selection."""
     choices = [
-        {"name": "1. Toggle Auto Update", "value": "auto_update"},
-        {"name": "2. Toggle wp-login.php Protection", "value": "wp_login_protect"},
-        {"name": "3. Reset Admin Password", "value": "reset_admin_pw"},
-        {"name": "4. Reset User Role", "value": "reset_user_role"},
+        {"name": "1. Install WordPress", "value": "install"},
+        {"name": "2. Run WP-CLI Command", "value": "wp_command"},
+        {"name": "3. Uninstall WordPress", "value": "uninstall"},
+        {"name": "4. Toggle Auto Update", "value": "auto_update"},
+        {"name": "5. Toggle wp-login.php Protection", "value": "wp_login_protect"},
+        {"name": "6. Reset Admin Password", "value": "reset_admin_pw"},
+        {"name": "7. Reset User Role", "value": "reset_user_role"},
         {"name": "0. Back to Main Menu", "value": "0"},
     ]
     answer = questionary.select(
@@ -77,29 +58,20 @@ def prompt_wordpress_menu() -> None:
         choices=choices,
         style=custom_style
     ).ask()
-    if answer == "auto_update":
+
+    if answer == "install":
+        prompt_install_wordpress()
+    elif answer == "wp_command":
+        prompt_run_wp_command()
+    elif answer == "uninstall":
+        prompt_uninstall_wordpress()
+    elif answer == "auto_update":
         prompt_auto_update_menu()
     elif answer == "wp_login_protect":
-        domain = select_website(
-            "Chọn website cần thay đổi bảo vệ wp-login.php:")
-        if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
-            return
-        cli_toggle_wp_login_protection(domain, interactive=True)
-        input("\nNhấn Enter để tiếp tục...")
+        prompt_toggle_wp_login_protection()
     elif answer == "reset_admin_pw":
-        domain = select_website("Chọn website cần reset mật khẩu admin:")
-        if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
-            return
-        cli_reset_admin_password(domain)
-        input("\nNhấn Enter để tiếp tục...")
+        prompt_reset_admin_password()
     elif answer == "reset_user_role":
-        domain = select_website("Chọn website cần reset user role:")
-        if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
-            return
-        cli_reset_user_role(domain)
-        input("\nNhấn Enter để tiếp tục...")
+        prompt_reset_user_role()
     elif answer != "0":
         not_implemented()

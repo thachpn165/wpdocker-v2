@@ -8,13 +8,14 @@ including environment variable setup and dependency checking.
 import os
 import sys
 import importlib
-from typing import Dict, Optional
+from typing import Optional
 
 from src.common.logging import Debug, log_call
 from src.common.utils.environment import env, load_environment
 
 
 class CoreLoader:
+    debug = Debug("CoreLoader")
     """
     Manages the loading of core system dependencies and environment.
 
@@ -52,7 +53,8 @@ class CoreLoader:
             "bcrypt": "bcrypt",
             "colorama": "colorama",
             "python-dotenv": "python-dotenv",
-            "tabulate": "tabulate"
+            "tabulate": "tabulate",
+            "psutil": "psutil"
         }
 
     @log_call
@@ -141,10 +143,10 @@ class CoreLoader:
         # Check if we should create core.env from sample
         if not os.path.exists(root_env) and os.path.exists(root_env_sample):
             try:
-                self.debug.info(f"Creating core.env from sample...")
+                self.debug.info("Creating core.env from sample...")
                 import shutil
                 shutil.copy2(root_env_sample, root_env)
-                self.debug.success(f"Created core.env from sample template")
+                self.debug.success("Created core.env from sample template")
             except Exception as e:
                 self.debug.error(f"Failed to create core.env from sample: {e}")
 
@@ -160,11 +162,11 @@ class CoreLoader:
         # Check if we should create config/core.env from sample
         if not os.path.exists(config_env) and os.path.exists(config_env_sample):
             try:
-                self.debug.info(f"Creating src/config/core.env from sample...")
+                self.debug.info("Creating src/config/core.env from sample...")
                 import shutil
                 shutil.copy2(config_env_sample, config_env)
                 self.debug.success(
-                    f"Created src/config/core.env from sample template")
+                    "Created src/config/core.env from sample template")
             except Exception as e:
                 self.debug.error(
                     f"Failed to create src/config/core.env from sample: {e}")

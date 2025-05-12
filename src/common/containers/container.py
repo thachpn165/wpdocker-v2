@@ -5,10 +5,10 @@ This module provides a Container class for interacting with Docker containers,
 including performing operations like starting, stopping, exec, etc.
 """
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from python_on_whales import DockerClient
 
-from src.common.logging import log_call, debug, info, warn, error
+from src.common.logging import log_call, debug, info, error
 
 
 class Container:

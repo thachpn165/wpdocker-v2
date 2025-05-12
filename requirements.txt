@@ -11,3 +11,4 @@ python-crontab
 inquirer
 humanize
 tabulate
+psutil

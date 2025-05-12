@@ -2,7 +2,7 @@
 
 set -e
 
-INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VENV_DIR="$INSTALL_DIR/.venv"
 PYTHON_EXEC="$VENV_DIR/bin/python"
 MAIN_FILE="$INSTALL_DIR/src/main.py"
