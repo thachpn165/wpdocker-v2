@@ -56,3 +56,4 @@ ai_node.md
 # Ignore all dot files in the root directory except .gitignore
 .*
 !/.gitignore
+!/.github
