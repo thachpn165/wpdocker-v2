@@ -294,7 +294,7 @@ def main() -> None:
         # Ensure all containers are running
         debug("Ensuring all containers are running...")
         try:
-            from scripts.check_containers import check_and_restart_containers
+            from src.scripts.check_containers import check_and_restart_containers
             check_and_restart_containers()
         except Exception as e:
             debug(f"Failed to check containers: {e}")

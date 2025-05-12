@@ -52,7 +52,7 @@ class CronManager:
         os.makedirs(os.path.dirname(self.jobs_file), exist_ok=True)
         
         # Script to run jobs
-        self.runner_script = os.path.join(project_root, "scripts", "cron", "run_cron_jobs.sh")
+        self.runner_script = os.path.join(project_root, "src", "scripts", "cron", "run_cron_jobs.sh")
         
         # Comment marker to identify WP Docker jobs
         self.comment_marker = "wpdocker"

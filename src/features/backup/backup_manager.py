@@ -465,7 +465,12 @@ class BackupManager:
                 cron_expr = self._create_cron_expression(schedule)
                 
                 # Create backup script command
-                script_path = f"{get_env_value('SCRIPTS_DIR')}/backup_website.sh"
+                install_dir = get_env_value('INSTALL_DIR')
+                if not install_dir:
+                    self.debug.error("INSTALL_DIR environment variable not set")
+                    return False, "INSTALL_DIR environment variable not set. Cannot locate backup script."
+
+                script_path = f"{install_dir}/src/scripts/backup_website.sh"
                 backup_cmd = f"{script_path} {website_name} --provider {storage_provider}"
                 
                 # Create cron job object
