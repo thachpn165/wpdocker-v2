@@ -139,15 +139,18 @@ def build_package(channel: str = "stable") -> Optional[str]:
         
         # Create the package
         with zipfile.ZipFile(package_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            # Add all Python files from src
+            # Add all files from src, excluding src/config
             src_dir = os.path.join(project_root)
-            for root, _, files in os.walk(src_dir):
+            for root, dirs, files in os.walk(src_dir):
+                # Skip the config directory
+                if "/config" in root or "\\config" in root:
+                    continue
+
                 for file in files:
-                    if file.endswith(".py"):
-                        file_path = os.path.join(root, file)
-                        # Calculate the relative path for the archive
-                        rel_path = os.path.relpath(file_path, os.path.dirname(project_root))
-                        zipf.write(file_path, rel_path)
+                    file_path = os.path.join(root, file)
+                    # Calculate the relative path for the archive
+                    rel_path = os.path.relpath(file_path, os.path.dirname(project_root))
+                    zipf.write(file_path, rel_path)
                         
             # Add requirements.txt
             req_file = os.path.join(project_root, "..", "requirements.txt")
