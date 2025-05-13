@@ -99,7 +99,7 @@ class RedisBootstrap(BaseBootstrap):
             self.debug.success("Redis container created and started")
             # --- Cập nhật thông tin container vào core config ---
             try:
-                from src.core.config.manager import ConfigManager
+                from src.common.config.manager import ConfigManager
                 from src.core.models.core_config import ContainerConfig
                 from src.common.containers.container import Container
 

@@ -118,7 +118,7 @@ class RcloneBootstrap(BaseBootstrap):
             self.debug.success("Rclone bootstrap completed successfully")
             # --- Cập nhật thông tin container vào core config ---
             try:
-                from src.core.config.manager import ConfigManager
+                from src.common.config.manager import ConfigManager
                 from src.core.models.core_config import ContainerConfig
                 from src.common.containers.container import Container
 

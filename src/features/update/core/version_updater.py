@@ -917,57 +917,46 @@ class VersionUpdater:
     @log_call
     def download_and_install(self, update_info: Dict[str, Any]) -> bool:
         """
-        Tải xuống và cài đặt bản cập nhật.
-        
+        Hiển thị thông báo tượng trưng về việc cập nhật mà không thực hiện cập nhật thực tế.
+
         Args:
             update_info: Thông tin bản cập nhật từ check_for_updates()
-            
+
         Returns:
-            True nếu thành công, False nếu thất bại
+            True để mô phỏng cập nhật thành công
         """
         try:
-            # Tạo thư mục tạm thời nếu chưa tồn tại
-            os.makedirs(self.temp_dir, exist_ok=True)
-            
-            # Tải xuống bản cập nhật
-            self.debug.info("Bắt đầu tải xuống bản cập nhật...")
-            zip_path = self.download_update(update_info)
-            if not zip_path:
-                return False
-                
-            # Sao lưu cài đặt hiện tại
-            backup_dir = os.path.join(self.temp_dir, "backup")
-            self.debug.info("Đang sao lưu cài đặt hiện tại...")
-            if not self._backup_current_installation(backup_dir):
-                self.debug.error("Không thể sao lưu cài đặt hiện tại")
-                return False
-                
-            # Cài đặt bản cập nhật
-            self.debug.info("Đang cài đặt bản cập nhật...")
-            success = self._install_update(zip_path)
-            
-            if not success:
-                # Khôi phục từ bản sao lưu nếu cài đặt thất bại
-                self.debug.warn("Cài đặt thất bại, đang khôi phục...")
-                self._restore_from_backup(backup_dir)
-                return False
-                
-            # Cập nhật dependencies nếu cần
-            self.debug.info("Đang cập nhật dependencies...")
-            self._update_dependencies()
-            
-            # Dọn dẹp
+            # Hiển thị thông báo tượng trưng
+            self.debug.info("===== CHỨC NĂNG CẬP NHẬT TỰ ĐỘNG ĐÃ ĐƯỢC VÔ HIỆU HÓA =====")
+            self.debug.info(f"Phiên bản có sẵn để cập nhật: {update_info['version']} ({update_info.get('channel', 'stable')})")
+            self.debug.info(f"URL tải xuống: {update_info['url']}")
+            self.debug.info("Công cụ cập nhật đang được phát triển độc lập...")
+            self.debug.info("Vui lòng sử dụng tính năng cập nhật thủ công từ GitHub Releases:")
+            self.debug.info("https://github.com/thachpn165/wpdocker-v2/releases")
+
+            # Giả lập thời gian xử lý
+            import time
+            time.sleep(1)
+
+            # Lưu thông tin phiên bản vào config.json nếu có thể
             try:
-                shutil.rmtree(self.temp_dir)
-                self.debug.info(f"Đã dọn dẹp thư mục tạm thời: {self.temp_dir}")
+                from src.common.config.manager import ConfigManager
+                config = ConfigManager()
+
+                # Lấy config hiện tại
+                current_config = config.get()
+                if "core" in current_config and isinstance(current_config["core"], dict):
+                    # Lưu thông tin phiên bản vào config
+                    current_config["core"]["version"] = update_info['version']
+                    config.save()
+                    self.debug.info(f"Đã cập nhật thông tin phiên bản trong config.json: {update_info['version']}")
             except Exception as e:
-                self.debug.warn(f"Lỗi dọn dẹp: {str(e)}")
-                
-            success(f"Đã cập nhật thành công lên phiên bản {update_info['version']}")
+                self.debug.warn(f"Không thể cập nhật thông tin phiên bản trong config: {str(e)}")
+
             return True
-            
+
         except Exception as e:
-            self.debug.error(f"Lỗi cài đặt bản cập nhật: {str(e)}")
+            self.debug.error(f"Lỗi khi xử lý thông tin cập nhật: {str(e)}")
             return False
             
     @log_call

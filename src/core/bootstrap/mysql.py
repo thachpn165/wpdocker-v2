@@ -15,7 +15,7 @@ from src.common.utils.system_info import get_total_ram_mb, get_total_cpu_cores
 from src.common.utils.crypto import encrypt, decrypt
 from src.common.utils.password import strong_password
 from src.core.bootstrap.base import BaseBootstrap
-from src.core.config.manager import ConfigManager
+from src.common.config.manager import ConfigManager
 from src.core.containers.compose import Compose
 from src.common.containers.container import Container
 from src.core.models.core_config import ContainerConfig
