@@ -45,7 +45,7 @@ def display_banner() -> None:
     # Display ASCII banner
     header = Text("""
 
-    ██╗    ██╗██████╗     ██████╗  ██████╗  ██████╗██╗  ██╗███████╗██████╗ 
+    ██╗    ██╗██████╗     ██████╗  ██████╗  ██████╗██╗  ██╗███████╗██████╗
     ██║    ██║██╔══██╗    ██╔══██╗██╔═══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗
     ██║ █╗ ██║██████╔╝    ██████╔╝██║   ██║██║     █████╔╝ █████╗  ██████╔╝
     ██║███╗██║██╔═══╝     ██╔═══╝ ██║   ██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗
@@ -54,6 +54,32 @@ def display_banner() -> None:
     ═══════════════════════════════════════════════════════════════════════════════
     """, style="cyan")
     console.print(header)
+
+    # Display system information
+    try:
+        from src.common.utils.system_info import format_system_info
+        from src.version import VERSION
+        from src.common.config.manager import ConfigManager
+
+        # Lấy kênh từ config.json
+        config = ConfigManager()
+        user_channel = config.get("core.channel")
+
+        # Sử dụng giá trị mặc định từ version.py nếu không có trong config
+        if not user_channel or user_channel not in ["stable", "nightly", "dev"]:
+            from src.version import CHANNEL
+            user_channel = CHANNEL
+
+        sys_info = format_system_info()
+
+        # Create a nice formatted box with system information
+        console.print("╔════════════════════════════════════════════════════════════════════════════╗", style="bright_blue")
+        console.print(f"║ [cyan]CPU:[/cyan] {sys_info['cpu']}".ljust(83) + "║", style="bright_blue")
+        console.print(f"║ [cyan]RAM:[/cyan] {sys_info['ram']}".ljust(83) + "║", style="bright_blue")
+        console.print(f"║ [cyan]Phiên bản:[/cyan] {VERSION} ([green]{user_channel}[/green])".ljust(83) + "║", style="bright_blue")
+        console.print("╚════════════════════════════════════════════════════════════════════════════╝", style="bright_blue")
+    except Exception as e:
+        debug(f"Không thể hiển thị thông tin hệ thống: {str(e)}")
 
 
 def not_implemented() -> None:

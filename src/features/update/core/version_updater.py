@@ -57,7 +57,33 @@ class VersionUpdater:
 
         self.temp_dir = os.path.join(env.get("TEMP_DIR", "/tmp"), "wpdocker_update")
         self.cache_dir = env.get("CACHE_DIR", "/tmp")
-        
+
+    @log_call
+    def _get_user_channel(self) -> str:
+        """
+        Lấy kênh phát hành từ cấu hình người dùng.
+
+        Returns:
+            Kênh phát hành ("stable", "nightly", "dev") hoặc kênh mặc định từ version.py
+        """
+        try:
+            from src.common.config.manager import ConfigManager
+            from src.version import CHANNEL as DEFAULT_CHANNEL
+
+            config = ConfigManager()
+            user_channel = config.get("core.channel")
+
+            if user_channel in ["stable", "nightly", "dev"]:
+                self.debug.info(f"Sử dụng kênh từ config.json: {user_channel}")
+                return user_channel
+
+            self.debug.info(f"Không tìm thấy cấu hình core.channel, sử dụng kênh mặc định: {DEFAULT_CHANNEL}")
+            return DEFAULT_CHANNEL
+        except Exception as e:
+            self.debug.warn(f"Lỗi khi đọc kênh phát hành từ config.json: {str(e)}")
+            # Fallback to default channel in version.py
+            from src.version import CHANNEL
+            return CHANNEL
     @log_call
     def check_for_updates(self, with_cache: bool = True) -> Optional[Dict[str, Any]]:
         """
@@ -127,7 +153,8 @@ class VersionUpdater:
                                             "version": latest_version,
                                             "url": download_url,
                                             "release_notes": latest_release.get("body", ""),
-                                            "published_at": latest_release.get("published_at", "")
+                                            "published_at": latest_release.get("published_at", ""),
+                                            "channel": "stable"  # Mặc định cho release là stable
                                         }
 
                                         self.debug.info(f"Tìm thấy phiên bản mới: {latest_version}")
@@ -176,7 +203,8 @@ class VersionUpdater:
                                     "version": latest_version,
                                     "url": download_url,
                                     "release_notes": f"Cập nhật từ tag: {tag_name}",
-                                    "published_at": ""
+                                    "published_at": "",
+                                    "channel": "stable"  # Mặc định cho tags là stable
                                 }
 
                                 self.debug.info(f"Tìm thấy phiên bản mới từ tag: {latest_version}")
@@ -195,11 +223,28 @@ class VersionUpdater:
                         except Exception as e:
                             self.debug.error(f"Lỗi so sánh phiên bản từ tags: {str(e)}")
 
-            # Phương án 3: Kiểm tra trực tiếp file version.py trên nhánh main hoặc master
-            self.debug.info(f"Kiểm tra phiên bản từ version.py trên repo")
+            # Phương án 3: Kiểm tra trực tiếp file version.py dựa vào kênh người dùng
+            # Lấy kênh phát hành từ config.json
+            user_channel = self._get_user_channel()
+            self.debug.info(f"Kiểm tra phiên bản từ version.py trên repo (kênh người dùng hiện tại: {user_channel})")
 
-            # Thử các nhánh phổ biến: main, master
-            for branch in ["main", "master"]:
+            # Nếu người dùng đang sử dụng kênh dev, không kiểm tra cập nhật
+            if user_channel == "dev":
+                self.debug.info("Kênh Dev không hỗ trợ cập nhật tự động")
+                return None
+
+            # Xác định các nhánh sẽ kiểm tra dựa trên kênh người dùng
+            branches_to_check = []
+            if user_channel == "stable":
+                branches_to_check = ["main", "master"]
+            elif user_channel == "nightly":
+                branches_to_check = ["dev", "main", "master"]
+            else:  # Các kênh khác
+                branches_to_check = ["dev", "main", "master"]
+
+            self.debug.info(f"Sẽ kiểm tra các nhánh: {', '.join(branches_to_check)}")
+
+            for branch in branches_to_check:
                 try:
                     version_url = f"{self.raw_content_url}/{branch}/src/version.py"
                     self.debug.info(f"Kiểm tra version.py tại: {version_url}")
@@ -208,13 +253,22 @@ class VersionUpdater:
                     if response.status_code == 200:
                         version_content = response.text
 
-                        # Tìm version trong nội dung file
+                        # Tìm version và channel trong nội dung file
                         import re
                         version_match = re.search(r'VERSION\s*=\s*["\']([^"\']+)["\']', version_content)
+                        channel_match = re.search(r'CHANNEL\s*=\s*["\']([^"\']+)["\']', version_content)
+
+                        remote_version = None
+                        remote_channel = None
 
                         if version_match:
                             remote_version = version_match.group(1)
-                            self.debug.info(f"Phiên bản tìm thấy trong file version.py: {remote_version}")
+                            if channel_match:
+                                remote_channel = channel_match.group(1)
+                            else:
+                                remote_channel = "stable"  # Mặc định nếu không tìm thấy
+
+                            self.debug.info(f"Phiên bản tìm thấy trong file version.py: {remote_version} (channel: {remote_channel})")
 
                             # So sánh phiên bản
                             try:
@@ -227,10 +281,11 @@ class VersionUpdater:
                                         "version": remote_version,
                                         "url": download_url,
                                         "release_notes": f"Cập nhật từ nhánh {branch}",
-                                        "published_at": ""
+                                        "published_at": "",
+                                        "channel": remote_channel
                                     }
 
-                                    self.debug.info(f"Tìm thấy phiên bản mới từ nhánh {branch}: {remote_version}")
+                                    self.debug.info(f"Tìm thấy phiên bản mới từ nhánh {branch}: {remote_version} (channel: {remote_channel})")
 
                                     # Cập nhật cache
                                     try:
@@ -586,7 +641,7 @@ class VersionUpdater:
         # Hiển thị thông tin cập nhật
         info("┌───────────────────────────────────────────┐")
         info(f"│         Có bản cập nhật mới!              │")
-        info(f"│ Phiên bản: {update_info['version']}                       │")
+        info(f"│ Phiên bản: {update_info['version']} (kênh: {update_info.get('channel', 'stable')}) │")
         info("└───────────────────────────────────────────┘")
         
         # Hiển thị ghi chú phát hành nếu có
@@ -604,6 +659,19 @@ class VersionUpdater:
         if prompt_yes_no("Bạn có muốn cài đặt bản cập nhật này ngay bây giờ không?"):
             success = self.download_and_install(update_info)
             if success:
+                # Đảm bảo giữ nguyên kênh người dùng sau khi cập nhật
+                try:
+                    from src.common.config.manager import ConfigManager
+                    config = ConfigManager()
+
+                    # Đảm bảo thiết lập kênh được lưu trong config
+                    current_channel = config.get("core.channel")
+                    if current_channel in ["stable", "nightly", "dev"]:
+                        self.debug.info(f"Giữ nguyên kênh người dùng sau cập nhật: {current_channel}")
+                        config.set("core.channel", current_channel)
+                except Exception as e:
+                    self.debug.warn(f"Không thể cập nhật cấu hình kênh: {str(e)}")
+
                 success("Cập nhật thành công! Vui lòng khởi động lại ứng dụng.")
                 return True
             else:
