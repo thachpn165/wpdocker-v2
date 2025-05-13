@@ -29,8 +29,8 @@ jobs:
         run: |
           mkdir -p dist
           python src/scripts/build_package.py --channel=nightly
-          # Đổi tên file zip để có tên cố định cho việc tải xuống
-          # Bản gốc vẫn giữ nguyên, tạo thêm một bản copy với tên cố định
+          # Rename the zip file to have a fixed name for downloading
+          # The original remains unchanged, create an additional copy with a fixed name
           find dist -name "*.zip" -type f -exec cp {} dist/wpdocker-nightly-latest.zip \;
           ls -la dist/
 
@@ -38,7 +38,38 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-      - name: Delete existing nightly release assets
+      - name: Generate release notes
+        id: generate_notes
+        run: |
+          # Lấy commit hash của lần build nightly gần nhất
+          PREVIOUS_NIGHTLY=$(git log --tags="nightly" -n 1 --pretty=format:"%H" 2>/dev/null || echo "")
+
+          if [ -z "$PREVIOUS_NIGHTLY" ]; then
+            echo "Không tìm thấy build nightly trước đó, sử dụng 20 commit gần nhất"
+            COMMITS=$(git log -n 20 --pretty=format:"- %s (%h)" | grep -v "Merge")
+          else
+            echo "Tìm thấy build nightly trước đó, lấy các commit từ lần đó tới nay"
+            COMMITS=$(git log $PREVIOUS_NIGHTLY..HEAD --pretty=format:"- %s (%h)" | grep -v "Merge")
+
+            # Nếu không có commit nào giữa lần build trước và hiện tại
+            if [ -z "$COMMITS" ]; then
+              echo "Không có commit mới từ lần build trước, sử dụng 10 commit gần nhất"
+              COMMITS=$(git log -n 10 --pretty=format:"- %s (%h)" | grep -v "Merge")
+            fi
+          fi
+
+          # Ghi log để debug
+          echo "Các commit sẽ được đưa vào release notes:"
+          echo "$COMMITS"
+
+          # Lưu vào output để sử dụng ở bước sau
+          {
+            echo 'notes<<EOF'
+            echo "$COMMITS"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Delete existing nightly release
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,22 +83,29 @@ jobs:
                 tag: releaseTag
               });
 
-              // Delete all existing assets
-              if (release.assets && release.assets.length > 0) {
-                console.log(`Found existing release with ${release.assets.length} assets. Deleting...`);
+              console.log(`Found existing release with ID: ${release.id}. Deleting the entire release...`);
 
-                for (const asset of release.assets) {
-                  console.log(`Deleting asset: ${asset.name} (ID: ${asset.id})`);
-                  await github.rest.repos.deleteReleaseAsset({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    asset_id: asset.id
-                  });
-                }
-                console.log('All existing assets deleted successfully.');
-              } else {
-                console.log('No existing assets to delete.');
+              // Delete the entire release
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id
+              });
+
+              console.log('Existing release deleted successfully.');
+
+              // Also delete the tag so we can recreate it at the current commit
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `tags/${releaseTag}`
+                });
+                console.log(`Tag '${releaseTag}' deleted successfully.`);
+              } catch (tagError) {
+                console.log(`Note: Tag '${releaseTag}' was already deleted or doesn't exist.`);
               }
+
             } catch (error) {
               if (error.status === 404) {
                 console.log(`No existing release found with tag '${releaseTag}'. Will create a new one.`);
@@ -83,13 +121,12 @@ jobs:
           name: "Nightly Build - ${{ steps.date.outputs.date }}"
           tag_name: nightly
           prerelease: true
-          generate_release_notes: true
           body: |
             ## Automated nightly build from dev branch
             Build date: ${{ steps.date.outputs.date }}
 
             ### Tải xuống nhanh
-            Sử dụng file wpdocker-nightly-latest.zip để luôn nhận bản build mới nhất.
+            Sử dụng file `wpdocker-nightly-latest.zip` để luôn nhận bản build mới nhất.
 
-            ## Release Notes
-            *Automatically generated release notes appear below:*
+            ## Các thay đổi trong bản build này
+            ${{ steps.generate_notes.outputs.notes }}
