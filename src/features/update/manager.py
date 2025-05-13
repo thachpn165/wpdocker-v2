@@ -15,109 +15,82 @@ class UpdateManager:
     """
     Central manager for update operations.
 
-    This class provides a unified interface for update operations,
-    handling different update mechanisms (package or git-based) depending
-    on the installation method.
+    This class provides a unified interface for update operations
+    using the VersionUpdater as the implementation.
     """
-    
+
     _instance = None
-    
+
     def __new__(cls) -> 'UpdateManager':
         """Singleton pattern to ensure only one instance exists."""
         if cls._instance is None:
             cls._instance = super(UpdateManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
-        
+
     def __init__(self) -> None:
         """Initialize the update manager."""
         if self._initialized:
             return
-            
+
         self._initialized = True
         self.debug = Debug("UpdateManager")
-        
-        # Lazy-load updaters to avoid circular imports
-        self._package_updater = None
-        self._git_updater = None
-        
-    def _get_package_updater(self):
-        """Get or create the package updater."""
-        if self._package_updater is None:
-            from src.features.update.core.package_updater import PackageUpdater
-            self._package_updater = PackageUpdater()
-        return self._package_updater
-        
-    def _get_git_updater(self):
-        """Get or create the git updater."""
-        if self._git_updater is None:
-            from src.features.update.core.git_updater import GitUpdater
-            self._git_updater = GitUpdater()
-        return self._git_updater
-    
-    @log_call
-    def is_git_installation(self) -> bool:
-        """
-        Check if this is a git-based installation.
-        
-        Returns:
-            bool: True if this is a git installation, False otherwise
-        """
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        return os.path.exists(os.path.join(project_root, ".git"))
-    
+        self._version_updater = None
+
+    def _get_version_updater(self):
+        """Get or create the version updater."""
+        if self._version_updater is None:
+            from src.features.update.core.version_updater import version_updater
+            self._version_updater = version_updater
+        return self._version_updater
+
     @log_call
     def get_current_version(self) -> Tuple[str, str]:
         """
         Get the current version and channel.
-        
+
         Returns:
             Tuple of (version, channel)
         """
         from src.version import VERSION, CHANNEL
         return VERSION, CHANNEL
-        
+
     @log_call
     def check_for_updates(self) -> Optional[Dict[str, Any]]:
         """
         Check for available updates.
-        
+
         Returns:
             Dict with update information or None if no updates are available
         """
         _, channel = self.get_current_version()
-        
+
         if channel == "dev":
             self.debug.info("Dev channel does not support automatic updates")
             return None
-            
-        if self.is_git_installation():
-            self.debug.info("Using git-based update checker")
-            return self._get_git_updater().check_for_updates()
-        else:
-            self.debug.info("Using package-based update checker")
-            return self._get_package_updater().check_for_updates()
-            
+
+        # Using the VersionUpdater implementation
+        return self._get_version_updater().check_for_updates()
+
     @log_call
     def update(self) -> bool:
         """
         Apply available updates.
-        
+
         Returns:
             bool: True if update was successful, False otherwise
         """
         _, channel = self.get_current_version()
-        
+
         if channel == "dev":
             self.debug.info("Dev channel does not support automatic updates")
             return False
-            
-        if self.is_git_installation():
-            self.debug.info("Using git-based updater")
-            return self._get_git_updater().update()
-        else:
-            self.debug.info("Using package-based updater")
-            update_info = self._get_package_updater().check_for_updates()
-            if update_info:
-                return self._get_package_updater().download_and_install_update(update_info)
+
+        # First check for updates
+        update_info = self.check_for_updates()
+        if not update_info:
+            self.debug.info("No updates available")
             return False
+
+        # Using the VersionUpdater implementation
+        return self._get_version_updater().download_and_install(update_info)

@@ -56,57 +56,58 @@ def prompt_update_menu() -> None:
 @log_call
 def prompt_check_version() -> None:
     """Prompt to check for updates."""
-    from src.features.update.cli.check import cli_check_version
-    
-    info("Checking for updates...")
+    from src.features.update.core.version_updater import prompt_update
+
+    info("Kiểm tra cập nhật...")
     time.sleep(0.5)  # Small delay for user experience
-    
-    cli_check_version(interactive=True)
-    
-    input("\nPress Enter to continue...")
+
+    # Use the VersionUpdater's prompt_update function
+    prompt_update()
+
+    input("\nNhấn Enter để tiếp tục...")
 
 
 @log_call
 def prompt_upgrade() -> None:
     """Prompt to apply updates."""
-    from src.features.update.actions import check_version_action
-    from src.features.update.cli.upgrade import cli_upgrade
-    
+    from src.features.update.actions import check_version_action, update_action
+    from src.version import VERSION
+
     # First check if updates are available
-    info("Checking for available updates...")
+    info("Đang kiểm tra bản cập nhật...")
     time.sleep(0.5)  # Small delay for user experience
-    
+
     check_result = check_version_action()
-    
+
     if not check_result["update_available"]:
-        info("You are already using the latest version.")
-        input("\nPress Enter to continue...")
+        info("Bạn đang sử dụng phiên bản mới nhất.")
+        input("\nNhấn Enter để tiếp tục...")
         return
-        
+
     # Show update information
     update_info = check_result["update_info"]
-    current_version = check_result["current_version"]
+    current_version = VERSION
     new_version = update_info.get("version", "unknown")
-    
+
     # Ask for confirmation
     confirm = questionary.confirm(
-        f"Update from {current_version} to {new_version}?",
+        f"Cập nhật từ {current_version} lên {new_version}?",
         default=True
     ).ask()
-    
+
     if not confirm:
-        info("Update cancelled.")
-        input("\nPress Enter to continue...")
+        info("Đã hủy cập nhật.")
+        input("\nNhấn Enter để tiếp tục...")
         return
-        
+
     # Apply the update
-    info(f"Updating to version {new_version}...")
-    success = cli_upgrade(interactive=True)
-    
-    if success:
-        success("Update completed successfully.")
-        info("Please restart the application to use the new version.")
+    info(f"Đang cập nhật lên phiên bản {new_version}...")
+    result = update_action()
+
+    if result["success"]:
+        success("Cập nhật hoàn tất thành công.")
+        info("Vui lòng khởi động lại ứng dụng để sử dụng phiên bản mới.")
     else:
-        error("Update failed. Please try again later or update manually.")
-        
-    input("\nPress Enter to continue...")
+        error(f"Cập nhật thất bại: {result['message']}")
+
+    input("\nNhấn Enter để tiếp tục...")

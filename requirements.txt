@@ -12,3 +12,4 @@ inquirer
 humanize
 tabulate
 psutil
+tqdm

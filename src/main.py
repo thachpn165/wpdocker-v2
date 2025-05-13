@@ -299,6 +299,15 @@ def main() -> None:
         except Exception as e:
             debug(f"Failed to check containers: {e}")
 
+        # Check for updates if enabled
+        if not env.get("DISABLE_UPDATE_CHECK", False):
+            debug("Checking for updates...")
+            try:
+                from src.features.update.core.version_updater import prompt_update
+                prompt_update()
+            except Exception as e:
+                debug(f"Failed to check for updates: {e}")
+
         # Step 3: Start the main menu loop
         exit_requested = False
         while not exit_requested:

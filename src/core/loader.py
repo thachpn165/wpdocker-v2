@@ -51,6 +51,7 @@ class CoreLoader:
             "requests": "requests",
             "passlib": "passlib",
             "bcrypt": "bcrypt",
+            "tqdm": "tqdm",
             "colorama": "colorama",
             "python-dotenv": "python-dotenv",
             "tabulate": "tabulate",
