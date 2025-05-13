@@ -38,36 +38,8 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes
-        id: generate_notes
-        run: |
-          # Lấy commit hash của lần build nightly gần nhất
-          PREVIOUS_NIGHTLY=$(git log --tags="nightly" -n 1 --pretty=format:"%H" 2>/dev/null || echo "")
-
-          if [ -z "$PREVIOUS_NIGHTLY" ]; then
-            echo "Không tìm thấy build nightly trước đó, sử dụng 20 commit gần nhất"
-            COMMITS=$(git log -n 20 --pretty=format:"- %s (%h)" | grep -v "Merge")
-          else
-            echo "Tìm thấy build nightly trước đó, lấy các commit từ lần đó tới nay"
-            COMMITS=$(git log $PREVIOUS_NIGHTLY..HEAD --pretty=format:"- %s (%h)" | grep -v "Merge")
-
-            # Nếu không có commit nào giữa lần build trước và hiện tại
-            if [ -z "$COMMITS" ]; then
-              echo "Không có commit mới từ lần build trước, sử dụng 10 commit gần nhất"
-              COMMITS=$(git log -n 10 --pretty=format:"- %s (%h)" | grep -v "Merge")
-            fi
-          fi
-
-          # Ghi log để debug
-          echo "Các commit sẽ được đưa vào release notes:"
-          echo "$COMMITS"
-
-          # Lưu vào output để sử dụng ở bước sau
-          {
-            echo 'notes<<EOF'
-            echo "$COMMITS"
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
+# Phần tạo release notes từ commit log đã được loại bỏ
+# Sẽ sử dụng tính năng tự động tạo release notes của GitHub
 
       - name: Delete existing nightly release
         uses: actions/github-script@v6
@@ -121,12 +93,10 @@ jobs:
           name: "Nightly Build - ${{ steps.date.outputs.date }}"
           tag_name: nightly
           prerelease: true
+          generate_release_notes: true
           body: |
             ## Automated nightly build from dev branch
             Build date: ${{ steps.date.outputs.date }}
 
             ### Tải xuống nhanh
             Sử dụng file `wpdocker-nightly-latest.zip` để luôn nhận bản build mới nhất.
-
-            ## Các thay đổi trong bản build này
-            ${{ steps.generate_notes.outputs.notes }}
