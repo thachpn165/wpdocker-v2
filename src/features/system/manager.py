@@ -1,5 +1,5 @@
 from typing import List
-from src.core.config.manager import ConfigManager
+from src.common.config.manager import ConfigManager
 import subprocess
 import os
 from src.common.logging import info, error, success

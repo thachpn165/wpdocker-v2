@@ -17,17 +17,19 @@ from src.common.config.manager import ConfigManager
 def get_current_webserver() -> str:
     """
     Get the name of the currently configured web server.
-    
+
     Returns:
         The web server name (e.g., 'nginx')
-        
-    Raises:
-        ValueError: If no web server is configured
     """
     config = ConfigManager()
-    webserver = config.get("core.webserver")
-    if not webserver:
-        raise ValueError("Web server not configured.")
+    webserver = config.get("core.webserver", "nginx")  # Đặt nginx là mặc định
+
+    # Validate và đảm bảo luôn trả về một giá trị hợp lệ
+    if not webserver or webserver not in ["nginx", "apache"]:
+        from src.common.logging import debug
+        debug(f"Webserver không được cấu hình chính xác hoặc giá trị không hợp lệ: {webserver}, sử dụng nginx làm mặc định")
+        return "nginx"
+
     return webserver
 
 

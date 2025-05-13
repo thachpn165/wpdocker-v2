@@ -10,7 +10,7 @@ import questionary
 
 from src.common.logging import log_call
 from src.core.bootstrap.base import BaseBootstrap
-from src.core.config.manager import ConfigManager
+from src.common.config.manager import ConfigManager
 
 
 class SystemBootstrap(BaseBootstrap):

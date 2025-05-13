@@ -88,7 +88,7 @@ IMPORT_PATTERNS: Dict[str, str] = {
     "from core.backend.utils.container_utils import": "from src.common.utils.container import",
     "from core.backend.utils.webserver_utils import": "from src.common.webserver.utils import",
     
-    "from core.backend.objects.config import": "from src.core.config.manager import",
+    "from core.backend.objects.config import": "from src.common.config.manager import",
     "from core.backend.objects.container import": "from src.core.containers.container import",
     "from core.backend.objects.compose import": "from src.core.containers.compose import",
     "from core.backend.objects.downloader import": "from src.core.utils.downloader import",

@@ -11,7 +11,7 @@ from jsons.exceptions import DeserializationError
 
 from src.common.logging import Debug, log_call
 from src.core.bootstrap.base import BaseBootstrap
-from src.core.config.manager import ConfigManager
+from src.common.config.manager import ConfigManager
 from src.core.models.core_config import CoreConfig
 
 
@@ -33,7 +33,20 @@ class ConfigBootstrap(BaseBootstrap):
             bool: True if configuration is already bootstrapped, False otherwise
         """
         full_config = self.config_manager.get()
+
+        # Nếu không có key "core" nào trong config, chắc chắn cần bootstrap
+        if "core" not in full_config:
+            self.debug.info("Key 'core' không tồn tại trong config.json")
+            return False
+
         raw_core = full_config.get("core", {})
+
+        # Kiểm tra xem core config có đầy đủ các trường bắt buộc không
+        required_fields = ["channel", "timezone", "webserver", "lang"]
+        for field in required_fields:
+            if field not in raw_core:
+                self.debug.info(f"Thiếu trường cấu hình {field} trong core config")
+                return False
 
         # Check if core configuration is valid
         try:
@@ -71,20 +84,36 @@ class ConfigBootstrap(BaseBootstrap):
                 choices=["vi", "en"]
             ).ask()
 
+            if lang is None:
+                self.debug.error("User cancelled language selection")
+                return False
+
             channel = questionary.select(
                 "Select release channel:",
                 choices=["stable", "nightly", "dev"]
             ).ask()
+
+            if channel is None:
+                self.debug.error("User cancelled channel selection")
+                return False
 
             timezone = questionary.text(
                 "Enter system timezone (e.g., Asia/Ho_Chi_Minh):",
                 default="Asia/Ho_Chi_Minh"
             ).ask()
 
+            if timezone is None:
+                self.debug.error("User cancelled timezone entry")
+                return False
+
             webserver = questionary.select(
                 "Select webserver:",
                 choices=["nginx", "apache"]
             ).ask()
+
+            if webserver is None:
+                self.debug.error("User cancelled webserver selection")
+                return False
 
             # Create configuration - removed mysql_version
             core_config = CoreConfig(
@@ -103,6 +132,8 @@ class ConfigBootstrap(BaseBootstrap):
             return True
         except Exception as e:
             self.debug.error(f"Failed to initialize core configuration: {e}")
+            # Không tạo cấu hình mặc định, yêu cầu người dùng thiết lập lại
+            self.debug.info("Người dùng cần thiết lập cấu hình thủ công")
             return False
 
     def mark_bootstrapped(self) -> None:

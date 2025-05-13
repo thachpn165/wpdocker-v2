@@ -58,16 +58,15 @@ def display_banner() -> None:
     # Display system information
     try:
         from src.common.utils.system_info import format_system_info
-        from src.version import VERSION
+        from src.version import VERSION, CHANNEL
         from src.common.config.manager import ConfigManager
 
-        # Lấy kênh từ config.json
+        # Lấy kênh từ config.json với giá trị mặc định từ version.py
         config = ConfigManager()
-        user_channel = config.get("core.channel")
+        user_channel = config.get("core.channel", CHANNEL)
 
-        # Sử dụng giá trị mặc định từ version.py nếu không có trong config
+        # Đảm bảo giá trị channel hợp lệ
         if not user_channel or user_channel not in ["stable", "nightly", "dev"]:
-            from src.version import CHANNEL
             user_channel = CHANNEL
 
         sys_info = format_system_info()
@@ -325,18 +324,26 @@ def main() -> None:
         except Exception as e:
             debug(f"Failed to check containers: {e}")
 
-        # Check for updates if enabled
-        if not env.get("DISABLE_UPDATE_CHECK", False):
-            debug("Checking for updates...")
-            try:
-                from src.features.update.core.version_updater import prompt_update
-                prompt_update()
-            except Exception as e:
-                debug(f"Failed to check for updates: {e}")
-
         # Step 3: Start the main menu loop
         exit_requested = False
+
+        # First-time menu display (before update check)
+        continue_menu = show_main_menu()
+        if not continue_menu:
+            exit_requested = True
+
+        # Main loop with update checking at the end of each cycle
         while not exit_requested:
+            # Check for updates if enabled (at the end of the menu cycle)
+            if not env.get("DISABLE_UPDATE_CHECK", False):
+                debug("Checking for updates...")
+                try:
+                    from src.features.update.core.version_updater import prompt_update
+                    prompt_update()
+                except Exception as e:
+                    debug(f"Failed to check for updates: {e}")
+
+            # Show menu again
             continue_menu = show_main_menu()
             if not continue_menu:
                 exit_requested = True

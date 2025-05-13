@@ -28,7 +28,7 @@ custom_style = Style([
 def wait_for_enter(error_occurred: bool = False) -> None:
     """
     Display a prompt for the user to press Enter to continue.
-    
+
     Args:
         error_occurred: Whether an error occurred, affecting formatting
     """
@@ -41,36 +41,36 @@ def wait_for_enter(error_occurred: bool = False) -> None:
 def create_menu_choices(items: List[Dict], include_back: bool = True) -> List[Dict]:
     """
     Create a standardized list of choices for menu display.
-    
+
     Args:
         items: List of menu items with name and value keys
         include_back: Whether to include a "Back" option
-        
+
     Returns:
         Formatted list of choices
     """
     choices = []
-    
+
     for i, item in enumerate(items, 1):
         if isinstance(item, dict) and "name" in item and "value" in item:
             choices.append({"name": f"{i}. {item['name']}", "value": item["value"]})
         else:
             choices.append({"name": f"{i}. {item}", "value": str(i)})
-    
+
     if include_back:
         choices.append({"name": "0. Back", "value": "0"})
-        
+
     return choices
 
 
 def prompt_with_cancel(choices: List[Dict], message: str) -> Optional[str]:
     """
     Display a selection prompt with Cancel option, handling the cancel case.
-    
+
     Args:
         choices: List of choices for questionary select
         message: Prompt message to display
-        
+
     Returns:
         Selected value or None if cancelled
     """
@@ -79,17 +79,35 @@ def prompt_with_cancel(choices: List[Dict], message: str) -> Optional[str]:
         choices=choices,
         style=custom_style
     ).ask()
-    
+
     if selected == "cancel":
         return None
-    
+
     return selected
+
+
+def prompt_yes_no(question: str, default: bool = True) -> bool:
+    """
+    Display a Yes/No confirmation prompt to the user.
+
+    Args:
+        question: The question to ask the user
+        default: Default value (True for Yes, False for No)
+
+    Returns:
+        bool: True if user selects Yes, False if No
+    """
+    return questionary.confirm(
+        question,
+        default=default,
+        style=custom_style
+    ).ask()
 
 
 def execute_with_exception_handling(func: Callable, error_message: str) -> None:
     """
     Execute a function with standardized exception handling.
-    
+
     Args:
         func: Function to execute
         error_message: Error message prefix to show on exception
