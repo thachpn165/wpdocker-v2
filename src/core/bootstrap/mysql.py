@@ -65,6 +65,12 @@ class MySQLBootstrap(BaseBootstrap):
         """
         # Check if MySQL configuration exists
         config_data = self.config_manager.get()
+
+        # Nếu không có key "mysql" nào trong config, chắc chắn cần bootstrap
+        if "mysql" not in config_data:
+            self.debug.debug("❌ Bootstrap condition failed: MySQL key not found in config")
+            return False
+
         if not config_data.get("mysql", {}).get("version"):
             self.debug.debug("❌ Bootstrap condition failed: MySQL version not configured in config")
             return False
@@ -241,21 +247,30 @@ class MySQLBootstrap(BaseBootstrap):
             return True
 
         try:
-            # Ask user to select MySQL version
-            version_choices = [
-                {"name": "MariaDB Latest", "value": "mariadb:latest"},
-                {"name": "MariaDB 10.5", "value": "mariadb:10.5"},
-                {"name": "MariaDB 10.6", "value": "mariadb:10.6"},
-                {"name": "MariaDB 10.11", "value": "mariadb:10.11"},
-            ]
+            # Sử dụng các giá trị mặc định nếu không thể tương tác
+            import sys
+            if not sys.stdin.isatty():
+                self.debug.warn("Không thể tương tác với stdin, sử dụng MariaDB latest làm mặc định")
+                selected = "mariadb:latest"
+            else:
+                # Ask user to select MySQL version
+                version_choices = [
+                    {"name": "MariaDB Latest", "value": "mariadb:latest"},
+                    {"name": "MariaDB 10.5", "value": "mariadb:10.5"},
+                    {"name": "MariaDB 10.6", "value": "mariadb:10.6"},
+                    {"name": "MariaDB 10.11", "value": "mariadb:10.11"},
+                ]
 
-            selected = questionary.select(
-                "Select MariaDB version:",
-                choices=version_choices
-            ).ask()
+                selected = questionary.select(
+                    "Select MariaDB version:",
+                    choices=version_choices
+                ).ask()
 
             # Save selection to config
             mysql_data = config_data.get("mysql", {})
+            if not mysql_data:
+                mysql_data = {}
+
             mysql_data["version"] = selected
             self.config_manager.update_key("mysql", mysql_data)
             self.config_manager.save()
@@ -264,7 +279,21 @@ class MySQLBootstrap(BaseBootstrap):
             return True
         except Exception as e:
             self.debug.error(f"Failed to configure MySQL version: {e}")
-            return False
+            # Nếu gặp lỗi, thử sử dụng giá trị mặc định
+            try:
+                self.debug.info("Thử sử dụng MariaDB latest sau lỗi")
+                mysql_data = config_data.get("mysql", {})
+                if not mysql_data:
+                    mysql_data = {}
+
+                mysql_data["version"] = "mariadb:latest"
+                self.config_manager.update_key("mysql", mysql_data)
+                self.config_manager.save()
+                self.debug.success("Đã thiết lập phiên bản MySQL mặc định thành công")
+                return True
+            except Exception as e2:
+                self.debug.error(f"Cũng không thể thiết lập phiên bản MySQL mặc định: {e2}")
+                return False
 
     def _get_or_generate_root_password(self) -> Optional[str]:
         """

@@ -27,23 +27,21 @@ class DockerBootstrap(BaseBootstrap):
         Returns:
             bool: True if Docker is already bootstrapped, False otherwise
         """
-        # Docker is considered bootstrapped if it's running and the network exists
-        if not self._is_docker_running():
+        # Docker được coi là đã bootstrap chỉ khi đã được cài đặt
+        # (nhưng chúng ta vẫn sẽ kiểm tra và khởi động nếu không chạy)
+        try:
+            subprocess.run(
+                ["docker", "--version"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            # Docker đã được cài đặt, nhưng chúng ta vẫn sẽ kiểm tra trạng thái,
+            # network và volume trong execute_bootstrap
+            return True
+        except Exception:
+            self.debug.error("Docker chưa được cài đặt")
             return False
-
-        # Check if the network exists
-        network = env.get("DOCKER_NETWORK")
-        if not network:
-            self.debug.error("DOCKER_NETWORK environment variable not set")
-            return False
-
-        result = subprocess.run(
-            ["docker", "network", "ls", "--format", "{{.Name}}"],
-            capture_output=True, text=True
-        )
-        networks = result.stdout.strip().splitlines()
-
-        return network in networks
 
     def check_prerequisites(self) -> bool:
         """
@@ -67,34 +65,49 @@ class DockerBootstrap(BaseBootstrap):
             bool: True if successful, False otherwise
         """
         # Step 1: Install Docker if missing
-        if not install_docker_if_missing():
-            self.debug.error("Docker installation failed")
-            return False
+        if not self._is_docker_installed():
+            self.debug.info("Docker chưa được cài đặt, đang cài đặt...")
+            if not install_docker_if_missing():
+                self.debug.error("Docker installation failed")
+                return False
+            self.debug.success("Docker đã được cài đặt thành công")
+        else:
+            self.debug.info("Docker đã được cài đặt")
 
         # Step 2: Verify Docker is running, nếu chưa thì thử khởi động
         if not self._is_docker_running():
-            self.debug.warn("Docker is not running, attempting to start...")
-            self._start_docker_service()
+            self.debug.warn("Docker không chạy, đang thử khởi động...")
+            if self._start_docker_service():
+                self.debug.success("Đã khởi động Docker")
+            # Kiểm tra lại sau khi thử khởi động
             if not self._is_docker_running():
-                self.debug.error("Docker is not running after attempting to start")
+                self.debug.error("Docker vẫn không chạy sau khi thử khởi động")
                 return False
+        else:
+            self.debug.info("Docker đang chạy")
 
         # Step 3: Create Docker network
         if not self._create_docker_network():
-            self.debug.error("Failed to create Docker network")
+            self.debug.error("Không thể tạo Docker network")
             return False
 
-        # Step 4: Create FastCGI cache volume
+        # Step 4: Create MySQL data volume
+        if not self._create_mysql_volume():
+            self.debug.error("Không thể tạo volume dữ liệu MySQL")
+            return False
+
+        # Step 5: Create FastCGI cache volume
         if not self._create_fastcgi_cache_volume():
-            self.debug.error("Failed to create FastCGI cache volume")
+            self.debug.error("Không thể tạo volume FastCGI cache")
             return False
 
-        # Step 5: Add user to Docker group (Linux only)
+        # Step 6: Add user to Docker group (Linux only)
         if platform.system() != "Darwin":
             if not self._add_user_to_docker_group():
-                self.debug.warn("Could not add user to Docker group")
+                self.debug.warn("Không thể thêm người dùng vào nhóm Docker")
                 # This is not a critical failure
 
+        self.debug.success("Docker đã được thiết lập đầy đủ")
         return True
 
     def mark_bootstrapped(self) -> None:
@@ -102,12 +115,30 @@ class DockerBootstrap(BaseBootstrap):
         # Docker bootstrap doesn't need explicit marking
         pass
 
-    def _is_docker_running(self) -> bool:
+    def _is_docker_installed(self) -> bool:
         """
-        Check if Docker is running.
+        Kiểm tra xem Docker đã được cài đặt hay chưa.
 
         Returns:
-            bool: True if Docker is running, False otherwise
+            bool: True nếu Docker đã được cài đặt, False nếu chưa
+        """
+        try:
+            subprocess.run(
+                ["docker", "--version"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            return True
+        except Exception:
+            return False
+
+    def _is_docker_running(self) -> bool:
+        """
+        Kiểm tra xem Docker có đang chạy hay không.
+
+        Returns:
+            bool: True nếu Docker đang chạy, False nếu không chạy
         """
         try:
             subprocess.run(
@@ -116,10 +147,11 @@ class DockerBootstrap(BaseBootstrap):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
-            self.debug.info("Docker is installed and running")
             return True
         except Exception:
-            self.debug.error("Docker is not installed or not running")
+            # Chỉ ghi log lỗi khi Docker đã được cài đặt nhưng không chạy
+            if self._is_docker_installed():
+                self.debug.error("Docker đã cài đặt nhưng không chạy")
             return False
 
     def _create_docker_network(self) -> bool:
@@ -151,12 +183,12 @@ class DockerBootstrap(BaseBootstrap):
             self.debug.error(f"Failed to create Docker network: {e}")
             return False
 
-    def _create_fastcgi_cache_volume(self) -> bool:
+    def _create_mysql_volume(self) -> bool:
         """
-        Create FastCGI cache volume if it doesn't exist.
+        Tạo volume lưu trữ dữ liệu MySQL nếu chưa tồn tại.
 
         Returns:
-            bool: True if successful, False otherwise
+            bool: True nếu thành công, False nếu thất bại
         """
         try:
             result = subprocess.run(
@@ -164,20 +196,49 @@ class DockerBootstrap(BaseBootstrap):
                 capture_output=True, text=True
             )
             volumes = result.stdout.strip().splitlines()
-            volume_name = "wpdocker_fastcgi_cache_data"
+            volume_name = env.get("MYSQL_VOLUME_NAME", "wpdocker_mysql_data")
 
             if volume_name not in volumes:
                 subprocess.run(
                     ["docker", "volume", "create", volume_name],
                     check=True
                 )
-                self.debug.success(f"Created Docker volume: {volume_name}")
+                self.debug.success(f"Đã tạo volume MySQL: {volume_name}")
             else:
-                self.debug.debug(f"Docker volume already exists: {volume_name}")
+                self.debug.debug(f"Volume MySQL đã tồn tại: {volume_name}")
 
             return True
         except Exception as e:
-            self.debug.error(f"Failed to create volume: {e}")
+            self.debug.error(f"Không thể tạo volume MySQL: {e}")
+            return False
+
+    def _create_fastcgi_cache_volume(self) -> bool:
+        """
+        Tạo volume lưu trữ FastCGI cache nếu chưa tồn tại.
+
+        Returns:
+            bool: True nếu thành công, False nếu thất bại
+        """
+        try:
+            result = subprocess.run(
+                ["docker", "volume", "ls", "--format", "{{.Name}}"],
+                capture_output=True, text=True
+            )
+            volumes = result.stdout.strip().splitlines()
+            volume_name = env.get("FASTCGI_CACHE_VOLUME", "wpdocker_fastcgi_cache_data")
+
+            if volume_name not in volumes:
+                subprocess.run(
+                    ["docker", "volume", "create", volume_name],
+                    check=True
+                )
+                self.debug.success(f"Đã tạo volume FastCGI cache: {volume_name}")
+            else:
+                self.debug.debug(f"Volume FastCGI cache đã tồn tại: {volume_name}")
+
+            return True
+        except Exception as e:
+            self.debug.error(f"Không thể tạo volume FastCGI cache: {e}")
             return False
 
     def _add_user_to_docker_group(self) -> bool:
