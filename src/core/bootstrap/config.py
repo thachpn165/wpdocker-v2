@@ -73,7 +73,7 @@ class ConfigBootstrap(BaseBootstrap):
 
             channel = questionary.select(
                 "Select release channel:",
-                choices=["stable", "beta", "dev"]
+                choices=["stable", "nightly", "dev"]
             ).ask()
 
             timezone = questionary.text(
