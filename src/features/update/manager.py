@@ -52,8 +52,8 @@ class UpdateManager:
         Returns:
             Tuple of (version, channel)
         """
-        from src.version import VERSION, CHANNEL
-        return VERSION, CHANNEL
+        from src.common.utils.version_helper import get_version, get_channel
+        return get_version(), get_channel()
 
     @log_call
     def check_for_updates(self) -> Optional[Dict[str, Any]]:

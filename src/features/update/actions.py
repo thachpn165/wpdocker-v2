@@ -8,7 +8,7 @@ the VersionUpdater to perform update-related tasks.
 from typing import Dict, Any
 
 from src.common.logging import log_call
-from src.version import VERSION, CHANNEL
+from src.common.utils.version_helper import get_version, get_channel, get_version_info
 from src.features.update.core.version_updater import check_for_updates, download_and_install
 
 
@@ -20,9 +20,13 @@ def check_version_action() -> Dict[str, Any]:
     Returns:
         Dict containing version information and update status
     """
+    # Lấy thông tin phiên bản từ helper
+    version_info = get_version_info()
+    
     result = {
-        "current_version": VERSION,
-        "channel": CHANNEL,
+        "current_version": version_info["version"],
+        "channel": version_info["channel"],
+        "display_name": version_info["display_name"],
         "update_available": False,
         "update_info": None
     }

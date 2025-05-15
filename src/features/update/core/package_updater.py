@@ -36,7 +36,10 @@ class PackageUpdater:
         Returns:
             Dict with update information or None if no updates are available
         """
-        from src.version import VERSION, CHANNEL
+        from src.common.utils.version_helper import get_version, get_channel
+        
+        VERSION = get_version()
+        CHANNEL = get_channel()
         
         if CHANNEL == "dev":
             self.debug.info("Dev channel does not support automatic updates")

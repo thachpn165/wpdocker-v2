@@ -151,23 +151,14 @@ class VersionUpdater:
             Kênh phát hành ("stable", "nightly", "dev") hoặc kênh mặc định từ version.py
         """
         try:
-            from src.common.config.manager import ConfigManager
-            from src.version import CHANNEL as DEFAULT_CHANNEL
-
-            config = ConfigManager()
-            user_channel = config.get("core.channel")
-
-            if user_channel in ["stable", "nightly", "dev"]:
-                self.debug.info(f"Sử dụng kênh từ config.json: {user_channel}")
-                return user_channel
-
-            self.debug.info(f"Không tìm thấy cấu hình core.channel, sử dụng kênh mặc định: {DEFAULT_CHANNEL}")
-            return DEFAULT_CHANNEL
+            # Sử dụng trực tiếp hàm helper
+            from src.common.utils.version_helper import get_channel
+            return get_channel()
         except Exception as e:
             self.debug.warn(f"Lỗi khi đọc kênh phát hành từ config.json: {str(e)}")
-            # Fallback to default channel in version.py
-            from src.version import CHANNEL
-            return CHANNEL
+            # Fallback dùng hàm helper
+            from src.common.utils.version_helper import get_channel
+            return get_channel()
             
     @log_call
     def _compare_versions(self, version1: str, version2: str) -> int:
@@ -297,6 +288,29 @@ class VersionUpdater:
                 parts.append(part)
 
         return parts
+        
+    @log_call
+    def _parse_release_metadata(self, release_body: str) -> Dict[str, Any]:
+        """
+        Parse metadata từ nội dung release.
+        
+        Tìm kiếm phần metadata trong định dạng:
+        <!-- VERSION_INFO
+        {
+            "display_name": "Nightly Build 20230802",
+            "code_name": "Thunder",
+            "other_info": "value"
+        }
+        -->
+        
+        Args:
+            release_body: Nội dung mô tả của release
+            
+        Returns:
+            Dict chứa metadata hoặc dict rỗng nếu không tìm thấy
+        """
+        from src.common.utils.version_helper import parse_version_metadata_from_release
+        return parse_version_metadata_from_release(release_body)
 
     @log_call
     def check_for_updates(self, with_cache: bool = True) -> Optional[Dict[str, Any]]:
@@ -309,14 +323,15 @@ class VersionUpdater:
         Returns:
             Thông tin bản cập nhật hoặc None nếu không có
         """
-        from src.version import VERSION
+        from src.common.utils.version_helper import get_version, get_channel
 
-        # Lấy kênh phát hành từ config.json
-        user_channel = self._get_user_channel()
+        # Lấy thông tin phiên bản hiện tại
+        VERSION = get_version()
+        user_channel = get_channel()
 
         # Nếu người dùng đang sử dụng kênh dev, không kiểm tra cập nhật
         if user_channel == "dev":
-            self.debug.info("Kênh Dev không hỗ trợ cập nhật tự động")
+            info("Kênh Dev không hỗ trợ cập nhật tự động")
             return None
 
         # Sử dụng cache nếu được yêu cầu
@@ -328,7 +343,7 @@ class VersionUpdater:
                     try:
                         with open(cache_file, 'r') as f:
                             cached_data = json.load(f)
-                            self.debug.info(f"Sử dụng dữ liệu cập nhật từ cache")
+                            debug(f"Sử dụng dữ liệu cập nhật từ cache")
                             return cached_data
                     except Exception as e:
                         self.debug.warn(f"Lỗi đọc cache: {str(e)}")
@@ -362,6 +377,11 @@ class VersionUpdater:
                         if prerelease:
                             latest_release = prerelease
                             self.debug.info("Tìm thấy pre-release phù hợp với kênh nightly")
+                            
+                            # Tìm kiếm metadata trong nội dung của pre-release
+                            release_body = latest_release.get("body", "")
+                            metadata = self._parse_release_metadata(release_body)
+                            self.debug.info(f"Metadata từ pre-release: {metadata}")
 
                     # Nếu không tìm thấy pre-release hoặc không phải kênh nightly, sử dụng release đầu tiên
                     if not latest_release:
@@ -405,26 +425,73 @@ class VersionUpdater:
                                             download_url = asset.get("browser_download_url")
 
                                             if download_url:
-                                                # Chuẩn bị kết quả
+                                                # Xử lý metadata và tên hiển thị cho phiên bản
+                                                from src.common.utils.version_helper import extract_metadata_from_release
+                                                metadata = extract_metadata_from_release(latest_release)
+                                                self.debug.info(f"Đã trích xuất metadata từ release: {metadata}")
+                                                
+                                                # Ưu tiên sử dụng display_name từ metadata
+                                                display_version = latest_version
+                                                if metadata and "display_name" in metadata:
+                                                    display_version = metadata["display_name"]
+                                                    self.debug.info(f"Sử dụng display_name từ metadata: {display_version}")
+                                                # Nếu không có trong metadata, thử dùng name từ release
+                                                elif latest_release.get("name"):
+                                                    display_version = latest_release.get("name")
+                                                    # Loại bỏ tiền tố không cần thiết nếu có (như "WP Docker v2 ")
+                                                    for prefix in ["WP Docker v2 ", "WP Docker ", "wpdocker-v2-", "wpdocker-"]:
+                                                        if display_version.startswith(prefix):
+                                                            display_version = display_version[len(prefix):]
+                                                            break
+                                                
                                                 result = {
                                                     "version": latest_version,
+                                                    "display_version": display_version,
                                                     "url": download_url,
                                                     "release_notes": latest_release.get("body", ""),
                                                     "published_at": latest_release.get("published_at", ""),
                                                     "channel": release_channel
                                                 }
+                                                
+                                                # Thêm metadata nếu có - đã được trích xuất ở trên
+                                                if metadata:
+                                                    result["metadata"] = metadata
 
-                                                self.debug.info(f"Tìm thấy phiên bản mới: {latest_version} ({release_channel})")
+                                                info(f"Tìm thấy phiên bản mới: {latest_version} ({release_channel})")
 
-                                                # Cập nhật cache
+                                                # Cập nhật cache và config
                                                 try:
+                                                    # Lưu vào cache
                                                     cache_file = os.path.join(self.cache_dir, "update_check.json")
                                                     os.makedirs(os.path.dirname(cache_file), exist_ok=True)
                                                     with open(cache_file, 'w') as f:
                                                         json.dump(result, f)
                                                         self.debug.debug(f"Đã cập nhật cache: {cache_file}")
+                                                    
+                                                    # Lưu thông tin vào config
+                                                    from src.common.config.manager import ConfigManager
+                                                    config = ConfigManager()
+                                                    config.set("update_info.available", True)
+                                                    config.set("update_info.version", latest_version)
+                                                    config.set("update_info.display_version", display_version)
+                                                    config.set("update_info.channel", release_channel)
+                                                    config.set("update_info.published_at", latest_release.get("published_at", ""))
+                                                    
+                                                    # Lưu thêm metadata đầy đủ nếu có
+                                                    if metadata:
+                                                        config.set("update_info.metadata", metadata)
+                                                        # Lưu một số trường quan trọng riêng lẻ để dễ truy cập hơn
+                                                        if "code_name" in metadata:
+                                                            config.set("update_info.code_name", metadata["code_name"])
+                                                        if "build_number" in metadata:
+                                                            config.set("update_info.build_number", metadata["build_number"])
+                                                        if "build_date" in metadata:
+                                                            config.set("update_info.build_date", metadata["build_date"])
+                                                    
+                                                    config.save()
+                                                    self.debug.debug("Lưu thông tin cập nhật vào config")
                                                 except Exception as e:
-                                                    self.debug.warn(f"Lỗi cập nhật cache: {str(e)}")
+                                                    self.debug.warn(f"Lỗi cập nhật cache hoặc config: {str(e)}")
 
                                                 return result
                             except Exception as e:
@@ -465,13 +532,14 @@ class VersionUpdater:
                                     # Chuẩn bị kết quả
                                     result = {
                                         "version": latest_version,
+                                        "display_version": latest_version,
                                         "url": download_url,
                                         "release_notes": f"Cập nhật từ tag: {tag_name}",
                                         "published_at": "",
                                         "channel": tag_channel
                                     }
 
-                                    self.debug.info(f"Tìm thấy phiên bản mới từ tag: {latest_version} ({tag_channel})")
+                                    info(f"Tìm thấy phiên bản mới từ tag: {latest_version} ({tag_channel})")
 
                                     # Cập nhật cache
                                     try:
@@ -503,16 +571,17 @@ class VersionUpdater:
 
             for branch in branches_to_check:
                 try:
-                    version_url = f"{self.raw_content_url}/{branch}/src/version.py"
-                    self.debug.info(f"Kiểm tra version.py tại: {version_url}")
+                    # Giờ chúng ta sẽ kiểm tra file config mẫu thay vì version.py
+                    version_url = f"{self.raw_content_url}/{branch}/src/common/utils/version_helper.py"
+                    self.debug.info(f"Kiểm tra version_helper.py tại: {version_url}")
 
                     response = requests.get(version_url, timeout=10)
                     if response.status_code == 200:
                         version_content = response.text
 
                         # Tìm version và channel trong nội dung file
-                        version_match = re.search(r'VERSION\s*=\s*["\']([^"\']+)["\']', version_content)
-                        channel_match = re.search(r'CHANNEL\s*=\s*["\']([^"\']+)["\']', version_content)
+                        version_match = re.search(r'DEFAULT_VERSION\s*=\s*["\']([^"\']+)["\']', version_content)
+                        channel_match = re.search(r'DEFAULT_CHANNEL\s*=\s*["\']([^"\']+)["\']', version_content)
 
                         remote_version = None
                         remote_channel = None
@@ -524,7 +593,7 @@ class VersionUpdater:
                             else:
                                 remote_channel = "stable"  # Mặc định nếu không tìm thấy
 
-                            self.debug.info(f"Phiên bản tìm thấy trong file version.py: {remote_version} (channel: {remote_channel})")
+                            self.debug.info(f"Phiên bản tìm thấy trong file helper: {remote_version} (channel: {remote_channel})")
 
                             # Kiểm tra xem phiên bản có phù hợp với kênh người dùng không
                             if user_channel == "stable" and remote_channel == "nightly":
@@ -541,13 +610,14 @@ class VersionUpdater:
                                     # Chuẩn bị kết quả
                                     result = {
                                         "version": remote_version,
+                                        "display_version": remote_version,
                                         "url": download_url,
                                         "release_notes": f"Cập nhật từ nhánh {branch}",
                                         "published_at": "",
                                         "channel": remote_channel
                                     }
 
-                                    self.debug.info(f"Tìm thấy phiên bản mới từ nhánh {branch}: {remote_version} (channel: {remote_channel})")
+                                    info(f"Tìm thấy phiên bản mới từ nhánh {branch}: {remote_version} (channel: {remote_channel})")
 
                                     # Cập nhật cache
                                     try:
@@ -569,7 +639,7 @@ class VersionUpdater:
                 except Exception as e:
                     self.debug.warn(f"Lỗi khi kiểm tra version.py trên nhánh {branch}: {str(e)}")
 
-            self.debug.info(f"Không tìm thấy bản cập nhật nào - phiên bản hiện tại: {VERSION}")
+            info(f"Không tìm thấy bản cập nhật nào - phiên bản hiện tại: {VERSION}")
             return None
 
         except Exception as e:
@@ -940,16 +1010,20 @@ class VersionUpdater:
 
             # Lưu thông tin phiên bản vào config.json nếu có thể
             try:
-                from src.common.config.manager import ConfigManager
-                config = ConfigManager()
-
-                # Lấy config hiện tại
-                current_config = config.get()
-                if "core" in current_config and isinstance(current_config["core"], dict):
-                    # Lưu thông tin phiên bản vào config
-                    current_config["core"]["version"] = update_info['version']
-                    config.save()
-                    self.debug.info(f"Đã cập nhật thông tin phiên bản trong config.json: {update_info['version']}")
+                # Sử dụng version_helper để cập nhật thông tin phiên bản
+                from src.common.utils.version_helper import update_version_info
+                display_version = update_info.get("display_version", update_info["version"])
+                
+                # Cập nhật thông tin phiên bản với metadata đầy đủ nếu có
+                metadata = update_info.get("metadata", {})
+                update_version_info(
+                    version=update_info["version"],
+                    display_name=display_version,
+                    channel=update_info.get("channel", "stable"),
+                    build_date=update_info.get("published_at", "").split("T")[0] if update_info.get("published_at") else None,
+                    metadata=metadata
+                )
+                self.debug.info(f"Đã cập nhật thông tin phiên bản trong config.json: {display_version}")
             except Exception as e:
                 self.debug.warn(f"Không thể cập nhật thông tin phiên bản trong config: {str(e)}")
 
@@ -975,10 +1049,54 @@ class VersionUpdater:
             return False
             
         # Hiển thị thông tin cập nhật
-        info("┌───────────────────────────────────────────┐")
-        info(f"│         Có bản cập nhật mới!              │")
-        info(f"│ Phiên bản: {update_info['version']} (kênh: {update_info.get('channel', 'stable')}) │")
-        info("└───────────────────────────────────────────┘")
+        info("┌───────────────────────────────────────────────────────────┐")
+        info(f"│                 Có bản cập nhật mới!                      │")
+        
+        # Chuẩn bị thông tin hiển thị phong phú
+        # Sử dụng display_version nếu có, nếu không thì dùng version
+        display_version = update_info.get("display_version", update_info["version"])
+        channel = update_info.get("channel", "stable")
+        
+        # Bổ sung metadata nếu có
+        metadata = update_info.get("metadata", {})
+        
+        # Tạo chuỗi hiển thị phong phú
+        version_display = display_version
+        
+        # Thêm code_name nếu có và chưa có trong display_version
+        if metadata and "code_name" in metadata and metadata["code_name"] not in display_version:
+            version_display += f" \"{metadata['code_name']}\""
+            
+        # Thêm build number nếu là nightly build và chưa có trong display_version
+        if channel == "nightly" and metadata and "build_number" in metadata:
+            if f"Build {metadata['build_number']}" not in display_version:
+                version_display += f" (Build {metadata['build_number']})"
+        elif channel != "stable" and "nightly" not in display_version.lower():
+            version_display += f" ({channel.capitalize()})"
+        
+        # Thêm ngày build nếu có và là nightly build
+        if channel == "nightly" and metadata and "build_date" in metadata:
+            if metadata["build_date"] not in display_version:
+                date_parts = metadata["build_date"].split("-")
+                if len(date_parts) == 3:
+                    formatted_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"
+                    if formatted_date not in display_version:
+                        version_display += f" - {formatted_date}"
+        
+        # Hiển thị dòng phiên bản, căn chỉnh để trông đẹp
+        version_line = f"│ Phiên bản: {version_display}"
+        
+        # Đảm bảo dòng hiển thị có độ dài phù hợp
+        max_length = 63  # Độ dài tối đa của dòng hiển thị
+        if len(version_line) > max_length:
+            version_line = version_line[:max_length-4] + "... │"
+        else:
+            # Thêm khoảng trắng và dấu │ bên phải
+            padding = max_length - len(version_line)
+            version_line += " " * padding + "│"
+        
+        info(version_line)
+        info("└───────────────────────────────────────────────────────────┘")
         
         # Hiển thị ghi chú phát hành nếu có
         if update_info["release_notes"]:

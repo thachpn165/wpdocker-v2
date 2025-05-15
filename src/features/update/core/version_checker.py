@@ -31,8 +31,8 @@ class VersionChecker:
         Returns:
             Tuple of (version, channel, build_date)
         """
-        from src.version import VERSION, CHANNEL, BUILD_DATE
-        return VERSION, CHANNEL, BUILD_DATE
+        from src.common.utils.version_helper import get_version, get_channel, get_build_date
+        return get_version(), get_channel(), get_build_date()
         
     @log_call
     def format_version_info(self) -> Dict[str, Any]:
@@ -42,14 +42,15 @@ class VersionChecker:
         Returns:
             Dict with formatted version information
         """
-        version, channel, build_date = self.get_current_version()
+        from src.common.utils.version_helper import get_version_info, get_display_name
         
-        return {
-            "version": version,
-            "channel": channel,
-            "build_date": build_date,
-            "formatted": f"{version} ({channel}, built on {build_date})"
-        }
+        # Lấy thông tin phiên bản từ helper
+        version_info = get_version_info()
+        
+        # Thêm trường formatted
+        version_info["formatted"] = f"{version_info['display_name']} (built on {version_info['build_date']})"
+        
+        return version_info
         
     @log_call
     def compare_versions(self, version1: str, version2: str) -> int:

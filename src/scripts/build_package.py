@@ -18,48 +18,40 @@ from typing import Optional
 
 def read_version_info():
     """
-    Read version information from version.py.
+    Read version information using version_helper.
     
     Returns:
         tuple: (version, channel, build_date)
     """
-    # Get the path to version.py
+    # Get the root directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
-    version_file = os.path.join(project_root, "version.py")
     
-    # Default values
-    version = "0.0.0"
-    channel = "stable"
-    build_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    # Add project root to path to import version_helper
+    import sys
+    sys.path.insert(0, os.path.dirname(project_root))
     
     try:
-        # Read the file
-        with open(version_file, "r") as f:
-            content = f.read()
-            
-        # Extract values using regex
-        version_match = re.search(r'VERSION = "([^"]+)"', content)
-        if version_match:
-            version = version_match.group(1)
-            
-        channel_match = re.search(r'CHANNEL = "([^"]+)"', content)
-        if channel_match:
-            channel = channel_match.group(1)
-            
-        date_match = re.search(r'BUILD_DATE = "([^"]+)"', content)
-        if date_match:
-            build_date = date_match.group(1)
+        from src.common.utils.version_helper import get_version, get_channel, get_build_date
+        
+        # Get version information
+        version = get_version()
+        channel = get_channel()
+        build_date = get_build_date()
             
         return version, channel, build_date
     except Exception as e:
-        print(f"Error reading version file: {str(e)}")
+        print(f"Error reading version info: {str(e)}")
+        # Default values if error
+        version = "0.0.0"
+        channel = "stable"
+        build_date = datetime.datetime.now().strftime("%Y-%m-%d")
         return version, channel, build_date
 
 
-def update_version_file(channel: str) -> bool:
+def update_version_info(channel: str) -> bool:
     """
-    Update the channel and build date in version.py.
+    Update the channel and build date in config using version_helper.
     
     Args:
         channel: The channel to set
@@ -67,39 +59,34 @@ def update_version_file(channel: str) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    # Get the path to version.py
+    # Get the root directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
-    version_file = os.path.join(project_root, "version.py")
+    
+    # Add project root to path to import version_helper
+    import sys
+    sys.path.insert(0, os.path.dirname(project_root))
     
     try:
-        # Read the current content
-        with open(version_file, "r") as f:
-            content = f.read()
+        from src.common.utils.version_helper import get_version, update_version_info
         
-        # Update the channel
-        content = re.sub(
-            r'CHANNEL = "[^"]+"',
-            f'CHANNEL = "{channel}"',
-            content
-        )
+        # Get the current version
+        current_version = get_version()
         
-        # Update the build date
+        # Update build date and channel
         build_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        content = re.sub(
-            r'BUILD_DATE = "[^"]+"',
-            f'BUILD_DATE = "{build_date}"',
-            content
+        
+        # Update version info with new channel and build date
+        update_version_info(
+            version=current_version,
+            channel=channel,
+            build_date=build_date
         )
         
-        # Write the updated content
-        with open(version_file, "w") as f:
-            f.write(content)
-        
-        print(f"Updated version.py for channel {channel} with build date {build_date}")
+        print(f"Updated version info for channel {channel} with build date {build_date}")
         return True
     except Exception as e:
-        print(f"Error updating version file: {str(e)}")
+        print(f"Error updating version info: {str(e)}")
         return False
 
 
@@ -114,8 +101,8 @@ def build_package(channel: str = "stable") -> Optional[str]:
         str: The path to the created package, or None if an error occurred
     """
     try:
-        # Update version.py
-        if not update_version_file(channel):
+        # Update version info
+        if not update_version_info(channel):
             return None
         
         # Read version information

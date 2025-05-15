@@ -15,7 +15,7 @@ from typing import Optional
 
 def update_version_file(new_version: str) -> bool:
     """
-    Update the version in the version.py file.
+    Update the version in the config.
     
     Args:
         new_version: The new version to set
@@ -23,31 +23,18 @@ def update_version_file(new_version: str) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    # Get the path to version.py
+    # Cập nhật thông tin phiên bản trong config
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
-    version_file = os.path.join(project_root, "version.py")
+    sys.path.insert(0, os.path.dirname(project_root))
     
     try:
-        # Read the current content
-        with open(version_file, "r") as f:
-            content = f.read()
-        
-        # Update the version
-        content = re.sub(
-            r'VERSION = "[^"]+"',
-            f'VERSION = "{new_version}"',
-            content
-        )
-        
-        # Write the updated content
-        with open(version_file, "w") as f:
-            f.write(content)
-        
-        print(f"Updated version in {version_file} to {new_version}")
+        from src.common.utils.version_helper import update_version_info
+        update_version_info(version=new_version)
+        print(f"Updated version to {new_version}")
         return True
     except Exception as e:
-        print(f"Error updating version file: {str(e)}")
+        print(f"Lỗi khi cập nhật phiên bản: {str(e)}")
         return False
 
 
@@ -63,8 +50,16 @@ def commit_and_tag(new_version: str, push: bool = False) -> bool:
         bool: True if successful, False otherwise
     """
     try:
-        # Add version.py to staging
-        subprocess.run(["git", "add", "src/version.py"], check=True)
+        # Add config file to staging
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        config_path = os.path.join(project_root, "..", "data", "config", "config.json")
+        
+        # Add config to staging if it exists
+        if os.path.exists(config_path):
+            subprocess.run(["git", "add", config_path], check=True)
+        else:
+            print("Config file not found, this might be a new installation")
         
         # Commit the change
         subprocess.run(
@@ -115,7 +110,8 @@ def bump_version(level: str = "patch", version: Optional[str] = None, push: bool
         project_root = os.path.dirname(script_dir)
         sys.path.insert(0, project_root)
         
-        from src.version import VERSION as current_version
+        from src.common.utils.version_helper import get_version
+        current_version = get_version()
         
         # Calculate the new version
         if version:

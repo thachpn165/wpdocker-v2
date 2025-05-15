@@ -58,16 +58,24 @@ def display_banner() -> None:
     # Display system information
     try:
         from src.common.utils.system_info import format_system_info
-        from src.version import VERSION, CHANNEL
+        from src.common.utils.version_helper import get_version, get_channel, get_display_name
         from src.common.config.manager import ConfigManager
+        
+        # Kiểm tra có phiên bản mới không
+        update_available = None
+        if env.get("CORE_UPDATE_CHECK", True):
+            try:
+                from src.features.update.core.version_updater import check_for_updates
+                update_info = check_for_updates()
+                if update_info:
+                    update_available = update_info
+            except Exception as e:
+                debug(f"Lỗi kiểm tra phiên bản trong banner: {str(e)}")
 
-        # Lấy kênh từ config.json với giá trị mặc định từ version.py
-        config = ConfigManager()
-        user_channel = config.get("core.channel", CHANNEL)
-
-        # Đảm bảo giá trị channel hợp lệ
-        if not user_channel or user_channel not in ["stable", "nightly", "dev"]:
-            user_channel = CHANNEL
+        # Lấy thông tin phiên bản từ helper
+        version = get_version()
+        user_channel = get_channel()
+        display_name = get_display_name()
 
         sys_info = format_system_info()
 
@@ -75,7 +83,46 @@ def display_banner() -> None:
         console.print("╔════════════════════════════════════════════════════════════════════════════╗", style="bright_blue")
         console.print(f"║ [cyan]CPU:[/cyan] {sys_info['cpu']}".ljust(83) + "║", style="bright_blue")
         console.print(f"║ [cyan]RAM:[/cyan] {sys_info['ram']}".ljust(83) + "║", style="bright_blue")
-        console.print(f"║ [cyan]Phiên bản:[/cyan] {VERSION} ([green]{user_channel}[/green])".ljust(83) + "║", style="bright_blue")
+        console.print(f"║ [cyan]Phiên bản:[/cyan] {display_name}".ljust(83) + "║", style="bright_blue")
+        
+        # Hiển thị thông báo nếu có phiên bản mới
+        if update_available:
+            # Sử dụng display_version nếu có, nếu không thì dùng version
+            new_version = update_available.get("display_version", update_available["version"])
+            new_channel = update_available.get("channel", "stable")
+            
+            # Tạo nội dung thông báo phong phú hơn nếu có metadata
+            update_message = f"🔔 Có phiên bản mới: {new_version}"
+            
+            # Thêm thông tin metadata nếu có
+            metadata = update_available.get("metadata", {})
+            
+            # Thêm code_name nếu có và chưa nằm trong display_version
+            if metadata and "code_name" in metadata and metadata["code_name"] not in new_version:
+                update_message += f" \"{metadata['code_name']}\""
+                
+            # Thêm build number nếu là nightly build và có build number
+            if new_channel == "nightly" and metadata and "build_number" in metadata:
+                if f"Build {metadata['build_number']}" not in new_version:
+                    update_message += f" (Build {metadata['build_number']})"
+            elif new_channel != "stable" and "nightly" not in new_version.lower():
+                update_message += f" ({new_channel.capitalize()})"
+                
+            # Thêm thông tin ngày build cho nightly builds
+            if new_channel == "nightly" and metadata and "build_date" in metadata:
+                if metadata["build_date"] not in new_version:
+                    date_parts = metadata["build_date"].split("-")
+                    if len(date_parts) == 3:
+                        formatted_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"
+                        if formatted_date not in new_version:
+                            update_message += f" - {formatted_date}"
+            
+            # Giới hạn độ dài của message để đảm bảo format hiển thị đẹp
+            if len(update_message) > 75:
+                update_message = update_message[:72] + "..."
+                
+            console.print(f"║ [yellow]{update_message}[/yellow]".ljust(83) + "║", style="bright_blue")
+            
         console.print("╚════════════════════════════════════════════════════════════════════════════╝", style="bright_blue")
     except Exception as e:
         debug(f"Không thể hiển thị thông tin hệ thống: {str(e)}")
@@ -335,13 +382,13 @@ def main() -> None:
         # Main loop with update checking at the end of each cycle
         while not exit_requested:
             # Check for updates if enabled (at the end of the menu cycle)
-            if not env.get("DISABLE_UPDATE_CHECK", False):
-                debug("Checking for updates...")
+            if env.get("CORE_UPDATE_CHECK", True):
+                info("Đang kiểm tra bản cập nhật...")
                 try:
                     from src.features.update.core.version_updater import prompt_update
                     prompt_update()
                 except Exception as e:
-                    debug(f"Failed to check for updates: {e}")
+                    error(f"Lỗi kiểm tra cập nhật: {e}")
 
             # Show menu again
             continue_menu = show_main_menu()

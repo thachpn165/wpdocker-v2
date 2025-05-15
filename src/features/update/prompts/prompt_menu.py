@@ -71,7 +71,7 @@ def prompt_check_version() -> None:
 def prompt_upgrade() -> None:
     """Prompt to apply updates."""
     from src.features.update.actions import check_version_action, update_action
-    from src.version import VERSION
+    from src.common.utils.version_helper import get_version, get_display_name
 
     # First check if updates are available
     info("Đang kiểm tra bản cập nhật...")
@@ -86,12 +86,39 @@ def prompt_upgrade() -> None:
 
     # Show update information
     update_info = check_result["update_info"]
-    current_version = VERSION
+    current_version = get_version()
+    current_display_name = get_display_name()
     new_version = update_info.get("version", "unknown")
+    new_display_version = update_info.get("display_version", new_version)
+    
+    # Tạo mô tả phong phú hơn cho phiên bản mới nếu có metadata
+    metadata = update_info.get("metadata", {})
+    version_description = new_display_version
+    channel = update_info.get("channel", "stable")
+    
+    # Thêm code_name nếu có và chưa có trong display_version
+    if metadata and "code_name" in metadata and metadata["code_name"] not in new_display_version:
+        version_description += f" \"{metadata['code_name']}\""
+    
+    # Thêm thông tin kênh và build nếu có
+    if channel == "nightly" and metadata and "build_number" in metadata:
+        if f"Build {metadata['build_number']}" not in new_display_version:
+            version_description += f" (Build {metadata['build_number']})"
+    elif channel != "stable" and "nightly" not in new_display_version.lower():
+        version_description += f" ({channel.capitalize()})"
+    
+    # Thêm thông tin ngày build cho nightly builds
+    if channel == "nightly" and metadata and "build_date" in metadata:
+        if metadata["build_date"] not in new_display_version:
+            date_parts = metadata["build_date"].split("-")
+            if len(date_parts) == 3:
+                formatted_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"
+                if formatted_date not in new_display_version:
+                    version_description += f" - {formatted_date}"
 
     # Ask for confirmation
     confirm = questionary.confirm(
-        f"Cập nhật từ {current_version} lên {new_version}?",
+        f"Cập nhật từ {current_display_name} lên {version_description}?",
         default=True
     ).ask()
 
