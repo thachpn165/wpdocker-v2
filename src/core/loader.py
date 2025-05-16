@@ -57,6 +57,8 @@ class CoreLoader:
             "tabulate": "tabulate",
             "psutil": "psutil",
             "click": "click",
+            "passlib": "passlib",
+            "jsons": "jsons",
         }
 
     @log_call

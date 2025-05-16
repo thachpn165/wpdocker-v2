@@ -150,6 +150,9 @@ class MySQLBootstrap(BaseBootstrap):
             # Log important paths
             self.debug.debug(f"MySQL container name: {mysql_container}")
             self.debug.debug(f"MySQL config file path: {config_path}")
+            
+            # Ensure Docker network exists before continuing
+            self._ensure_docker_network()
 
             # Step 1: Configure MySQL version
             if not self._configure_mysql_version():
@@ -392,3 +395,52 @@ thread_cache_size = {thread_cache_size}
         """
         # Delegate to the ensure_mysql_config_file function
         return self.ensure_mysql_config_file()
+        
+    def _ensure_docker_network(self) -> bool:
+        """
+        Ensure the Docker network required by MySQL exists.
+        
+        This method checks if the network defined in DOCKER_NETWORK exists,
+        and creates it if it doesn't.
+        
+        Returns:
+            bool: True if the network exists or was created, False if error
+        """
+        network = env["DOCKER_NETWORK"]
+        try:
+            import subprocess
+            
+            # Check if network exists
+            self.debug.info(f"Checking if Docker network {network} exists...")
+            result = subprocess.run(
+                ["docker", "network", "ls", "--format", "{{.Name}}"],
+                capture_output=True, text=True
+            )
+            
+            # If command failed, log and return False
+            if result.returncode != 0:
+                self.debug.error(f"Failed to check Docker networks: {result.stderr}")
+                return False
+                
+            networks = result.stdout.strip().splitlines()
+            
+            # If network doesn't exist, create it
+            if network not in networks:
+                self.debug.warn(f"Docker network {network} not found, creating it...")
+                create_result = subprocess.run(
+                    ["docker", "network", "create", network],
+                    capture_output=True, text=True
+                )
+                
+                if create_result.returncode != 0:
+                    self.debug.error(f"Failed to create Docker network: {create_result.stderr}")
+                    return False
+                    
+                self.debug.success(f"Created Docker network: {network}")
+            else:
+                self.debug.info(f"Docker network {network} already exists")
+                
+            return True
+        except Exception as e:
+            self.debug.error(f"Error checking/creating Docker network: {e}")
+            return False
