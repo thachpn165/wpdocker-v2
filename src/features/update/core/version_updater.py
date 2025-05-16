@@ -987,50 +987,107 @@ class VersionUpdater:
     @log_call
     def download_and_install(self, update_info: Dict[str, Any]) -> bool:
         """
-        Hiển thị thông báo tượng trưng về việc cập nhật mà không thực hiện cập nhật thực tế.
-
+        Tải xuống và cài đặt bản cập nhật vào hệ thống.
+        
+        Quy trình cập nhật:
+        1. Tải xuống file cập nhật từ URL
+        2. Sao lưu cài đặt hiện tại
+        3. Cài đặt bản cập nhật mới
+        4. Cập nhật dependencies
+        5. Cập nhật thông tin phiên bản trong config.json
+        
         Args:
             update_info: Thông tin bản cập nhật từ check_for_updates()
-
+            
         Returns:
-            True để mô phỏng cập nhật thành công
+            True nếu cập nhật thành công, False nếu thất bại
         """
+        info(f"Bắt đầu quy trình cập nhật phiên bản: {update_info.get('display_version', update_info['version'])}")
+        
         try:
-            # Hiển thị thông báo tượng trưng
-            self.debug.info("===== CHỨC NĂNG CẬP NHẬT TỰ ĐỘNG ĐÃ ĐƯỢC VÔ HIỆU HÓA =====")
-            self.debug.info(f"Phiên bản có sẵn để cập nhật: {update_info['version']} ({update_info.get('channel', 'stable')})")
-            self.debug.info(f"URL tải xuống: {update_info['url']}")
-            self.debug.info("Công cụ cập nhật đang được phát triển độc lập...")
-            self.debug.info("Vui lòng sử dụng tính năng cập nhật thủ công từ GitHub Releases:")
-            self.debug.info("https://github.com/thachpn165/wpdocker-v2/releases")
-
-            # Giả lập thời gian xử lý
-            import time
-            time.sleep(1)
-
-            # Lưu thông tin phiên bản vào config.json nếu có thể
+            # Tạo thư mục backup
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_dir = os.path.join(self.temp_dir, f"backup_{timestamp}")
+            
+            # Bước 1: Tải xuống bản cập nhật
+            info("Bước 1/5: Đang tải xuống bản cập nhật...")
+            zip_path = self.download_update(update_info)
+            if not zip_path:
+                error("❌ Tải bản cập nhật thất bại")
+                return False
+            info("✅ Đã tải xuống bản cập nhật thành công")
+            
+            # Bước 2: Sao lưu cài đặt hiện tại
+            info("Bước 2/5: Đang sao lưu cài đặt hiện tại...")
+            backup_success = self._backup_current_installation(backup_dir)
+            if not backup_success:
+                error("❌ Sao lưu thất bại, hủy việc cập nhật")
+                return False
+            info(f"✅ Đã sao lưu cài đặt hiện tại vào: {backup_dir}")
+            
+            # Bước 3: Cài đặt bản cập nhật
+            info("Bước 3/5: Đang cài đặt bản cập nhật...")
+            install_success = self._install_update(zip_path)
+            if not install_success:
+                error("❌ Cài đặt thất bại, đang khôi phục từ bản sao lưu...")
+                self._restore_from_backup(backup_dir)
+                return False
+            info("✅ Đã cài đặt bản cập nhật thành công")
+            
+            # Bước 4: Cập nhật dependencies
+            info("Bước 4/5: Đang cập nhật dependencies...")
+            dependencies_success = self._update_dependencies()
+            if not dependencies_success:
+                warn("⚠️ Cập nhật dependencies thất bại, nhưng vẫn tiếp tục")
+            else:
+                info("✅ Đã cập nhật dependencies thành công")
+                
+            # Bước 5: Cập nhật thông tin phiên bản trong config.json
+            info("Bước 5/5: Đang cập nhật thông tin phiên bản...")
             try:
                 # Sử dụng version_helper để cập nhật thông tin phiên bản
                 from src.common.utils.version_helper import update_version_info
                 display_version = update_info.get("display_version", update_info["version"])
                 
-                # Cập nhật thông tin phiên bản với metadata đầy đủ nếu có
+                # Chuẩn bị dữ liệu cập nhật
+                version_data = {
+                    "version": update_info["version"],
+                    "channel": update_info.get("channel", "stable"),
+                    "display_name": display_version
+                }
+                
+                # Thêm build_date từ published_at nếu có
+                if update_info.get("published_at"):
+                    build_date = update_info["published_at"].split("T")[0] if "T" in update_info["published_at"] else update_info["published_at"]
+                    version_data["build_date"] = build_date
+                
+                # Thêm metadata nếu có
                 metadata = update_info.get("metadata", {})
+                if metadata:
+                    version_data["metadata"] = metadata
+                
+                # Cập nhật thông tin vào config
                 update_version_info(
-                    version=update_info["version"],
-                    display_name=display_version,
-                    channel=update_info.get("channel", "stable"),
-                    build_date=update_info.get("published_at", "").split("T")[0] if update_info.get("published_at") else None,
+                    version=version_data["version"],
+                    channel=version_data["channel"],
+                    display_name=version_data["display_name"],
+                    build_date=version_data.get("build_date"),
                     metadata=metadata
                 )
-                self.debug.info(f"Đã cập nhật thông tin phiên bản trong config.json: {display_version}")
+                
+                info(f"✅ Đã cập nhật thông tin phiên bản trong config.json: {display_version}")
             except Exception as e:
-                self.debug.warn(f"Không thể cập nhật thông tin phiên bản trong config: {str(e)}")
-
+                error(f"❌ Không thể cập nhật thông tin phiên bản trong config: {str(e)}")
+                # Cập nhật thông tin phiên bản thất bại nhưng vẫn tiếp tục
+            
+            # Hoàn tất quy trình cập nhật
+            info("🎉 Cập nhật phiên bản hoàn tất thành công!")
             return True
-
+            
         except Exception as e:
-            self.debug.error(f"Lỗi khi xử lý thông tin cập nhật: {str(e)}")
+            error(f"❌ Lỗi trong quá trình cập nhật: {str(e)}")
+            import traceback
+            self.debug.error(traceback.format_exc())
             return False
             
     @log_call
