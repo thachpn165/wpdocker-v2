@@ -78,6 +78,96 @@ install_python_macos() {
     pip3 install --upgrade pip setuptools wheel virtualenv
 }
 
+# Kiểm tra pip
+check_pip() {
+    print_msg step "Checking for pip installation..."
+    
+    # Kiểm tra pip đã cài đặt chưa
+    if python3 -m pip --version &>/dev/null; then
+        print_msg success "Pip is installed: $(python3 -m pip --version)"
+        return 0
+    else
+        print_msg warning "Pip is not installed or not in PATH"
+        return 1
+    fi
+}
+
+# Cài đặt pip
+install_pip() {
+    print_msg step "Installing pip..."
+    local os_name=""
+    local os_id=""
+
+    if [[ "$(uname)" == "Darwin" ]]; then
+        os_name="macos"
+    elif [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        os_id="${ID}"
+        os_name="${ID_LIKE:-$ID}"
+    fi
+
+    case "$os_name" in
+    macos)
+        # Trên macOS, pip thường được cài đặt cùng với Python từ Homebrew
+        brew reinstall python
+        ;;
+    debian | ubuntu)
+        print_msg info "Installing pip for Python on Ubuntu/Debian..."
+        # Thử cài đặt python3-pip qua apt
+        apt update && apt install -y python3-pip
+        
+        # Nếu không thành công, thử cài đặt pip từ getpip
+        if ! python3 -m pip --version &>/dev/null; then
+            print_msg info "Installing pip using get-pip.py..."
+            wget -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
+            python3 /tmp/get-pip.py
+            rm -f /tmp/get-pip.py
+        fi
+        ;;
+    rhel | centos | fedora | almalinux)
+        print_msg info "Installing pip for Python on RHEL/CentOS..."
+        # Thử cài đặt python3-pip thông qua dnf hoặc yum
+        if command -v dnf &>/dev/null; then
+            dnf install -y python3-pip
+        else
+            yum install -y python3-pip
+        fi
+        
+        # Nếu không thành công, thử cài đặt pip từ getpip
+        if ! python3 -m pip --version &>/dev/null; then
+            print_msg info "Installing pip using get-pip.py..."
+            curl -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
+            python3 /tmp/get-pip.py
+            rm -f /tmp/get-pip.py
+        fi
+        ;;
+    *)
+        print_msg info "Installing pip using get-pip.py..."
+        # Thử cài đặt pip bằng phương pháp generic
+        if command -v curl &>/dev/null; then
+            curl -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
+        elif command -v wget &>/dev/null; then
+            wget -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
+        else
+            print_msg error "Neither curl nor wget is available. Cannot download get-pip.py"
+            return 1
+        fi
+        
+        python3 /tmp/get-pip.py
+        rm -f /tmp/get-pip.py
+        ;;
+    esac
+
+    # Kiểm tra lại
+    if python3 -m pip --version &>/dev/null; then
+        print_msg success "Pip installed successfully: $(python3 -m pip --version)"
+        return 0
+    else
+        print_msg error "Failed to install pip"
+        return 1
+    fi
+}
+
 # Kiểm tra virtualenv
 check_virtualenv() {
     print_msg step "Checking for virtualenv support..."
@@ -108,40 +198,65 @@ install_virtualenv() {
 
     case "$os_name" in
     macos)
-        pip3 install virtualenv
+        python3 -m pip install virtualenv
         ;;
     debian | ubuntu)
         PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
         print_msg info "Installing virtualenv packages for Python $PYTHON_VERSION on Ubuntu/Debian..."
         
-        # Try version-specific venv package first
+        # Thử cài đặt gói venv cụ thể cho phiên bản trước
         if apt-cache show python$PYTHON_VERSION-venv &>/dev/null; then
             apt install -y python$PYTHON_VERSION-venv
+        elif apt-cache show python3-venv &>/dev/null; then
+            apt install -y python3-venv
         else
-            apt install -y python3-venv || pip3 install virtualenv
+            # Fallback to pip if system packages not available
+            print_msg info "System packages not available, attempting to install virtualenv via pip..."
+            python3 -m pip install virtualenv
+        fi
+        
+        # Cài đặt python3-dev nếu cần
+        if ! apt-cache show python$PYTHON_VERSION-dev &>/dev/null || ! apt-cache show python3-dev &>/dev/null; then
+            print_msg info "Installing Python development headers..."
+            apt install -y python$PYTHON_VERSION-dev || apt install -y python3-dev
         fi
         ;;
     rhel | centos | fedora | almalinux)
         print_msg info "Installing virtualenv packages for RHEL/CentOS..."
         if command -v dnf &>/dev/null; then
-            dnf install -y python3-virtualenv || pip3 install virtualenv
+            dnf install -y python3-virtualenv python3-devel || python3 -m pip install virtualenv
         else
-            yum install -y python3-virtualenv || pip3 install virtualenv
+            yum install -y python3-virtualenv python3-devel || python3 -m pip install virtualenv
         fi
         ;;
     *)
         print_msg info "Attempting to install virtualenv using pip..."
-        pip3 install virtualenv
+        python3 -m pip install virtualenv
         ;;
     esac
 
-    # Verify installation
-    if python3 -m venv --help &>/dev/null || python3 -m virtualenv --help &>/dev/null; then
-        print_msg success "Virtualenv support installed successfully"
+    # Kiểm tra lại cài đặt
+    if python3 -m venv --help &>/dev/null; then
+        print_msg success "Python venv module installed successfully"
+        return 0
+    elif python3 -m virtualenv --help &>/dev/null; then
+        print_msg success "Virtualenv installed successfully"
+        return 0
+    elif python3 -m pip show virtualenv &>/dev/null; then
+        print_msg success "Virtualenv package installed successfully (via pip)"
         return 0
     else
-        print_msg error "Failed to install virtualenv support"
-        return 1
+        # Thử cài đặt lại bằng pip nếu các phương pháp trên đều không thành công
+        print_msg warning "System package installation failed, trying pip installation as fallback..."
+        python3 -m pip install virtualenv
+        
+        if python3 -m pip show virtualenv &>/dev/null; then
+            print_msg success "Virtualenv installed successfully via pip fallback"
+            return 0
+        else
+            print_msg error "Failed to install virtualenv support"
+            return 1
+        fi
     fi
 }
 
@@ -192,14 +307,14 @@ install_python() {
         fi
     fi
     
-    # Kiểm tra hỗ trợ virtualenv
-    if ! check_virtualenv; then
-        print_msg warning "Python virtualenv support missing. Attempting to install..."
-        if ! install_virtualenv; then
-            print_msg error "Failed to install virtualenv support. Please install it manually."
-            print_msg info "Ubuntu/Debian: apt install python3-venv"
-            print_msg info "RHEL/CentOS: dnf/yum install python3-virtualenv"
-            print_msg info "macOS: pip3 install virtualenv"
+    # Kiểm tra pip
+    if ! check_pip; then
+        print_msg warning "Python pip is missing. Attempting to install..."
+        if ! install_pip; then
+            print_msg error "Failed to install pip. Please install it manually."
+            print_msg info "Ubuntu/Debian: apt install python3-pip"
+            print_msg info "RHEL/CentOS: dnf/yum install python3-pip"
+            print_msg info "Or you can install pip using get-pip.py: https://pip.pypa.io/en/stable/installation/"
             exit 1
         fi
     fi
@@ -207,6 +322,18 @@ install_python() {
     # Đảm bảo pip, setuptools và wheel được cập nhật
     print_msg step "Updating pip, setuptools and wheel..."
     python3 -m pip install --upgrade pip setuptools wheel
+    
+    # Kiểm tra hỗ trợ virtualenv
+    if ! check_virtualenv; then
+        print_msg warning "Python virtualenv support missing. Attempting to install..."
+        if ! install_virtualenv; then
+            print_msg error "Failed to install virtualenv support. Please install it manually."
+            print_msg info "Ubuntu/Debian: apt install python3-venv"
+            print_msg info "RHEL/CentOS: dnf/yum install python3-virtualenv" 
+            print_msg info "macOS: pip3 install virtualenv"
+            exit 1
+        fi
+    fi
     
     print_msg success "Python environment is ready"
 }
