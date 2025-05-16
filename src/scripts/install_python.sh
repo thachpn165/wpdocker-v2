@@ -25,20 +25,35 @@ install_python_ubuntu() {
     # Install Python and essential packages
     apt install -y python3 python3-pip
     
+    # Install python3-full for PEP 668 environments (Ubuntu 22.04+, Debian 12+)
+    if apt-cache show python3-full &>/dev/null; then
+        print_msg info "Installing python3-full package..."
+        apt install -y python3-full
+    fi
+    
     # Install virtualenv packages based on Python version
+    print_msg info "Installing virtualenv packages..."
     if apt-cache show python$PYTHON_VERSION-venv &>/dev/null; then
         apt install -y python$PYTHON_VERSION-venv
     elif apt-cache show python3-venv &>/dev/null; then
         apt install -y python3-venv
     else
-        apt install -y python3-venv || apt install -y python-venv || pip3 install virtualenv
+        apt install -y python3-venv || apt install -y python-venv || python3 -m pip install --user virtualenv
     fi
     
     # Install development headers (needed for some pip packages)
-    apt install -y python3-dev
+    print_msg info "Installing Python development packages..."
+    if apt-cache show python$PYTHON_VERSION-dev &>/dev/null; then
+        apt install -y python$PYTHON_VERSION-dev
+    else
+        apt install -y python3-dev
+    fi
     
-    # Make sure setuptools and wheel are installed
-    pip3 install --upgrade pip setuptools wheel
+    # Try to install ensurepip if available
+    if apt-cache show python3-venv &>/dev/null; then
+        print_msg info "Installing ensurepip module if available..."
+        apt install -y python3-venv
+    fi
 }
 
 install_python_centos() {
@@ -85,9 +100,19 @@ check_pip() {
     # Kiểm tra pip đã cài đặt chưa
     if python3 -m pip --version &>/dev/null; then
         print_msg success "Pip is installed: $(python3 -m pip --version)"
+        
+        # Kiểm tra xem có phải môi trường quản lý bên ngoài (PEP 668)
+        if python3 -m pip install --dry-run --no-user setuptools 2>&1 | grep -q "externally-managed-environment"; then
+            print_msg warning "Detected externally managed environment (PEP 668)"
+            export EXTERNALLY_MANAGED=1
+        else
+            export EXTERNALLY_MANAGED=0
+        fi
+        
         return 0
     else
         print_msg warning "Pip is not installed or not in PATH"
+        export EXTERNALLY_MANAGED=0
         return 1
     fi
 }
@@ -248,7 +273,16 @@ install_virtualenv() {
     else
         # Thử cài đặt lại bằng pip nếu các phương pháp trên đều không thành công
         print_msg warning "System package installation failed, trying pip installation as fallback..."
-        python3 -m pip install virtualenv
+        
+        # Xử lý môi trường quản lý bên ngoài
+        if [ "$EXTERNALLY_MANAGED" -eq 1 ]; then
+            # Với môi trường PEP 668, dùng --user
+            print_msg info "Using --user flag due to externally managed environment"
+            python3 -m pip install --user virtualenv
+        else
+            # Môi trường bình thường
+            python3 -m pip install virtualenv
+        fi
         
         if python3 -m pip show virtualenv &>/dev/null; then
             print_msg success "Virtualenv installed successfully via pip fallback"
@@ -319,9 +353,14 @@ install_python() {
         fi
     fi
     
-    # Đảm bảo pip, setuptools và wheel được cập nhật
-    print_msg step "Updating pip, setuptools and wheel..."
-    python3 -m pip install --upgrade pip setuptools wheel
+    # Đảm bảo pip, setuptools và wheel được cập nhật, nếu không phải môi trường bị quản lý bên ngoài
+    if [ "$EXTERNALLY_MANAGED" -eq 0 ]; then
+        print_msg step "Updating pip, setuptools and wheel..."
+        python3 -m pip install --upgrade pip setuptools wheel
+    else
+        print_msg warning "Skipping global pip packages update due to externally managed environment (PEP 668)"
+        print_msg info "Will use a virtual environment for package installation"
+    fi
     
     # Kiểm tra hỗ trợ virtualenv
     if ! check_virtualenv; then
