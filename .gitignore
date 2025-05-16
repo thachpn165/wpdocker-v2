@@ -12,8 +12,8 @@ ai_read.md
 
 
 # Private folders
-config/
-data/
+/config
+/data
 
 # Python cache and build artifacts
 __pycache__/
