@@ -80,8 +80,43 @@ else
 fi
 
 # Đảm bảo PYTHONPATH được thiết lập đúng trước khi chạy
-export PYTHONPATH="$INSTALL_DIR"
+export PYTHONPATH="$INSTALL_DIR:$ACTUAL_INSTALL_DIR"
 echo "📊 Using PYTHONPATH: $PYTHONPATH"
+
+# Tạo file init.py nếu cần thiết (đảm bảo các thư mục được nhận diện là package Python)
+# Đặc biệt quan trọng cho symlink trên Linux
+check_init_file() {
+    local dir="$1"
+    if [ -d "$dir" ] && [ ! -f "$dir/__init__.py" ]; then
+        echo "📦 Tạo file __init__.py trong $dir"
+        touch "$dir/__init__.py"
+    fi
+}
+
+echo "🔍 Kiểm tra và đảm bảo các module Python hoạt động đúng..."
+
+# Chỉ kiểm tra các thư mục con của common nếu không tìm thấy common.config
+if ! python3 -c "import src.common.config" 2>/dev/null; then
+    echo "⚠️ Không tìm thấy module src.common.config, kiểm tra cấu trúc package..."
+    COMMON_CONFIG_DIR="$INSTALL_DIR/src/common/config"
+    mkdir -p "$COMMON_CONFIG_DIR"
+    check_init_file "$INSTALL_DIR/src"
+    check_init_file "$INSTALL_DIR/src/common"
+    check_init_file "$COMMON_CONFIG_DIR"
+    
+    # Kiểm tra có file quản lý cấu hình không
+    if [ ! -f "$COMMON_CONFIG_DIR/manager.py" ]; then
+        echo "🔄 Sao chép file manager.py từ thư mục gốc..."
+        if [ -f "$ACTUAL_INSTALL_DIR/src/common/config/manager.py" ]; then
+            cp "$ACTUAL_INSTALL_DIR/src/common/config/manager.py" "$COMMON_CONFIG_DIR/"
+        fi
+    fi
+fi
+
+# Thử một cách khác: sử dụng PYTHONPATH tương đối
+# Thêm thư mục src vào PYTHONPATH
+export PYTHONPATH="$PYTHONPATH:$INSTALL_DIR/src"
+echo "📊 Updated PYTHONPATH: $PYTHONPATH"
 
 # Hiển thị thông tin môi trường để debug
 echo "🔍 Thông tin môi trường Python:"
@@ -89,5 +124,28 @@ echo "Python path: $(which python3)"
 echo "Virtual env Python: $PYTHON_EXEC"
 echo "Virtualenv active: $VIRTUAL_ENV"
 
+# Chạy chương trình chính với tùy chọn đặc biệt - điều chỉnh sys.path
+"$PYTHON_EXEC" -c "
+import sys, os
+sys.path.insert(0, '$INSTALL_DIR')
+sys.path.insert(0, '$ACTUAL_INSTALL_DIR')
+
+# Kiểm tra sys.path
+print('Python sys.path:')
+for p in sys.path[:5]:
+    print(f'  - {p}')
+
+# Kiểm tra module
+try:
+    import src
+    print('✅ Module src loaded successfully')
+except ImportError as e:
+    print(f'❌ Failed to load src: {e}')
+
 # Chạy chương trình chính
-"$PYTHON_EXEC" "$MAIN_FILE"
+try:
+    sys.argv[0] = '$MAIN_FILE'
+    exec(open('$MAIN_FILE').read())
+except Exception as e:
+    print(f'❌ Error running main program: {e}')
+"
