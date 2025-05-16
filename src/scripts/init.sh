@@ -61,15 +61,26 @@ else
     echo "⚠️ Không tìm thấy tệp activate. Cố gắng tiếp tục mà không kích hoạt virtualenv..."
 fi
 
-# Đảm bảo PYTHONPATH được thiết lập đúng trước khi chạy
-export PYTHONPATH="$INSTALL_DIR"
-echo "📊 Using PYTHONPATH: $PYTHONPATH"
-
 # Hiển thị thông tin môi trường để debug
 echo "🔍 Thông tin môi trường Python:"
 echo "Python path: $(which python3)"
 echo "Virtual env Python: $PYTHON_EXEC"
 echo "Virtualenv active: $VIRTUAL_ENV"
 
+# Kiểm tra có thể import src không
+echo "🔍 Kiểm tra khả năng import module src..."
+if "$PYTHON_EXEC" -c "import src" 2>/dev/null; then
+    echo "✅ Module src đã sẵn sàng để sử dụng"
+else
+    echo "⚠️ Không thể import module src, có thể cần cài đặt package"
+    
+    # Cài đặt package trong chế độ development nếu chưa cài đặt
+    if [ -f "$INSTALL_DIR/setup.py" ]; then
+        echo "📦 Cài đặt project trong chế độ development..."
+        pip install -e "$INSTALL_DIR"
+    fi
+fi
+
 # Chạy chương trình chính
+cd "$INSTALL_DIR"  # Đảm bảo thư mục hiện tại là thư mục cài đặt
 "$PYTHON_EXEC" "$MAIN_FILE"

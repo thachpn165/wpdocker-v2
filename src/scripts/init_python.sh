@@ -37,8 +37,19 @@ init_python_env() {
         echo "📦 Installing Python dependencies..."
         pip install --upgrade pip
         pip install -r "$INSTALL_DIR/requirements.txt"
+        
+        # Cài đặt package hiện tại ở chế độ development
+        echo "📦 Installing project as a development package..."
+        pip install -e "$INSTALL_DIR"
+        
         touch "$VENV_DIR/.installed"
     else
-        echo "✅ Python dependencies already installed."
+        # Kiểm tra xem package đã được cài đặt chưa
+        if ! pip show wpdocker &>/dev/null; then
+            echo "📦 Installing project as a development package..."
+            pip install -e "$INSTALL_DIR"
+        else
+            echo "✅ Python dependencies already installed."
+        fi
     fi
 }
