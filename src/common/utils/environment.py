@@ -15,31 +15,34 @@ def load_environment(env_file: str = None) -> Dict[str, str]:
     Load environment variables from a specified file.
     
     Args:
-        env_file: Path to environment file. If None, tries to find core.env in standard locations.
+        env_file: Path to environment file. If None, uses fixed path at /opt/wp-docker/core.env.
         
     Returns:
         Dictionary containing environment variables and their values.
     """
     if env_file is None:
-        # Find the core.env file in standard locations
-        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-        
-        # Check standard locations in priority order
-        standard_locations = [
-            os.path.join(base_path, "core.env"),  # Root directory (primary)
-            os.path.join(base_path, "src", "config", "core.env"),  # src/config (fallback)
-            os.path.join(base_path, "config", "core.env"),  # config/ (legacy)
-            os.path.join(base_path, "core", "core.env"),  # core/ (legacy)
-        ]
-        
-        for location in standard_locations:
-            if os.path.isfile(location):
-                env_file = location
-                break
+        # Sử dụng đường dẫn cố định cho file core.env
+        fixed_env_file = "/opt/wp-docker/core.env"
+        env_file = fixed_env_file
     
     if not os.path.isfile(env_file):
-        print(f"Configuration file not found: {env_file}")
-        return {}
+        # Nếu không tìm thấy file ở đường dẫn cố định
+        print(f"Warning: Configuration file not found at fixed path: {env_file}")
+        
+        # Fallback: thử tìm ở thư mục hiện tại hoặc thư mục cha
+        fallback_paths = [
+            os.path.join(os.getcwd(), "core.env"),  # Thư mục hiện tại
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../core.env")),  # Thư mục cha của src
+        ]
+        
+        for path in fallback_paths:
+            if os.path.isfile(path):
+                print(f"Using fallback configuration file at: {path}")
+                env_file = path
+                break
+        else:
+            print(f"No configuration file found. Using empty configuration.")
+            return {}
 
     result = {}
     with open(env_file) as f:

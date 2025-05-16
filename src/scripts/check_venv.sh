@@ -2,10 +2,7 @@
 # Script kiểm tra môi trường ảo Python
 # Sử dụng: ./check_venv.sh
 
-# Lấy đường dẫn tuyệt đối đến thư mục cài đặt
-INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VENV_DIR="$INSTALL_DIR/.venv"
-
+# Định nghĩa hàm in màu sắc
 print_color() {
     local color="$1"
     local message="$2"
@@ -45,6 +42,23 @@ echo_warning() {
 echo_info() {
     print_color "blue" "ℹ️ $1"
 }
+
+# Đường dẫn cố định cho thư mục cài đặt
+FIXED_INSTALL_DIR="/opt/wp-docker"
+
+# Đường dẫn thực tế (sẽ được sử dụng nếu đường dẫn cố định không tồn tại)
+ACTUAL_INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Sử dụng đường dẫn cố định nếu có, nếu không sử dụng đường dẫn thực tế
+if [ -d "$FIXED_INSTALL_DIR" ] || [ -L "$FIXED_INSTALL_DIR" ]; then
+    INSTALL_DIR="$FIXED_INSTALL_DIR"
+    echo_info "Sử dụng đường dẫn cố định: $INSTALL_DIR"
+else
+    INSTALL_DIR="$ACTUAL_INSTALL_DIR"
+    echo_info "Sử dụng đường dẫn thực tế: $INSTALL_DIR"
+fi
+
+VENV_DIR="$INSTALL_DIR/.venv"
 
 # Header
 echo "=========================="
