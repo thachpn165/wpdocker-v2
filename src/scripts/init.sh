@@ -28,8 +28,23 @@ init_python_env
 # Chạy backend
 echo "🚀 Launching WP Docker..."
 
+# Kích hoạt virtualenv trong shell hiện tại
+if [ -f "$VENV_DIR/bin/activate" ]; then
+    echo "🐍 Kích hoạt môi trường ảo Python trong shell chính..."
+    source "$VENV_DIR/bin/activate"
+else
+    echo "⚠️ Không tìm thấy tệp activate. Cố gắng tiếp tục mà không kích hoạt virtualenv..."
+fi
+
 # Đảm bảo PYTHONPATH được thiết lập đúng trước khi chạy
 export PYTHONPATH="$INSTALL_DIR"
 echo "📊 Using PYTHONPATH: $PYTHONPATH"
 
+# Hiển thị thông tin môi trường để debug
+echo "🔍 Thông tin môi trường Python:"
+echo "Python path: $(which python3)"
+echo "Virtual env Python: $PYTHON_EXEC"
+echo "Virtualenv active: $VIRTUAL_ENV"
+
+# Chạy chương trình chính
 "$PYTHON_EXEC" "$MAIN_FILE"
