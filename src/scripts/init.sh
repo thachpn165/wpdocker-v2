@@ -28,4 +28,8 @@ init_python_env
 # Chạy backend
 echo "🚀 Launching WP Docker..."
 
+# Đảm bảo PYTHONPATH được thiết lập đúng trước khi chạy
+export PYTHONPATH="$INSTALL_DIR"
+echo "📊 Using PYTHONPATH: $PYTHONPATH"
+
 "$PYTHON_EXEC" "$MAIN_FILE"
