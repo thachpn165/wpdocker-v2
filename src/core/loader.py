@@ -55,7 +55,8 @@ class CoreLoader:
             "colorama": "colorama",
             "python-dotenv": "python-dotenv",
             "tabulate": "tabulate",
-            "psutil": "psutil"
+            "psutil": "psutil",
+            "click": "click",
         }
 
     @log_call

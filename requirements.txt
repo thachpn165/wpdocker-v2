@@ -13,3 +13,4 @@ humanize
 tabulate
 psutil
 tqdm
+click
