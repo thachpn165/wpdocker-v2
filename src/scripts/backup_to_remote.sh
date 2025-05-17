@@ -13,7 +13,7 @@ source "$BASH_UTILS_DIR/messages_utils.sh"
 
 # Check arguments
 if [ $# -lt 2 ]; then
-    error "Usage: backup_to_remote.sh website_name remote_name"
+    print_msg "error" "Usage: backup_to_remote.sh website_name remote_name"
     exit 1
 fi
 
@@ -22,12 +22,12 @@ REMOTE_NAME="$2"
 
 # Validate inputs
 if [ -z "$WEBSITE_NAME" ]; then
-    error "Website name cannot be empty"
+    print_msg "error" "Website name cannot be empty"
     exit 1
 fi
 
 if [ -z "$REMOTE_NAME" ]; then
-    error "Remote name cannot be empty"
+    print_msg "error" "Remote name cannot be empty"
     exit 1
 fi
 
@@ -41,34 +41,34 @@ if [ -z "$BACKUP_DIR" ]; then
         if [ ! -d "$SITE_BACKUP_DIR" ]; then
             mkdir -p "$SITE_BACKUP_DIR"
             if [ $? -ne 0 ]; then
-                error "Failed to create backup directory: ${SITE_BACKUP_DIR}"
+                print_msg "error" "Failed to create backup directory: ${SITE_BACKUP_DIR}"
                 exit 1
             fi
         fi
         
         BACKUP_DIR="$SITE_BACKUP_DIR"
-        info "Using site-specific backup directory: ${BACKUP_DIR}"
+        print_msg "info" "Using site-specific backup directory: ${BACKUP_DIR}"
     else
         # Fallback to a temp directory if SITES_DIR is not set
         BACKUP_DIR="/tmp/wp_docker_backups/${WEBSITE_NAME}"
         mkdir -p "$BACKUP_DIR"
         if [ $? -ne 0 ]; then
-            error "Failed to create temporary backup directory: ${BACKUP_DIR}"
+            print_msg "error" "Failed to create temporary backup directory: ${BACKUP_DIR}"
             exit 1
         fi
-        warn "SITES_DIR not set, using temporary directory: ${BACKUP_DIR}"
+        print_msg "warning" "SITES_DIR not set, using temporary directory: ${BACKUP_DIR}"
     fi
 else
     # Ensure BACKUP_DIR exists
     if [ ! -d "$BACKUP_DIR" ]; then
         mkdir -p "$BACKUP_DIR"
         if [ $? -ne 0 ]; then
-            error "Failed to create backup directory: ${BACKUP_DIR}"
+            print_msg "error" "Failed to create backup directory: ${BACKUP_DIR}"
             exit 1
         fi
     fi
     
-    info "Using configured backup directory: ${BACKUP_DIR}"
+    print_msg "info" "Using configured backup directory: ${BACKUP_DIR}"
 fi
 
 # Create a timestamp for the backup filename
@@ -78,18 +78,18 @@ BACKUP_NAME="${WEBSITE_NAME}_${TIMESTAMP}.tar.gz"
 BACKUP_PATH="${BACKUP_DIR}/${BACKUP_NAME}"
 
 # Create the backup
-info "Creating backup of ${WEBSITE_NAME}..."
+print_msg "info" "Creating backup of ${WEBSITE_NAME}..."
 "$INSTALL_DIR/src/scripts/backup_website.sh" "$WEBSITE_NAME" "$BACKUP_NAME"
 
 BACKUP_RESULT=$?
 if [ $BACKUP_RESULT -ne 0 ]; then
-    error "Failed to create backup of ${WEBSITE_NAME}"
+    print_msg "error" "Failed to create backup of ${WEBSITE_NAME}"
     exit 1
 fi
 
 # Verify the backup file exists
 if [ ! -f "$BACKUP_PATH" ]; then
-    error "Backup file not found at: ${BACKUP_PATH}"
+    print_msg "error" "Backup file not found at: ${BACKUP_PATH}"
     exit 1
 fi
 
@@ -97,15 +97,14 @@ fi
 if [ -f "${VENV_PATH}/bin/activate" ]; then
     source "${VENV_PATH}/bin/activate"
 else
-    error "Virtual environment not found at ${VENV_PATH}"
+    print_msg "error" "Virtual environment not found at ${VENV_PATH}"
     exit 1
 fi
 
-# Set the PYTHONPATH
-export PYTHONPATH="${INSTALL_DIR}"
+# PYTHONPATH is no longer needed since we're installing the package with pip install -e
 
 # Upload the backup to the remote
-info "Uploading backup to ${REMOTE_NAME}..."
+print_msg "info" "Uploading backup to ${REMOTE_NAME}..."
 python -c "
 from src.features.rclone.backup_integration import RcloneBackupIntegration;
 integration = RcloneBackupIntegration();
@@ -116,20 +115,20 @@ exit(0 if success else 1)
 
 UPLOAD_RESULT=$?
 if [ $UPLOAD_RESULT -eq 0 ]; then
-    success "Backup successfully uploaded to ${REMOTE_NAME}"
+    print_msg "success" "Backup successfully uploaded to ${REMOTE_NAME}"
     
     # Optionally clean up the backup file after successful upload
     # Uncomment the following lines if you want to remove local backups after cloud upload
-    # info "Cleaning up local backup file..."
+    # print_msg "info" "Cleaning up local backup file..."
     # rm -f "${BACKUP_PATH}"
     # if [ $? -eq 0 ]; then
-    #     info "Local backup file removed"
+    #     print_msg "info" "Local backup file removed"
     # else
-    #     warn "Failed to remove local backup file: ${BACKUP_PATH}"
+    #     print_msg "warning" "Failed to remove local backup file: ${BACKUP_PATH}"
     # fi
 else
-    error "Failed to upload backup to ${REMOTE_NAME}"
-    error "Local backup file remains at: ${BACKUP_PATH}"
+    print_msg "error" "Failed to upload backup to ${REMOTE_NAME}"
+    print_msg "error" "Local backup file remains at: ${BACKUP_PATH}"
     exit 1
 fi
 

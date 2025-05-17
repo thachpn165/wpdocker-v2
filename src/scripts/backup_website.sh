@@ -33,21 +33,20 @@ done
 
 # Check if website name is provided
 if [ -z "$WEBSITE_NAME" ]; then
-    error "Usage: backup_website.sh website_name [--provider provider_name]"
+    print_msg "error" "Usage: backup_website.sh website_name [--provider provider_name]"
     exit 1
 fi
 
-info "Creating backup for website $WEBSITE_NAME using provider $PROVIDER"
+print_msg "info" "Creating backup for website $WEBSITE_NAME using provider $PROVIDER"
 
 # Activate the Python virtual environment if it exists
 if [ -f "${VENV_PATH}/bin/activate" ]; then
     source "${VENV_PATH}/bin/activate"
 else
-    warn "Virtual environment not found at ${VENV_PATH}"
+    print_msg "warning" "Virtual environment not found at ${VENV_PATH}"
 fi
 
-# Set the PYTHONPATH
-export PYTHONPATH="${INSTALL_DIR}"
+# PYTHONPATH is no longer needed since we're installing the package with pip install -e
 
 # Run the backup using BackupManager - updated to use new structure
 python -c "
@@ -60,9 +59,9 @@ exit(0 if success else 1)
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ]; then
-    success "Backup for $WEBSITE_NAME created successfully using provider $PROVIDER"
+    print_msg "success" "Backup for $WEBSITE_NAME created successfully using provider $PROVIDER"
 else
-    error "Failed to create backup for $WEBSITE_NAME"
+    print_msg "error" "Failed to create backup for $WEBSITE_NAME"
 fi
 
 exit $EXIT_CODE

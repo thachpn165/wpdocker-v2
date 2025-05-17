@@ -1,20 +1,28 @@
+#!/bin/bash
+
+# Source message utils if not already sourced
+if [ -z "$(type -t print_msg)" ] || [ "$(type -t print_msg)" != "function" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$SCRIPT_DIR/../bash/messages_utils.sh"
+fi
+
 init_python_env() {
-    # Tạo virtualenv nếu chưa có
+    # Create virtualenv if it doesn't exist
     if [[ ! -d "$VENV_DIR" ]]; then
-        echo "📦 Creating Python virtual environment..."
+        print_msg info "Creating Python virtual environment..."
         
         # Try standard venv creation first
         if ! python3 -m venv "$VENV_DIR" 2>/tmp/venv_error.log; then
-            echo "⚠️ Standard venv creation failed. Using fallback method..."
+            print_msg warning "Standard venv creation failed. Using fallback method..."
             
             # Check if the fallback helper script exists
             HELPER_SCRIPT="$(dirname "$0")/helpers/create_venv.py"
             if [ -f "$HELPER_SCRIPT" ] && [ -x "$HELPER_SCRIPT" ]; then
-                echo "🔧 Using helper script to create virtualenv..."
+                print_msg info "Using helper script to create virtualenv..."
                 python3 "$HELPER_SCRIPT" "$VENV_DIR"
             else
-                echo "❌ Error: Unable to create virtual environment. Please check Python installation."
-                echo "Error details:"
+                print_msg error "Unable to create virtual environment. Please check Python installation."
+                print_msg info "Error details:"
                 cat /tmp/venv_error.log
                 exit 1
             fi
@@ -22,34 +30,34 @@ init_python_env() {
         
         # Verify the virtualenv was created successfully
         if [ ! -f "$VENV_DIR/bin/activate" ]; then
-            echo "❌ Error: Virtual environment created but activate script is missing."
-            echo "Please check Python installation and try again."
+            print_msg error "Virtual environment created but activate script is missing."
+            print_msg info "Please check Python installation and try again."
             exit 1
         fi
     fi
 
-    # Kích hoạt virtualenv và cài thư viện cần thiết
-    echo "🐍 Activating virtual environment..."
+    # Activate virtualenv and install necessary libraries
+    print_msg info "Activating virtual environment..."
     source "$VENV_DIR/bin/activate"
-    export PYTHONPATH="$INSTALL_DIR"
+    # PYTHONPATH is no longer needed since we're installing the package with pip install -e
 
     if [[ ! -f "$VENV_DIR/.installed" && -f "$INSTALL_DIR/requirements.txt" ]]; then
-        echo "📦 Installing Python dependencies..."
+        print_msg info "Installing Python dependencies..."
         pip install --upgrade pip
         pip install -r "$INSTALL_DIR/requirements.txt"
         
-        # Cài đặt package hiện tại ở chế độ development
-        echo "📦 Installing project as a development package..."
+        # Install current package in development mode
+        print_msg info "Installing project as a development package..."
         pip install -e "$INSTALL_DIR"
         
         touch "$VENV_DIR/.installed"
     else
-        # Kiểm tra xem package đã được cài đặt chưa
+        # Check if package is already installed
         if ! pip show wpdocker &>/dev/null; then
-            echo "📦 Installing project as a development package..."
+            print_msg info "Installing project as a development package..."
             pip install -e "$INSTALL_DIR"
         else
-            echo "✅ Python dependencies already installed."
+            print_msg success "Python dependencies already installed."
         fi
     fi
 }

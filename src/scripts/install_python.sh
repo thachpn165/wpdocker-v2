@@ -2,17 +2,9 @@
 
 set -e
 
-print_msg() {
-    local type="$1"
-    local msg="$2"
-    case "$type" in
-    step) echo -e "\033[1;34m🔹 $msg\033[0m" ;;
-    info) echo -e "\033[1;36mℹ️  $msg\033[0m" ;;
-    success) echo -e "\033[1;32m✅ $msg\033[0m" ;;
-    warning) echo -e "\033[1;33m⚠️  $msg\033[0m" ;;
-    error) echo -e "\033[1;31m$msg\033[0m" ;;
-    esac
-}
+# Source message utils
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../bash/messages_utils.sh"
 
 install_python_ubuntu() {
     print_msg info "Installing Python on Ubuntu/Debian..."
@@ -135,15 +127,15 @@ install_python_macos() {
     pip3 install --upgrade pip setuptools wheel virtualenv
 }
 
-# Kiểm tra pip
+# Check pip
 check_pip() {
     print_msg step "Checking for pip installation..."
     
-    # Kiểm tra pip đã cài đặt chưa
+    # Check if pip is installed
     if python3 -m pip --version &>/dev/null; then
         print_msg success "Pip is installed: $(python3 -m pip --version)"
         
-        # Kiểm tra xem có phải môi trường quản lý bên ngoài (PEP 668)
+        # Check if it's an externally managed environment (PEP 668)
         if python3 -m pip install --dry-run --no-user setuptools 2>&1 | grep -q "externally-managed-environment"; then
             print_msg warning "Detected externally managed environment (PEP 668)"
             export EXTERNALLY_MANAGED=1
@@ -159,7 +151,7 @@ check_pip() {
     fi
 }
 
-# Cài đặt pip
+# Install pip
 install_pip() {
     print_msg step "Installing pip..."
     local os_name=""
@@ -175,15 +167,15 @@ install_pip() {
 
     case "$os_name" in
     macos)
-        # Trên macOS, pip thường được cài đặt cùng với Python từ Homebrew
+        # On macOS, pip is usually installed with Python from Homebrew
         brew reinstall python
         ;;
     debian | ubuntu)
         print_msg info "Installing pip for Python on Ubuntu/Debian..."
-        # Thử cài đặt python3-pip qua apt
+        # Try to install python3-pip via apt
         apt update && apt install -y python3-pip
         
-        # Nếu không thành công, thử cài đặt pip từ getpip
+        # If not successful, try installing pip from getpip
         if ! python3 -m pip --version &>/dev/null; then
             print_msg info "Installing pip using get-pip.py..."
             wget -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
@@ -193,14 +185,14 @@ install_pip() {
         ;;
     rhel | centos | fedora | almalinux)
         print_msg info "Installing pip for Python on RHEL/CentOS..."
-        # Thử cài đặt python3-pip thông qua dnf hoặc yum
+        # Try to install python3-pip through dnf or yum
         if command -v dnf &>/dev/null; then
             dnf install -y python3-pip
         else
             yum install -y python3-pip
         fi
         
-        # Nếu không thành công, thử cài đặt pip từ getpip
+        # If not successful, try installing pip from getpip
         if ! python3 -m pip --version &>/dev/null; then
             print_msg info "Installing pip using get-pip.py..."
             curl -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
@@ -210,7 +202,7 @@ install_pip() {
         ;;
     *)
         print_msg info "Installing pip using get-pip.py..."
-        # Thử cài đặt pip bằng phương pháp generic
+        # Try to install pip using the generic method
         if command -v curl &>/dev/null; then
             curl -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
         elif command -v wget &>/dev/null; then
@@ -225,7 +217,7 @@ install_pip() {
         ;;
     esac
 
-    # Kiểm tra lại
+    # Check again
     if python3 -m pip --version &>/dev/null; then
         print_msg success "Pip installed successfully: $(python3 -m pip --version)"
         return 0
@@ -235,30 +227,30 @@ install_pip() {
     fi
 }
 
-# Kiểm tra virtualenv
+# Check virtualenv
 check_virtualenv() {
     print_msg step "Checking for virtualenv support..."
     
-    # Nắm được phiên bản Python chính xác
+    # Get the exact Python version
     PYTHON_FULL_VERSION=$(python3 --version 2>&1 | cut -d' ' -f2)
     PYTHON_VERSION=$(echo "$PYTHON_FULL_VERSION" | cut -d. -f1,2)
     
     print_msg info "Checking venv support for Python $PYTHON_FULL_VERSION..."
     
-    # Kiểm tra trực tiếp tính năng venv của Python
+    # Direct check for Python venv feature
     if python3 -m venv --help &>/dev/null; then
         print_msg success "Python venv module is available"
         
-        # Kiểm tra xem ensurepip có hoạt động không bằng cách tạo test venv
+        # Check if ensurepip works by creating test venv
         print_msg info "Testing venv creation functionality..."
         TEST_VENV="/tmp/test_venv_$$"
         
-        # Xóa thư mục test nếu đã tồn tại
+        # Delete test directory if it exists
         if [ -d "$TEST_VENV" ]; then
             rm -rf "$TEST_VENV"
         fi
         
-        # Thử tạo venv thử nghiệm - lưu log để debug
+        # Try to create test venv - save log for debugging
         print_msg info "Running: python3 -m venv $TEST_VENV"
         if python3 -m venv "$TEST_VENV" 2>/tmp/venv_error.log; then
             if [ -f "$TEST_VENV/bin/activate" ]; then
@@ -283,18 +275,18 @@ check_virtualenv() {
             rm -rf "$TEST_VENV"
             return 1
         fi
-    # Kiểm tra xem virtualenv có được cài đặt không
+    # Check if virtualenv is installed
     elif python3 -m virtualenv --help &>/dev/null; then
         print_msg success "Virtualenv package is available"
         return 0
-    # Kiểm tra xem gói virtualenv có được cài đặt qua pip không
+    # Check if virtualenv package is installed via pip
     elif python3 -m pip show virtualenv &>/dev/null; then
         print_msg success "Virtualenv package is installed via pip"
         return 0
     else
         print_msg warning "No virtualenv support found"
         
-        # Thêm thông tin chẩn đoán cho debug
+        # Additional diagnostic information for debugging
         if [ -f /etc/os-release ]; then
             . /etc/os-release
             print_msg info "OS: $NAME $VERSION_ID"
@@ -313,13 +305,13 @@ check_virtualenv() {
     fi
 }
 
-# Cài đặt virtualenv theo hệ điều hành
+# Install virtualenv by OS
 install_virtualenv() {
     print_msg step "Installing virtualenv support..."
     local os_name=""
     local os_id=""
 
-    # Nắm được phiên bản Python chính xác
+    # Get the exact Python version
     PYTHON_FULL_VERSION=$(python3 --version 2>&1 | cut -d' ' -f2)
     PYTHON_VERSION=$(echo "$PYTHON_FULL_VERSION" | cut -d. -f1,2)
     PYTHON_MAJOR=$(echo "$PYTHON_FULL_VERSION" | cut -d. -f1)
@@ -341,37 +333,37 @@ install_virtualenv() {
         python3 -m pip install virtualenv
         ;;
     debian | ubuntu)
-        # Thử tìm gói venv phù hợp với phiên bản Python được cài đặt
+        # Try to find appropriate venv package for installed Python version
         print_msg info "Searching for appropriate venv packages..."
         
-        # Liệt kê các gói venv có sẵn
+        # List available venv packages
         VENV_PACKAGES=$(apt-cache search python.*venv | grep -v -e "^lib" -e "^python-" | grep -e "python3" -e "python$PYTHON_VERSION")
         print_msg info "Available venv packages:\n$VENV_PACKAGES"
         
-        # Cài đặt python3-full trước
+        # Install python3-full first
         if apt-cache show python3-full &>/dev/null; then
             print_msg info "Installing python3-full package..."
             apt install -y python3-full
         fi
         
-        # Cài đặt virtualenv theo độ ưu tiên
+        # Install virtualenv by priority
         print_msg info "Installing venv packages for Python $PYTHON_VERSION..."
         
-        # 1. Phiên bản chính xác trước
+        # 1. Exact version first
         if apt-cache show python$PYTHON_VERSION-venv &>/dev/null; then
             print_msg info "Installing python$PYTHON_VERSION-venv"
             apt install -y python$PYTHON_VERSION-venv
         else
-            # 2. Tìm kiếm phiên bản tương thích
+            # 2. Search for compatible version
             EXACT_PACKAGE=$(apt-cache search "python$PYTHON_VERSION-venv" | head -1 | awk '{print $1}')
             if [ -n "$EXACT_PACKAGE" ]; then
                 print_msg info "Found specific package: $EXACT_PACKAGE"
                 apt install -y "$EXACT_PACKAGE"
-            # 3. Cài đặt gói generic
+            # 3. Install generic package
             elif apt-cache show python3-venv &>/dev/null; then
                 print_msg info "Installing generic python3-venv"
                 apt install -y python3-venv
-            # 4. Nếu không có, dùng pip
+            # 4. If none available, use pip
             else
                 print_msg info "No system venv package found, using pip to install virtualenv"
                 if [ "$EXTERNALLY_MANAGED" -eq 1 ]; then
@@ -382,7 +374,7 @@ install_virtualenv() {
             fi
         fi
         
-        # Cài đặt venv cho Python cụ thể để đảm bảo hoạt động
+        # Install venv for specific Python to ensure proper operation
         print_msg info "Searching for version-specific venv packages..."
         
         # Try to find venv packages with exact version matches
@@ -413,7 +405,7 @@ install_virtualenv() {
             apt install -y python3-ensurepip
         fi
         
-        # Cài đặt development headers
+        # Install development headers
         print_msg info "Installing Python development packages..."
         DEV_PACKAGE=$(apt-cache search "^python.*-dev" | grep "$PYTHON_VERSION\|$PYTHON_MAJOR\.$PYTHON_MINOR" | head -1 | awk '{print $1}')
         if [ -n "$DEV_PACKAGE" ]; then
@@ -423,7 +415,7 @@ install_virtualenv() {
             apt install -y python3-dev
         fi
         
-        # Thông báo các gói đã cài đặt
+        # Report installed packages
         print_msg info "Installed virtualenv packages:"
         dpkg -l | grep -E "python.*venv|virtualenv" | awk '{print $2}'
         ;;
@@ -453,7 +445,7 @@ install_virtualenv() {
         ;;
     esac
 
-    # Kiểm tra lại cài đặt và thử tạo thử venv
+    # Verify installation and try creating test venv
     if python3 -m venv --help &>/dev/null; then
         print_msg success "Python venv module installed successfully"
         
@@ -504,16 +496,16 @@ install_virtualenv() {
         print_msg success "Virtualenv package installed successfully (via pip)"
         return 0
     else
-        # Thử cài đặt lại bằng pip nếu các phương pháp trên đều không thành công
+        # Try reinstalling with pip if all above methods failed
         print_msg warning "System package installation failed, trying pip installation as fallback..."
         
-        # Xử lý môi trường quản lý bên ngoài
+        # Handle externally managed environment
         if [ "$EXTERNALLY_MANAGED" -eq 1 ]; then
-            # Với môi trường PEP 668, dùng --user
+            # With PEP 668 environment, use --user
             print_msg info "Using --user flag due to externally managed environment"
             python3 -m pip install --user virtualenv
         else
-            # Môi trường bình thường
+            # Normal environment
             python3 -m pip install virtualenv
         fi
         
@@ -574,7 +566,7 @@ install_python() {
         fi
     fi
     
-    # Kiểm tra pip
+    # Check pip
     if ! check_pip; then
         print_msg warning "Python pip is missing. Attempting to install..."
         if ! install_pip; then
@@ -586,7 +578,7 @@ install_python() {
         fi
     fi
     
-    # Đảm bảo pip, setuptools và wheel được cập nhật, nếu không phải môi trường bị quản lý bên ngoài
+    # Ensure pip, setuptools and wheel are updated, if not an externally managed environment
     if [ "$EXTERNALLY_MANAGED" -eq 0 ]; then
         print_msg step "Updating pip, setuptools and wheel..."
         python3 -m pip install --upgrade pip setuptools wheel
@@ -595,7 +587,7 @@ install_python() {
         print_msg info "Will use a virtual environment for package installation"
     fi
     
-    # Kiểm tra hỗ trợ virtualenv
+    # Check virtualenv support
     if ! check_virtualenv; then
         print_msg warning "Python virtualenv support missing. Attempting to install..."
         if ! install_virtualenv; then

@@ -1,223 +1,191 @@
 #!/bin/bash
-# Script kiểm tra môi trường ảo Python
-# Sử dụng: ./check_venv.sh
+# Script to check the Python virtual environment
+# Usage: ./check_venv.sh
 
-# Định nghĩa hàm in màu sắc
-print_color() {
-    local color="$1"
-    local message="$2"
-    
-    # ANSI color codes
-    local reset='\033[0m'
-    local red='\033[0;31m'
-    local green='\033[0;32m'
-    local yellow='\033[0;33m'
-    local blue='\033[0;34m'
-    
-    case "$color" in
-        "red") echo -e "${red}${message}${reset}" ;;
-        "green") echo -e "${green}${message}${reset}" ;;
-        "yellow") echo -e "${yellow}${message}${reset}" ;;
-        "blue") echo -e "${blue}${message}${reset}" ;;
-        *) echo "$message" ;;
-    esac
-}
+# Load utility functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BASH_UTILS_DIR="$INSTALL_DIR/src/bash"
+source "$BASH_UTILS_DIR/messages_utils.sh" 2>/dev/null || true
 
-echo_step() {
-    print_color "blue" "🔹 $1"
-}
-
-echo_success() {
-    print_color "green" "✅ $1"
-}
-
-echo_error() {
-    print_color "red" "❌ $1"
-}
-
-echo_warning() {
-    print_color "yellow" "⚠️ $1"
-}
-
-echo_info() {
-    print_color "blue" "ℹ️ $1"
-}
-
-# Đường dẫn cố định cho thư mục cài đặt
+# Fixed installation path
 FIXED_INSTALL_DIR="/opt/wp-docker"
 
-# Đường dẫn thực tế (sẽ được sử dụng nếu đường dẫn cố định không tồn tại)
+# Actual path (used if fixed path doesn't exist)
 ACTUAL_INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Sử dụng đường dẫn cố định nếu có, nếu không sử dụng đường dẫn thực tế
+# Use fixed path if it exists, otherwise use actual path
 if [ -d "$FIXED_INSTALL_DIR" ] || [ -L "$FIXED_INSTALL_DIR" ]; then
     INSTALL_DIR="$FIXED_INSTALL_DIR"
-    echo_info "Sử dụng đường dẫn cố định: $INSTALL_DIR"
+    print_msg "info" "Using fixed path: $INSTALL_DIR"
 else
     INSTALL_DIR="$ACTUAL_INSTALL_DIR"
-    echo_info "Sử dụng đường dẫn thực tế: $INSTALL_DIR"
+    print_msg "info" "Using actual path: $INSTALL_DIR"
 fi
 
 VENV_DIR="$INSTALL_DIR/.venv"
 
 # Header
 echo "=========================="
-print_color "blue" "🔍 KIỂM TRA MÔI TRƯỜNG ẢO PYTHON"
+print_msg "title" "PYTHON VIRTUAL ENVIRONMENT CHECK"
 echo "=========================="
 echo
 
-# Kiểm tra Python hệ thống
-echo_step "Kiểm tra Python hệ thống"
+# Check system Python
+print_msg "step" "Checking system Python"
 if command -v python3 &>/dev/null; then
     PYTHON_VERSION=$(python3 --version)
-    echo_success "Python đã được cài đặt: $PYTHON_VERSION"
+    print_msg "success" "Python is installed: $PYTHON_VERSION"
 else
-    echo_error "Không tìm thấy Python trong hệ thống"
+    print_msg "error" "Python not found in system"
     exit 1
 fi
 
-# Kiểm tra thư mục virtualenv
-echo_step "Kiểm tra thư mục môi trường ảo"
+# Check virtualenv directory
+print_msg "step" "Checking virtual environment directory"
 if [ -d "$VENV_DIR" ]; then
-    echo_success "Thư mục môi trường ảo tồn tại: $VENV_DIR"
+    print_msg "success" "Virtual environment directory exists: $VENV_DIR"
     
-    # Kiểm tra cấu trúc thư mục
+    # Check directory structure
     if [ -d "$VENV_DIR/bin" ]; then
-        echo_success "Cấu trúc thư mục bin tồn tại"
+        print_msg "success" "Bin directory structure exists"
     else
-        echo_error "Không tìm thấy thư mục bin trong môi trường ảo"
+        print_msg "error" "Bin directory not found in virtual environment"
     fi
     
-    # Kiểm tra tệp activate
+    # Check activate file
     if [ -f "$VENV_DIR/bin/activate" ]; then
-        echo_success "Tệp activate tồn tại"
+        print_msg "success" "Activate file exists"
     else
-        echo_error "Không tìm thấy tệp activate"
+        print_msg "error" "Activate file not found"
     fi
     
-    # Kiểm tra tệp python
+    # Check python file
     if [ -f "$VENV_DIR/bin/python" ]; then
-        echo_success "Tệp python tồn tại"
+        print_msg "success" "Python file exists"
         VENV_PYTHON_VERSION=$("$VENV_DIR/bin/python" --version 2>&1)
-        echo_info "Phiên bản Python trong môi trường ảo: $VENV_PYTHON_VERSION"
+        print_msg "info" "Python version in virtual environment: $VENV_PYTHON_VERSION"
     else
-        echo_error "Không tìm thấy tệp python trong môi trường ảo"
+        print_msg "error" "Python file not found in virtual environment"
     fi
     
-    # Kiểm tra tệp pip
+    # Check pip file
     if [ -f "$VENV_DIR/bin/pip" ]; then
-        echo_success "Tệp pip tồn tại"
+        print_msg "success" "Pip file exists"
         VENV_PIP_VERSION=$("$VENV_DIR/bin/pip" --version 2>&1)
-        echo_info "Phiên bản pip trong môi trường ảo: $VENV_PIP_VERSION"
+        print_msg "info" "Pip version in virtual environment: $VENV_PIP_VERSION"
     else
-        echo_error "Không tìm thấy tệp pip trong môi trường ảo"
+        print_msg "error" "Pip file not found in virtual environment"
     fi
 else
-    echo_error "Thư mục môi trường ảo không tồn tại: $VENV_DIR"
+    print_msg "error" "Virtual environment directory does not exist: $VENV_DIR"
 fi
 
-# Kích hoạt môi trường ảo và kiểm tra
-echo_step "Kích hoạt và kiểm tra môi trường ảo"
+# Activate and check virtual environment
+print_msg "step" "Activating and checking virtual environment"
 if [ -f "$VENV_DIR/bin/activate" ]; then
-    # Lưu đường dẫn Python hiện tại
+    # Save current Python path
     CURRENT_PYTHON_PATH=$(which python3)
     
-    # Kích hoạt môi trường ảo
-    echo_info "Kích hoạt môi trường ảo..."
+    # Activate virtual environment
+    print_msg "info" "Activating virtual environment..."
     source "$VENV_DIR/bin/activate"
     
-    # Kiểm tra đường dẫn Python sau khi kích hoạt
+    # Check Python path after activation
     VENV_PYTHON_PATH=$(which python)
     if [[ "$VENV_PYTHON_PATH" == *"$VENV_DIR"* ]]; then
-        echo_success "Môi trường ảo đã được kích hoạt thành công"
-        echo_info "Python path trước khi kích hoạt: $CURRENT_PYTHON_PATH"
-        echo_info "Python path sau khi kích hoạt: $VENV_PYTHON_PATH"
+        print_msg "success" "Virtual environment activated successfully"
+        print_msg "info" "Python path before activation: $CURRENT_PYTHON_PATH"
+        print_msg "info" "Python path after activation: $VENV_PYTHON_PATH"
     else
-        echo_error "Kích hoạt môi trường ảo không thành công"
-        echo_info "Python path vẫn là: $VENV_PYTHON_PATH"
+        print_msg "error" "Virtual environment activation failed"
+        print_msg "info" "Python path is still: $VENV_PYTHON_PATH"
     fi
     
-    # Kiểm tra biến môi trường VIRTUAL_ENV
+    # Check VIRTUAL_ENV environment variable
     if [ -n "$VIRTUAL_ENV" ]; then
-        echo_success "Biến môi trường VIRTUAL_ENV đã được thiết lập: $VIRTUAL_ENV"
+        print_msg "success" "VIRTUAL_ENV environment variable is set: $VIRTUAL_ENV"
     else
-        echo_error "Biến môi trường VIRTUAL_ENV không được thiết lập"
+        print_msg "error" "VIRTUAL_ENV environment variable is not set"
     fi
     
-    # Thử import một số module cơ bản
-    echo_info "Kiểm tra import modules..."
+    # Try importing some basic modules
+    print_msg "info" "Checking module imports..."
     if python -c "import sys; print('Python path:', sys.path)" &>/dev/null; then
-        echo_success "Import sys thành công"
+        print_msg "success" "Importing sys was successful"
     else
-        echo_error "Import sys thất bại"
+        print_msg "error" "Importing sys failed"
     fi
     
-    # Hủy kích hoạt môi trường ảo
+    # Deactivate virtual environment
     deactivate 2>/dev/null || true
 else
-    echo_error "Không thể kích hoạt môi trường ảo vì tệp activate không tồn tại"
+    print_msg "error" "Cannot activate virtual environment because activate file does not exist"
 fi
 
-# Thử chạy ứng dụng với Python trong môi trường ảo để kiểm tra
-echo_step "Kiểm tra khả năng chạy ứng dụng với Python trong môi trường ảo"
+# Try running the application with Python in the virtual environment
+print_msg "step" "Testing ability to run the application with Python in virtual environment"
 if [ -f "$VENV_DIR/bin/python" ] && [ -f "$INSTALL_DIR/src/main.py" ]; then
-    echo_info "Thử import module từ ứng dụng..."
+    print_msg "info" "Trying to import modules from the application..."
     
-    # Kiểm tra import src và src.common
+    # Check importing src and src.common
     cd "$INSTALL_DIR"
-    echo_info "Thư mục hiện tại: $(pwd)"
+    print_msg "info" "Current directory: $(pwd)"
     
-    # Đặt PYTHONPATH
-    export PYTHONPATH="$INSTALL_DIR"
-    echo_info "PYTHONPATH: $PYTHONPATH"
-    
-    # Thử import src module (không thực sự chạy ứng dụng)
+    # Try to import the 'src' module (without running the actual application)
     if "$VENV_DIR/bin/python" -c "import sys; print('Python path:', sys.path[:3])" 2>/dev/null; then
-        echo_success "Python path import thành công"
+        print_msg "success" "Python path import successful"
     else
-        echo_error "Python path import thất bại"
+        print_msg "error" "Python path import failed"
     fi
     
     if "$VENV_DIR/bin/python" -c "import src; print('Imported src module successfully')" 2>/dev/null; then
-        echo_success "Import src module thành công"
+        print_msg "success" "Import src module successful"
     else
-        echo_error "Import src module thất bại"
+        print_msg "error" "Import src module failed"
         ERROR_OUTPUT=$("$VENV_DIR/bin/python" -c "import src" 2>&1)
-        echo_info "Lỗi: $ERROR_OUTPUT"
+        print_msg "info" "Error: $ERROR_OUTPUT"
     fi
     
-    # Thử cách khác với thư mục src trong path
-    echo_info "Thử với PYTHONPATH bao gồm cả thư mục src..."
-    export PYTHONPATH="$INSTALL_DIR:$INSTALL_DIR/src"
-    
-    if "$VENV_DIR/bin/python" -c "import src; print('Imported src module successfully')" 2>/dev/null; then
-        echo_success "Import src module thành công với PYTHONPATH mở rộng"
+    # Check installed packages
+    print_msg "info" "Checking if project is installed as a package..."
+    if "$VENV_DIR/bin/pip" show wpdocker &>/dev/null; then
+        print_msg "success" "Project is installed as a package (wpdocker)"
+        print_msg "info" "Package information:"
+        "$VENV_DIR/bin/pip" show wpdocker | sed 's/^/    /'
     else
-        echo_error "Import src module thất bại với PYTHONPATH mở rộng"
+        print_msg "error" "Project is not installed as a package (wpdocker)"
+        print_msg "recommend" "Run 'pip install -e .' in the project directory to install it"
     fi
-    
-    # Reset PYTHONPATH
-    unset PYTHONPATH
 else
-    echo_error "Không thể kiểm tra khả năng chạy ứng dụng (thiếu Python trong virtualenv hoặc file main.py)"
+    print_msg "error" "Cannot test application running ability (missing Python in virtualenv or main.py file)"
 fi
 
-# Tổng kết
+# Summary
 echo 
 echo "=========================="
-print_color "blue" "🔍 KẾT QUẢ KIỂM TRA"
+print_msg "title" "CHECK RESULTS"
 echo "=========================="
 
 if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ] && [ -f "$VENV_DIR/bin/python" ]; then
-    echo_success "Môi trường ảo tồn tại và có vẻ hoạt động bình thường"
-    echo_info "Nếu vẫn gặp vấn đề khi chạy ứng dụng, hãy thử các bước sau:"
-    echo_info "1. Xóa thư mục môi trường ảo: rm -rf $VENV_DIR"
-    echo_info "2. Chạy lại script init.sh để tạo môi trường ảo mới"
-    echo_info "3. Đảm bảo PYTHONPATH chỉ đến thư mục gốc của dự án"
+    print_msg "success" "Virtual environment exists and appears to be working normally"
+    
+    # Check if project is installed as a package
+    if "$VENV_DIR/bin/pip" show wpdocker &>/dev/null; then
+        print_msg "success" "Project is installed as a package (wpdocker)"
+    else
+        print_msg "warning" "Project is not installed as a package"
+        print_msg "recommend" "To install it, run: pip install -e \"$INSTALL_DIR\""
+    fi
+    
+    print_msg "info" "If you still encounter issues running the application, try these steps:"
+    print_msg "sub_label" "1. Delete the virtual environment: rm -rf $VENV_DIR"
+    print_msg "sub_label" "2. Run init.sh script again to create a new virtual environment"
+    print_msg "sub_label" "3. Ensure the project is installed as a package with: pip install -e \"$INSTALL_DIR\""
 else
-    echo_error "Môi trường ảo không hoạt động bình thường"
-    echo_info "Hãy thử các bước sau:"
-    echo_info "1. Xóa thư mục môi trường ảo: rm -rf $VENV_DIR"
-    echo_info "2. Cài đặt lại gói python3-venv: sudo apt install python3-venv python3-dev"
-    echo_info "3. Chạy lại script init.sh để tạo môi trường ảo mới"
+    print_msg "error" "Virtual environment is not working properly"
+    print_msg "info" "Try these steps:"
+    print_msg "sub_label" "1. Delete the virtual environment: rm -rf $VENV_DIR"
+    print_msg "sub_label" "2. Reinstall python3-venv package: sudo apt install python3-venv python3-dev"
+    print_msg "sub_label" "3. Run init.sh script again to create a new virtual environment"
 fi

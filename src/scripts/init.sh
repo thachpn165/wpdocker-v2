@@ -2,85 +2,83 @@
 
 set -e
 
-# Đường dẫn cố định cho thư mục cài đặt
+# Source message utils
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../bash/messages_utils.sh"
+
+# Fixed path for the installation directory
 FIXED_INSTALL_DIR="/opt/wp-docker"
 
-# Đường dẫn thực tế đến thư mục cài đặt (sẽ được sử dụng để tạo symlink nếu cần)
+# Actual path to the installation directory (used to create symlink if needed)
 ACTUAL_INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Kiểm tra và tạo symlink chỉ khi không tồn tại /opt/wp-docker
+# Check and create symlink only if /opt/wp-docker does not exist
 if [ ! -e "$FIXED_INSTALL_DIR" ]; then
-    echo "📁 Thư mục $FIXED_INSTALL_DIR không tồn tại"
-    echo "🔗 Tạo symlink $FIXED_INSTALL_DIR -> $ACTUAL_INSTALL_DIR"
+    print_msg info "Directory $FIXED_INSTALL_DIR does not exist"
+    print_msg info "Creating symlink $FIXED_INSTALL_DIR -> $ACTUAL_INSTALL_DIR"
     
-    # Kiểm tra thư mục cha có tồn tại không
+    # Check if parent directory exists
     if [ ! -d "$(dirname "$FIXED_INSTALL_DIR")" ]; then
-        echo "📁 Tạo thư mục $(dirname "$FIXED_INSTALL_DIR")"
+        print_msg info "Creating directory $(dirname "$FIXED_INSTALL_DIR")"
         mkdir -p "$(dirname "$FIXED_INSTALL_DIR")"
     fi
     
-    # Tạo symlink
+    # Create symlink
     ln -sf "$ACTUAL_INSTALL_DIR" "$FIXED_INSTALL_DIR"
-    echo "✅ Đã tạo symlink thành công"
+    print_msg success "Symlink created successfully"
 else
-    echo "✅ Thư mục $FIXED_INSTALL_DIR đã tồn tại, tiếp tục sử dụng"
+    print_msg success "Directory $FIXED_INSTALL_DIR already exists, continuing to use it"
 fi
 
-# Sử dụng đường dẫn cố định
+# Use the fixed path
 INSTALL_DIR="$FIXED_INSTALL_DIR"
 VENV_DIR="$INSTALL_DIR/.venv"
 PYTHON_EXEC="$VENV_DIR/bin/python"
 MAIN_FILE="$INSTALL_DIR/src/main.py"
 
-# Kiểm tra và tạo file core.env từ core.env.sample nếu cần
+# Check and create core.env from core.env.sample if needed
 CORE_ENV="$INSTALL_DIR/core.env"
 CORE_ENV_SAMPLE="$INSTALL_DIR/core.env.sample"
 
 if [ ! -f "$CORE_ENV" ] && [ -f "$CORE_ENV_SAMPLE" ]; then
-    echo "📄 Creating core.env from sample..."
+    print_msg info "Creating core.env from sample..."
     cp "$CORE_ENV_SAMPLE" "$CORE_ENV"
-    echo "✅ Created core.env from sample template"
+    print_msg success "Created core.env from sample template"
 fi
 
-# Kiểm tra python3
+# Check python3
 source "$(dirname "${BASH_SOURCE[0]}")/install_python.sh"
 install_python
 
-# Khởi tạo venv cho Python (tại thư mục .venv)
+# Initialize Python venv (in .venv directory)
 source "$(dirname "${BASH_SOURCE[0]}")/init_python.sh"
 init_python_env
 
-# Chạy backend
-echo "🚀 Launching WP Docker..."
+# Run backend
+print_msg run "Launching WP Docker..."
 
-# Kích hoạt virtualenv trong shell hiện tại
+# Activate virtualenv in current shell
 if [ -f "$VENV_DIR/bin/activate" ]; then
-    echo "🐍 Kích hoạt môi trường ảo Python trong shell chính..."
+    print_msg info "Activating Python virtual environment in main shell..."
     source "$VENV_DIR/bin/activate"
 else
-    echo "⚠️ Không tìm thấy tệp activate. Cố gắng tiếp tục mà không kích hoạt virtualenv..."
+    print_msg warning "Could not find activate file. Trying to continue without activating virtualenv..."
 fi
 
-# Hiển thị thông tin môi trường để debug
-echo "🔍 Thông tin môi trường Python:"
-echo "Python path: $(which python3)"
-echo "Virtual env Python: $PYTHON_EXEC"
-echo "Virtualenv active: $VIRTUAL_ENV"
-
-# Kiểm tra có thể import src không
-echo "🔍 Kiểm tra khả năng import module src..."
+# Check if src module can be imported
+print_msg check "Checking if src module can be imported..."
 if "$PYTHON_EXEC" -c "import src" 2>/dev/null; then
-    echo "✅ Module src đã sẵn sàng để sử dụng"
+    print_msg success "src module is ready to use"
 else
-    echo "⚠️ Không thể import module src, có thể cần cài đặt package"
+    print_msg warning "Cannot import src module, may need to install package"
     
-    # Cài đặt package trong chế độ development nếu chưa cài đặt
+    # Install package in development mode if not installed
     if [ -f "$INSTALL_DIR/setup.py" ]; then
-        echo "📦 Cài đặt project trong chế độ development..."
+        print_msg info "Installing project in development mode..."
         pip install -e "$INSTALL_DIR"
     fi
 fi
 
-# Chạy chương trình chính
-cd "$INSTALL_DIR"  # Đảm bảo thư mục hiện tại là thư mục cài đặt
+# Run main program
+cd "$INSTALL_DIR"  # Ensure current directory is the install directory
 "$PYTHON_EXEC" "$MAIN_FILE"
