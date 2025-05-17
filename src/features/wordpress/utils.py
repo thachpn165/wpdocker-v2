@@ -116,7 +116,7 @@ def run_wpcli_in_wpcli_container(domain: str, args: List[str]) -> Optional[str]:
     wp_path = f"/var/www/html/{domain}/wordpress"
     try:
         cmd = ["wp"] + args
-        result = container.exec(cmd, workdir=wp_path)
+        result = container.exec(cmd, workdir=wp_path, user="www-data")
         debug(f"WP CLI (WPCLI container) Output: {result}")
         return result
     except Exception as e:
