@@ -58,13 +58,13 @@ def prompt_check_version() -> None:
     """Prompt to check for updates."""
     from src.features.update.core.version_updater import prompt_update
 
-    info("Kiểm tra cập nhật...")
+    info("Checking for updates...")
     time.sleep(0.5)  # Small delay for user experience
 
     # Use the VersionUpdater's prompt_update function
     prompt_update()
 
-    input("\nNhấn Enter để tiếp tục...")
+    input("\nPress Enter to continue...")
 
 
 @log_call
@@ -74,14 +74,14 @@ def prompt_upgrade() -> None:
     from src.common.utils.version_helper import get_version, get_display_name
 
     # First check if updates are available
-    info("Đang kiểm tra bản cập nhật...")
+    info("Checking for updates...")
     time.sleep(0.5)  # Small delay for user experience
 
     check_result = check_version_action()
 
     if not check_result["update_available"]:
-        info("Bạn đang sử dụng phiên bản mới nhất.")
-        input("\nNhấn Enter để tiếp tục...")
+        info("You are using the latest version.")
+        input("\nPress Enter to continue...")
         return
 
     # Show update information
@@ -118,23 +118,23 @@ def prompt_upgrade() -> None:
 
     # Ask for confirmation
     confirm = questionary.confirm(
-        f"Cập nhật từ {current_display_name} lên {version_description}?",
+        f"Update from {current_display_name} to {version_description}?",
         default=True
     ).ask()
 
     if not confirm:
-        info("Đã hủy cập nhật.")
-        input("\nNhấn Enter để tiếp tục...")
+        info("Update cancelled.")
+        input("\nPress Enter to continue...")
         return
 
     # Apply the update
-    info(f"Đang cập nhật lên phiên bản {new_version}...")
+    info(f"Updating to version {new_version}...")
     result = update_action()
 
     if result["success"]:
-        success("Cập nhật hoàn tất thành công.")
-        info("Vui lòng khởi động lại ứng dụng để sử dụng phiên bản mới.")
+        success("Update completed successfully.")
+        info("Please restart the application to use the new version.")
     else:
-        error(f"Cập nhật thất bại: {result['message']}")
+        error(f"Update failed: {result['message']}")
 
-    input("\nNhấn Enter để tiếp tục...")
+    input("\nPress Enter to continue...")

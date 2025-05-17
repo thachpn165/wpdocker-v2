@@ -66,7 +66,7 @@ class MySQLBootstrap(BaseBootstrap):
         # Check if MySQL configuration exists
         config_data = self.config_manager.get()
 
-        # Nếu không có key "mysql" nào trong config, chắc chắn cần bootstrap
+        # If no "mysql" key exists in config, bootstrap is needed
         if "mysql" not in config_data:
             self.debug.debug("❌ Bootstrap condition failed: MySQL key not found in config")
             return False
@@ -201,7 +201,7 @@ class MySQLBootstrap(BaseBootstrap):
                 return False
 
             self.debug.success("MySQL bootstrap completed successfully")
-            # --- Cập nhật thông tin container vào core config ---
+            # --- Update container info in core config ---
             try:
                 config_manager = ConfigManager()
                 full_config = config_manager.get()
@@ -211,7 +211,7 @@ class MySQLBootstrap(BaseBootstrap):
                 container_obj = Container(env["MYSQL_CONTAINER_NAME"]).get()
                 short_id = container_obj.config.hostname if container_obj and hasattr(container_obj, 'config') else ""
 
-                # Xóa entry cũ nếu đã có MySQL
+                # Remove old entry if MySQL already exists
                 containers = [c for c in containers if c.get("name") != env["MYSQL_CONTAINER_NAME"]]
 
                 containers.append(ContainerConfig(
@@ -225,7 +225,7 @@ class MySQLBootstrap(BaseBootstrap):
                 config_manager.save()
             except Exception as e:
                 self.debug.error(f"Failed to update MySQL container info in core config: {e}")
-            # --- END cập nhật container ---
+            # --- END container update ---
             return True
         except Exception as e:
             self.debug.error(f"Failed to bootstrap MySQL: {e}")
@@ -250,10 +250,10 @@ class MySQLBootstrap(BaseBootstrap):
             return True
 
         try:
-            # Sử dụng các giá trị mặc định nếu không thể tương tác
+            # Use default values if interaction isn't possible
             import sys
             if not sys.stdin.isatty():
-                self.debug.warn("Không thể tương tác với stdin, sử dụng MariaDB latest làm mặc định")
+                self.debug.warn("Cannot interact with stdin, using MariaDB latest as default")
                 selected = "mariadb:latest"
             else:
                 # Ask user to select MySQL version
@@ -282,9 +282,9 @@ class MySQLBootstrap(BaseBootstrap):
             return True
         except Exception as e:
             self.debug.error(f"Failed to configure MySQL version: {e}")
-            # Nếu gặp lỗi, thử sử dụng giá trị mặc định
+            # If error occurs, try using a default value
             try:
-                self.debug.info("Thử sử dụng MariaDB latest sau lỗi")
+                self.debug.info("Trying to use MariaDB latest after error")
                 mysql_data = config_data.get("mysql", {})
                 if not mysql_data:
                     mysql_data = {}
@@ -292,10 +292,10 @@ class MySQLBootstrap(BaseBootstrap):
                 mysql_data["version"] = "mariadb:latest"
                 self.config_manager.update_key("mysql", mysql_data)
                 self.config_manager.save()
-                self.debug.success("Đã thiết lập phiên bản MySQL mặc định thành công")
+                self.debug.success("Successfully set default MySQL version")
                 return True
             except Exception as e2:
-                self.debug.error(f"Cũng không thể thiết lập phiên bản MySQL mặc định: {e2}")
+                self.debug.error(f"Also failed to set default MySQL version: {e2}")
                 return False
 
     def _get_or_generate_root_password(self) -> Optional[str]:

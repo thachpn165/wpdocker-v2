@@ -56,9 +56,9 @@ def prompt_auto_update_menu() -> None:
         if answer == "0":
             return
             
-        domain = select_website("Chọn website cần thao tác auto update:")
+        domain = select_website("Select website to manage auto update:")
         if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+            info("No website found or operation cancelled. Returning to menu.")
             return
             
         if answer == "theme":

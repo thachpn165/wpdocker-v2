@@ -21,18 +21,18 @@ def load_environment(env_file: str = None) -> Dict[str, str]:
         Dictionary containing environment variables and their values.
     """
     if env_file is None:
-        # Sử dụng đường dẫn cố định cho file core.env
+        # Use a fixed path for the core.env file
         fixed_env_file = "/opt/wp-docker/core.env"
         env_file = fixed_env_file
     
     if not os.path.isfile(env_file):
-        # Nếu không tìm thấy file ở đường dẫn cố định
+        # If the file is not found at the fixed path
         print(f"Warning: Configuration file not found at fixed path: {env_file}")
         
-        # Fallback: thử tìm ở thư mục hiện tại hoặc thư mục cha
+        # Fallback: try to find it in the current directory or parent directory
         fallback_paths = [
-            os.path.join(os.getcwd(), "core.env"),  # Thư mục hiện tại
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../core.env")),  # Thư mục cha của src
+            os.path.join(os.getcwd(), "core.env"),  # Current directory
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../core.env")),  # Parent directory of src
         ]
         
         for path in fallback_paths:

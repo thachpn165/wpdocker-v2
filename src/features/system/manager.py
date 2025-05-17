@@ -29,7 +29,7 @@ class SystemManager:
         for name in container_names:
             compose_file = name_to_compose.get(name)
             if not compose_file or not os.path.exists(compose_file):
-                error(f"❌ Không tìm thấy compose file cho container {name}")
+                error(f"❌ Compose file not found for container {name}")
                 ok = False
                 continue
             info(f"🔄 Rebuilding container {name} ...")
@@ -38,9 +38,9 @@ class SystemManager:
                     ["docker", "compose", "-f", compose_file, "up", "--build", "-d"],
                     check=True
                 )
-                success(f"✅ Đã rebuild container {name}")
+                success(f"✅ Container {name} rebuilt successfully")
             except Exception as e:
-                error(f"❌ Lỗi khi rebuild container {name}: {e}")
+                error(f"❌ Error rebuilding container {name}: {e}")
                 ok = False
         return ok
 

@@ -22,12 +22,12 @@ def get_current_webserver() -> str:
         The web server name (e.g., 'nginx')
     """
     config = ConfigManager()
-    webserver = config.get("core.webserver", "nginx")  # Đặt nginx là mặc định
+    webserver = config.get("core.webserver", "nginx")  # Set nginx as default
 
-    # Validate và đảm bảo luôn trả về một giá trị hợp lệ
+    # Validate and ensure always returning a valid value
     if not webserver or webserver not in ["nginx", "apache"]:
         from src.common.logging import debug
-        debug(f"Webserver không được cấu hình chính xác hoặc giá trị không hợp lệ: {webserver}, sử dụng nginx làm mặc định")
+        debug(f"Webserver is not properly configured or has an invalid value: {webserver}, using nginx as default")
         return "nginx"
 
     return webserver

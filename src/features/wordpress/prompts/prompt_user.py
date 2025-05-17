@@ -22,9 +22,9 @@ def prompt_reset_admin_password() -> None:
     calling the CLI implementation to perform the actual reset.
     """
     try:
-        domain = select_website("Chọn website cần reset mật khẩu admin:")
+        domain = select_website("Select website to reset admin password:")
         if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+            info("No website found or operation cancelled. Returning to menu.")
             return False
             
         result = cli_reset_admin_password(domain)
@@ -46,9 +46,9 @@ def prompt_reset_user_role() -> None:
     calling the CLI implementation to perform the actual reset.
     """
     try:
-        domain = select_website("Chọn website cần reset user role:")
+        domain = select_website("Select website to reset user role:")
         if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+            info("No website found or operation cancelled. Returning to menu.")
             return False
             
         result = cli_reset_user_role(domain)
