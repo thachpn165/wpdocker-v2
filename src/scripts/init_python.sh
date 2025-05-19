@@ -44,18 +44,36 @@ init_python_env() {
     if [[ ! -f "$VENV_DIR/.installed" && -f "$INSTALL_DIR/requirements.txt" ]]; then
         print_msg info "Installing Python dependencies..."
         pip install --upgrade pip
-        pip install -r "$INSTALL_DIR/requirements.txt"
         
-        # Install current package in development mode
-        print_msg info "Installing project as a development package..."
-        pip install -e "$INSTALL_DIR"
+        # Use --break-system-packages flag for PEP 668 systems
+        if pip install --dry-run setuptools 2>&1 | grep -q "externally-managed-environment"; then
+            print_msg warning "Detected PEP 668 environment, using --break-system-packages flag"
+            pip install -r "$INSTALL_DIR/requirements.txt" --break-system-packages
+            
+            # Install current package in development mode
+            print_msg info "Installing project as a development package..."
+            pip install -e "$INSTALL_DIR" --break-system-packages
+        else
+            # Standard install for non-PEP 668 systems
+            pip install -r "$INSTALL_DIR/requirements.txt"
+            
+            # Install current package in development mode
+            print_msg info "Installing project as a development package..."
+            pip install -e "$INSTALL_DIR"
+        fi
         
         touch "$VENV_DIR/.installed"
     else
         # Check if package is already installed
         if ! pip show wpdocker &>/dev/null; then
             print_msg info "Installing project as a development package..."
-            pip install -e "$INSTALL_DIR"
+            
+            # Use --break-system-packages flag for PEP 668 systems
+            if pip install --dry-run setuptools 2>&1 | grep -q "externally-managed-environment"; then
+                pip install -e "$INSTALL_DIR" --break-system-packages
+            else
+                pip install -e "$INSTALL_DIR"
+            fi
         else
             print_msg success "Python dependencies already installed."
         fi
