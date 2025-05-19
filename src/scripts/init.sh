@@ -46,38 +46,16 @@ if [ ! -f "$CORE_ENV" ] && [ -f "$CORE_ENV_SAMPLE" ]; then
     print_msg success "Created core.env from sample template"
 fi
 
-# Check python3
+# Check python3 installation
 source "$(dirname "${BASH_SOURCE[0]}")/install_python.sh"
 install_python
 
-# Initialize Python venv (in .venv directory)
+# Initialize Python environment (create virtualenv and install dependencies)
 source "$(dirname "${BASH_SOURCE[0]}")/init_python.sh"
 init_python_env
 
 # Run backend
 print_msg run "Launching WP Docker..."
-
-# Activate virtualenv in current shell
-if [ -f "$VENV_DIR/bin/activate" ]; then
-    print_msg info "Activating Python virtual environment in main shell..."
-    source "$VENV_DIR/bin/activate"
-else
-    print_msg warning "Could not find activate file. Trying to continue without activating virtualenv..."
-fi
-
-# Check if src module can be imported
-print_msg check "Checking if src module can be imported..."
-if "$PYTHON_EXEC" -c "import src" 2>/dev/null; then
-    print_msg success "src module is ready to use"
-else
-    print_msg warning "Cannot import src module, may need to install package"
-    
-    # Install package in development mode if not installed
-    if [ -f "$INSTALL_DIR/setup.py" ]; then
-        print_msg info "Installing project in development mode..."
-        pip install -e "$INSTALL_DIR"
-    fi
-fi
 
 # Run main program
 cd "$INSTALL_DIR"  # Ensure current directory is the install directory
