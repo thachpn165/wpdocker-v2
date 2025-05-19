@@ -61,41 +61,8 @@ init_python_env() {
     # Install dependencies - always run this step to ensure all deps are installed
     print_msg info "Installing Python dependencies..."
     if [ -f "$INSTALL_DIR/requirements.txt" ]; then
-        # Install all requirements
+        # Install all requirements at once
         python -m pip install -r "$INSTALL_DIR/requirements.txt"
-        
-        # Check all packages in requirements.txt
-        print_msg info "Verifying installed packages..."
-        MISSING_PACKAGES=0
-        
-        # Read requirements.txt file
-        while IFS= read -r line || [[ -n "$line" ]]; do
-            # Skip empty lines and comments
-            if [[ -z "$line" ]] || [[ "$line" =~ ^#.* ]]; then
-                continue
-            fi
-            
-            # Extract package name (before any version specifier)
-            PACKAGE=$(echo "$line" | cut -d'=' -f1 | cut -d'>' -f1 | cut -d'<' -f1 | cut -d'[' -f1 | cut -d' ' -f1 | tr -d ' ')
-            
-            # Skip empty package names that might result from parsing
-            if [[ -z "$PACKAGE" ]]; then
-                continue
-            fi
-            
-            # Check if package is installed
-            if ! python -m pip show "$PACKAGE" &>/dev/null; then
-                print_msg warning "Package $PACKAGE not found, installing individually..."
-                python -m pip install "$PACKAGE"
-                MISSING_PACKAGES=$((MISSING_PACKAGES+1))
-            fi
-        done < "$INSTALL_DIR/requirements.txt"
-        
-        if [ "$MISSING_PACKAGES" -gt 0 ]; then
-            print_msg warning "Had to install $MISSING_PACKAGES packages individually"
-        else
-            print_msg success "All required packages are installed"
-        fi
         
         # Install current package in development mode
         print_msg info "Installing project as a development package..."
@@ -109,15 +76,7 @@ init_python_env() {
         print_msg error "Requirements file not found at $INSTALL_DIR/requirements.txt"
         return 1
     fi
-    
-    # Verify src module can be imported 
-    if python -c "import src" 2>/dev/null; then
-        print_msg success "Project modules are importable"
-    else
-        print_msg error "Cannot import project modules. Installation may have failed."
-        print_msg info "Try reinstalling the package with: pip install -e $INSTALL_DIR"
-        return 1
-    fi
+
     
     print_msg success "Python environment is ready"
     return 0

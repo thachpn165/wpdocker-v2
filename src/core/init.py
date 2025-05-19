@@ -7,7 +7,6 @@ loading environment variables, and orchestrating the bootstrap process.
 
 import os
 import sys
-import importlib
 from typing import Dict, Any, List, Optional
 
 from src.common.logging import Debug, log_call
@@ -26,16 +25,6 @@ class SystemInitializer:
     def __init__(self) -> None:
         """Initialize the system initializer."""
         self.debug = Debug("SystemInitializer")
-        self.required_modules = {
-            "python-on-whales": "python-on-whales",
-            "questionary": "questionary",
-            "rich": "rich",
-            "requests": "requests",
-            "passlib": "passlib",
-            "bcrypt": "bcrypt",
-            "colorama": "colorama",
-            "python-dotenv": "python-dotenv"
-        }
         
     @log_call
     def initialize(self) -> bool:
@@ -43,20 +32,14 @@ class SystemInitializer:
         Initialize the system.
         
         This method:
-        1. Checks and installs required Python modules
-        2. Loads environment variables
-        3. Runs the bootstrap process
+        1. Loads environment variables
+        2. Runs the bootstrap process
         
         Returns:
             bool: True if initialization successful, False otherwise
         """
         self.debug.info("Starting system initialization")
         
-        # Check and install required modules
-        if not self._check_and_install_modules():
-            self.debug.error("Failed to install required modules")
-            return False
-            
         # Load environment variables
         if not self._load_environment():
             self.debug.error("Failed to load environment variables")
@@ -69,34 +52,6 @@ class SystemInitializer:
             return False
             
         self.debug.success("System initialization completed successfully")
-        return True
-        
-    @log_call
-    def _check_and_install_modules(self) -> bool:
-        """
-        Check if required modules are installed and install if missing.
-        
-        Returns:
-            bool: True if all modules are available, False otherwise
-        """
-        missing_modules = []
-        
-        for module_name, package_name in self.required_modules.items():
-            try:
-                importlib.import_module(module_name)
-            except ImportError:
-                missing_modules.append(package_name)
-                
-        if missing_modules:
-            self.debug.warn(f"Installing missing modules: {', '.join(missing_modules)}")
-            try:
-                import subprocess
-                subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing_modules)
-                self.debug.success("Successfully installed missing modules")
-            except Exception as e:
-                self.debug.error(f"Failed to install modules: {e}")
-                return False
-                
         return True
         
     @log_call
