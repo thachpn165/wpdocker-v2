@@ -56,13 +56,14 @@ def prompt_update_menu() -> None:
 @log_call
 def prompt_check_version() -> None:
     """Prompt to check for updates."""
-    from src.features.update.core.version_updater import prompt_update
+    from src.features.update.core.version_updater import VersionUpdater
 
     info("Checking for updates...")
     time.sleep(0.5)  # Small delay for user experience
 
     # Use the VersionUpdater's prompt_update function
-    prompt_update()
+    updater = VersionUpdater()
+    updater.prompt_update()
 
     input("\nPress Enter to continue...")
 
