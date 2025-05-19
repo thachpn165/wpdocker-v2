@@ -1,0 +1,164 @@
+# WP Docker v2
+
+WP Docker is a Docker-based WordPress development environment with a Python management interface. It provides an easy way to set up and manage WordPress websites with Docker containers.
+
+## Features
+
+- Site management (create, delete, list, restart)
+- SSL certificate management
+- MySQL database management
+- PHP configuration and version management
+- Backup and restore capabilities
+- Automated WordPress installation and updates
+- Performance optimization with multiple caching options
+
+## Installation
+
+### Option 1: Automatic Installation (Recommended)
+
+Run the following command to automatically download and install the latest release:
+
+```bash
+curl -s https://raw.githubusercontent.com/yourusername/wpdocker-v2/main/install.sh | bash
+```
+
+This script will:
+
+- Let you choose between stable and nightly channels
+- Automatically download the appropriate release
+- Install WP Docker
+- Configure the selected channel in your config.json
+- Create a convenient symlink if possible
+
+### Option 2: Manual Download and Install
+
+1. Download the latest release from the [Releases page](https://github.com/yourusername/wpdocker-v2/releases)
+2. Extract the archive
+3. Run the installer script:
+
+   ```bash
+   ./installers/install.sh
+   ```
+
+### Option 3: Install with pip (Python package)
+
+```bash
+# Install from PyPI (not yet available)
+pip install wpdocker
+
+# Or install from the downloaded wheel file
+pip install wpdocker-*.whl
+```
+
+### Option 4: Development Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/wpdocker-v2.git
+cd wpdocker-v2
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install in development mode
+pip install -e .
+```
+
+## Running WP Docker
+
+After installation, you can start WP Docker in several ways:
+
+### Using the launcher script (recommended)
+
+```bash
+./wpdocker.sh
+```
+
+### Using Python directly
+
+```bash
+# Ensure you're in the virtual environment
+source .venv/bin/activate
+python src/main.py
+```
+
+### Using the installed package
+
+If you installed via pip:
+
+```bash
+wpdocker
+```
+
+## Project Structure
+
+The project follows a structured organization pattern:
+
+```text
+src/
+├── common/         # Common utilities and functionality
+│   ├── config/     # Configuration management
+│   ├── containers/ # Container management
+│   ├── logging.py  # Logging functionality
+│   └── utils/      # General utility functions
+├── features/       # Feature modules
+│   ├── backup/     # Backup system
+│   ├── cron/       # Cron job management
+│   ├── mysql/      # MySQL management
+│   ├── nginx/      # NGINX management
+│   ├── php/        # PHP management
+│   ├── rclone/     # Rclone integration
+│   ├── ssl/        # SSL certificate management
+│   ├── system/     # System management
+│   ├── website/    # Website management
+│   └── wordpress/  # WordPress management
+├── interfaces/     # Abstract base classes and interfaces
+├── scripts/        # Shell scripts and utilities
+└── templates/      # Template files
+```
+
+## Development
+
+### Setting up a development environment
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/wpdocker-v2.git
+cd wpdocker-v2
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install development dependencies
+pip install -e ".[dev]"
+```
+
+### Running tests
+
+```bash
+pytest
+```
+
+## Upgrading
+
+### Option 1: Using the upgrade script
+
+```bash
+./installers/upgrade.sh
+```
+
+### Option 2: Using pip
+
+```bash
+pip install --upgrade wpdocker
+```
+
+## Notes
+
+This project is designed for Linux and macOS systems only and does not support Windows environments.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

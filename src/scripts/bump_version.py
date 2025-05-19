@@ -15,7 +15,7 @@ from typing import Optional
 
 def update_version_file(new_version: str) -> bool:
     """
-    Update the version in the config.
+    Update the version in both the config and version.py file.
     
     Args:
         new_version: The new version to set
@@ -23,18 +23,53 @@ def update_version_file(new_version: str) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    # Cập nhật thông tin phiên bản trong config
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     sys.path.insert(0, os.path.dirname(project_root))
     
     try:
+        # 1. Update version in config using version_helper
         from src.common.utils.version_helper import update_version_info
         update_version_info(version=new_version)
+        
+        # 2. Update version in version.py file
+        version_file_path = os.path.join(project_root, "version.py")
+        
+        with open(version_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Replace version using regex to maintain file structure
+        new_content = re.sub(
+            r'__version__\s*=\s*["\']([^"\']+)["\']',
+            f'__version__ = "{new_version}"',
+            content
+        )
+        
+        with open(version_file_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        # 3. Update version in pyproject.toml
+        pyproject_path = os.path.join(os.path.dirname(project_root), "pyproject.toml")
+        if os.path.exists(pyproject_path):
+            with open(pyproject_path, 'r', encoding='utf-8') as f:
+                pyproject_content = f.read()
+            
+            # Replace version in pyproject.toml
+            pyproject_content = re.sub(
+                r'version\s*=\s*["\']([^"\']+)["\']',
+                f'version = "{new_version}"',
+                pyproject_content
+            )
+            
+            with open(pyproject_path, 'w', encoding='utf-8') as f:
+                f.write(pyproject_content)
+            
+            print(f"Updated version in pyproject.toml to {new_version}")
+        
         print(f"Updated version to {new_version}")
         return True
     except Exception as e:
-        print(f"Lỗi khi cập nhật phiên bản: {str(e)}")
+        print(f"Error updating version: {str(e)}")
         return False
 
 
@@ -50,16 +85,35 @@ def commit_and_tag(new_version: str, push: bool = False) -> bool:
         bool: True if successful, False otherwise
     """
     try:
-        # Add config file to staging
+        # Get paths to key files
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(script_dir)
-        config_path = os.path.join(project_root, "..", "data", "config", "config.json")
+        project_root_parent = os.path.dirname(project_root)
         
-        # Add config to staging if it exists
+        # List of files to add to staging
+        files_to_add = []
+        
+        # Add config file to staging
+        config_path = os.path.join(project_root_parent, "data", "config", "config.json")
         if os.path.exists(config_path):
-            subprocess.run(["git", "add", config_path], check=True)
+            files_to_add.append(config_path)
         else:
             print("Config file not found, this might be a new installation")
+        
+        # Add version.py to staging
+        version_file_path = os.path.join(project_root, "version.py")
+        if os.path.exists(version_file_path):
+            files_to_add.append(version_file_path)
+        
+        # Add pyproject.toml to staging
+        pyproject_path = os.path.join(project_root_parent, "pyproject.toml")
+        if os.path.exists(pyproject_path):
+            files_to_add.append(pyproject_path)
+        
+        # Add files to staging
+        for file_path in files_to_add:
+            subprocess.run(["git", "add", file_path], check=True)
+            print(f"Added {file_path} to staging")
         
         # Commit the change
         subprocess.run(
@@ -77,8 +131,14 @@ def commit_and_tag(new_version: str, push: bool = False) -> bool:
         
         # Push if requested
         if push:
-            subprocess.run(["git", "push", "origin", "dev"], check=True)
-            print("Pushed changes to dev branch")
+            # Determine current branch
+            current_branch = subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], 
+                universal_newlines=True
+            ).strip()
+            
+            subprocess.run(["git", "push", "origin", current_branch], check=True)
+            print(f"Pushed changes to {current_branch} branch")
             
             subprocess.run(["git", "push", "origin", f"v{new_version}"], check=True)
             print(f"Pushed tag v{new_version}")

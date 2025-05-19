@@ -24,12 +24,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install semver
+          pip install build wheel setuptools semver
           
       - name: Create stable package
         run: |
           mkdir -p dist
+          
+          # Build using package script
           python src/scripts/build_package.py --channel=stable
+          
+          # Also build Python wheel package directly 
+          python -m build --wheel
+          
+          # List all files in dist
           ls -la dist/
           
       - name: Create GitHub Release
@@ -40,6 +47,23 @@ jobs:
           generate_release_notes: true
           body: |
             ## Stable Release
-
+            
+            ### Installation Options
+            
+            #### Option 1: Install from ZIP package
+            1. Download the ZIP package
+            2. Extract the archive
+            3. Run the installer script:
+               ```bash
+               ./installers/install.sh
+               ```
+            
+            #### Option 2: Install with pip (Python package)
+            ```bash
+            pip install wpdocker-*.whl
+            ```
+            
+            > Note: This project is designed for Linux and macOS systems only.
+            
             ## Release Notes
             *Automatically generated release notes appear below:*

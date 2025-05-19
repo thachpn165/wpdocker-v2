@@ -2,7 +2,7 @@
 Support for managing version information.
 
 This module provides utility functions to access and manage the application's
-version information, replacing the use of version.py.
+version information, working together with the central version.py file.
 """
 
 import os
@@ -13,10 +13,11 @@ from typing import Dict, Any, Optional, Tuple
 
 from src.common.logging import debug, error, info, log_call
 from src.common.config.manager import ConfigManager
+from src.version import __version__ as VERSION
 
 
 # Default values for version information
-DEFAULT_VERSION = "0.1.4"
+DEFAULT_VERSION = VERSION
 DEFAULT_CHANNEL = "stable"
 DEFAULT_BUILD_DATE = "2023-06-01" 
 DEFAULT_DISPLAY_NAME = f"{DEFAULT_VERSION} ({DEFAULT_CHANNEL.capitalize()})"

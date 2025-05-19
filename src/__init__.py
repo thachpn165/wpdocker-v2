@@ -8,6 +8,7 @@ The package is organized into the following modules:
 - features: Domain-specific modules (website, backup, MySQL, etc.)
 - common: Shared utilities and helper functions
 - interfaces: Abstract base classes and interfaces
+- core: Core system functionality
 """
 
-__version__ = "2.0.0"
+from .version import __version__
