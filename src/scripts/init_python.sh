@@ -54,27 +54,60 @@ init_python_env() {
         print_msg success "Virtual environment activated successfully"
     fi
 
-    # Install dependencies
-    if [[ ! -f "$VENV_DIR/.installed" && -f "$INSTALL_DIR/requirements.txt" ]]; then
-        print_msg info "Installing Python dependencies..."
-        python -m pip install --upgrade pip
+    # Ensure pip is up to date in the virtualenv
+    print_msg info "Upgrading pip in virtualenv..."
+    python -m pip install --upgrade pip
+
+    # Install dependencies - always run this step to ensure all deps are installed
+    print_msg info "Installing Python dependencies..."
+    if [ -f "$INSTALL_DIR/requirements.txt" ]; then
+        # Install all requirements
         python -m pip install -r "$INSTALL_DIR/requirements.txt"
+        
+        # Check all packages in requirements.txt
+        print_msg info "Verifying installed packages..."
+        MISSING_PACKAGES=0
+        
+        # Read requirements.txt file
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            # Skip empty lines and comments
+            if [[ -z "$line" ]] || [[ "$line" =~ ^#.* ]]; then
+                continue
+            fi
+            
+            # Extract package name (before any version specifier)
+            PACKAGE=$(echo "$line" | cut -d'=' -f1 | cut -d'>' -f1 | cut -d'<' -f1 | cut -d'[' -f1 | cut -d' ' -f1 | tr -d ' ')
+            
+            # Skip empty package names that might result from parsing
+            if [[ -z "$PACKAGE" ]]; then
+                continue
+            fi
+            
+            # Check if package is installed
+            if ! python -m pip show "$PACKAGE" &>/dev/null; then
+                print_msg warning "Package $PACKAGE not found, installing individually..."
+                python -m pip install "$PACKAGE"
+                MISSING_PACKAGES=$((MISSING_PACKAGES+1))
+            fi
+        done < "$INSTALL_DIR/requirements.txt"
+        
+        if [ "$MISSING_PACKAGES" -gt 0 ]; then
+            print_msg warning "Had to install $MISSING_PACKAGES packages individually"
+        else
+            print_msg success "All required packages are installed"
+        fi
         
         # Install current package in development mode
         print_msg info "Installing project as a development package..."
         python -m pip install -e "$INSTALL_DIR"
         
-        touch "$VENV_DIR/.installed"
+        if [ ! -f "$VENV_DIR/.installed" ]; then
+            touch "$VENV_DIR/.installed"
+        fi
         print_msg success "Dependencies installed successfully"
     else
-        # Check if package is already installed
-        if ! python -m pip show wpdocker &>/dev/null; then
-            print_msg info "Installing project as a development package..."
-            python -m pip install -e "$INSTALL_DIR"
-            print_msg success "Project package installed successfully"
-        else
-            print_msg success "Python dependencies already installed"
-        fi
+        print_msg error "Requirements file not found at $INSTALL_DIR/requirements.txt"
+        return 1
     fi
     
     # Verify src module can be imported 
