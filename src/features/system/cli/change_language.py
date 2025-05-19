@@ -51,13 +51,13 @@ def cli_change_language(lang_code: Optional[str] = None, interactive: bool = Tru
         # If language code not provided and in interactive mode, prompt for selection
         if lang_code is None and interactive:
             lang_choice = questionary.select(
-                "Chọn ngôn ngữ:",
+                "Select language:",
                 choices=get_language_choices()
             ).ask()
 
             if lang_choice is None:  # User cancelled
                 if interactive:
-                    info("Đã hủy thay đổi ngôn ngữ.")
+                    info("Language change cancelled.")
                 return False
 
             lang_code = lang_choice
@@ -65,14 +65,14 @@ def cli_change_language(lang_code: Optional[str] = None, interactive: bool = Tru
         # If no language was selected or provided
         if lang_code is None:
             if interactive:
-                error("Không có ngôn ngữ nào được chọn.")
+                error("No language selected.")
             return False
 
         # Validate the language code
         valid_codes = [l["code"] for l in LANGUAGES]
         if lang_code not in valid_codes:
             if interactive:
-                error(f"Ngôn ngữ không hợp lệ: {lang_code}. Các mã hợp lệ: {', '.join(valid_codes)}")
+                error(f"Invalid language: {lang_code}. Valid codes: {', '.join(valid_codes)}")
             return False
 
         # Set the language
@@ -82,11 +82,11 @@ def cli_change_language(lang_code: Optional[str] = None, interactive: bool = Tru
         lang_name = next(l['name'] for l in LANGUAGES if l['code'] == lang_code)
 
         if interactive:
-            success(f"Đã chuyển sang ngôn ngữ: {lang_name}")
+            success(f"Language changed to: {lang_name}")
 
         return True
     except Exception as e:
-        error(f"Lỗi khi thay đổi ngôn ngữ: {str(e)}")
+        error(f"Error changing language: {str(e)}")
         return False
 
 

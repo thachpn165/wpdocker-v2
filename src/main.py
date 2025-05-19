@@ -58,16 +58,24 @@ def display_banner() -> None:
     # Display system information
     try:
         from src.common.utils.system_info import format_system_info
-        from src.version import VERSION, CHANNEL
+        from src.common.utils.version_helper import get_version, get_channel, get_display_name
         from src.common.config.manager import ConfigManager
+        
+        # Check for new version
+        update_available = None
+        if env.get("CORE_UPDATE_CHECK", True):
+            try:
+                from src.features.update.core.version_updater import check_for_updates
+                update_info = check_for_updates()
+                if update_info:
+                    update_available = update_info
+            except Exception as e:
+                debug(f"Error checking version in banner: {str(e)}")
 
-        # Lấy kênh từ config.json với giá trị mặc định từ version.py
-        config = ConfigManager()
-        user_channel = config.get("core.channel", CHANNEL)
-
-        # Đảm bảo giá trị channel hợp lệ
-        if not user_channel or user_channel not in ["stable", "nightly", "dev"]:
-            user_channel = CHANNEL
+        # Get version info from helper
+        version = get_version()
+        user_channel = get_channel()
+        display_name = get_display_name()
 
         sys_info = format_system_info()
 
@@ -75,10 +83,46 @@ def display_banner() -> None:
         console.print("╔════════════════════════════════════════════════════════════════════════════╗", style="bright_blue")
         console.print(f"║ [cyan]CPU:[/cyan] {sys_info['cpu']}".ljust(83) + "║", style="bright_blue")
         console.print(f"║ [cyan]RAM:[/cyan] {sys_info['ram']}".ljust(83) + "║", style="bright_blue")
-        console.print(f"║ [cyan]Phiên bản:[/cyan] {VERSION} ([green]{user_channel}[/green])".ljust(83) + "║", style="bright_blue")
+        console.print(f"║ [cyan]Version:[/cyan] {display_name}".ljust(83) + "║", style="bright_blue")
+        
+        # Display notification if new version is available
+        if update_available:
+            # Use display_version if available, otherwise use version
+            new_version = update_available.get("display_version", update_available["version"])
+            new_channel = update_available.get("channel", "stable")
+            
+            # Add more informative content if metadata is available
+            update_message = f"🔔 New version available: {new_version}"
+            
+            # Add code_name if available and not already in display_version
+            if update_available.get("metadata", {}) and "code_name" in update_available["metadata"] and update_available["metadata"]["code_name"] not in new_version:
+                update_message += f" \"{update_available['metadata']['code_name']}\""
+                
+            # Add build number if it's a nightly build and build number is available
+            if new_channel == "nightly" and update_available.get("metadata", {}) and "build_number" in update_available["metadata"]:
+                if f"Build {update_available['metadata']['build_number']}" not in new_version:
+                    update_message += f" (Build {update_available['metadata']['build_number']})"
+            elif new_channel != "stable" and "nightly" not in new_version.lower():
+                update_message += f" ({new_channel.capitalize()})"
+                
+            # Add build date info for nightly builds
+            if new_channel == "nightly" and update_available.get("metadata", {}) and "build_date" in update_available["metadata"]:
+                if update_available["metadata"]["build_date"] not in new_version:
+                    date_parts = update_available["metadata"]["build_date"].split("-")
+                    if len(date_parts) == 3:
+                        formatted_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}"
+                        if formatted_date not in new_version:
+                            update_message += f" - {formatted_date}"
+            
+            # Limit message length for nice formatting
+            if len(update_message) > 75:
+                update_message = update_message[:72] + "..."
+                
+            console.print(f"║ [yellow]{update_message}[/yellow]".ljust(83) + "║", style="bright_blue")
+            
         console.print("╚════════════════════════════════════════════════════════════════════════════╝", style="bright_blue")
     except Exception as e:
-        debug(f"Không thể hiển thị thông tin hệ thống: {str(e)}")
+        debug(f"Unable to display system information: {str(e)}")
 
 
 def not_implemented() -> None:
@@ -335,13 +379,13 @@ def main() -> None:
         # Main loop with update checking at the end of each cycle
         while not exit_requested:
             # Check for updates if enabled (at the end of the menu cycle)
-            if not env.get("DISABLE_UPDATE_CHECK", False):
-                debug("Checking for updates...")
+            if env.get("CORE_UPDATE_CHECK", True):
+                info("Checking for updates...")
                 try:
                     from src.features.update.core.version_updater import prompt_update
                     prompt_update()
                 except Exception as e:
-                    debug(f"Failed to check for updates: {e}")
+                    error(f"Error checking for updates: {e}")
 
             # Show menu again
             continue_menu = show_main_menu()

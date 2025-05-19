@@ -44,19 +44,8 @@ class CoreLoader:
 
         self._initialized = True
         self.debug = Debug("CoreLoader")
-        self.required_modules = {
-            "python_on_whales": "python-on-whales",
-            "questionary": "questionary",
-            "rich": "rich",
-            "requests": "requests",
-            "passlib": "passlib",
-            "bcrypt": "bcrypt",
-            "tqdm": "tqdm",
-            "colorama": "colorama",
-            "python-dotenv": "python-dotenv",
-            "tabulate": "tabulate",
-            "psutil": "psutil"
-        }
+        # Manual module checking removed since we use requirements.txt
+        # Modules are automatically installed with pip install -r requirements.txt or pip install -e .
 
     @log_call
     def load(self) -> bool:
@@ -64,18 +53,12 @@ class CoreLoader:
         Load the core system.
 
         This method:
-        1. Installs required Python modules
-        2. Loads environment variables
+        1. Loads environment variables
 
         Returns:
             bool: True if loading successful, False otherwise
         """
         self.debug.info("Starting core system loading")
-
-        # Check and install required modules
-        if not self._check_and_install_modules():
-            self.debug.error("Failed to install required modules")
-            return False
 
         # Load environment variables
         env_file = self._find_env_file()
@@ -88,38 +71,6 @@ class CoreLoader:
             return False
 
         self.debug.success("Core system loaded successfully")
-        return True
-
-    @log_call
-    def _check_and_install_modules(self) -> bool:
-        """
-        Check if required modules are installed and install if missing.
-
-        Returns:
-            bool: True if all modules are available, False otherwise
-        """
-        missing_modules = []
-
-        for module_name, package_name in self.required_modules.items():
-            try:
-                importlib.import_module(module_name)
-                self.debug.debug(f"Module found: {module_name}")
-            except ImportError:
-                missing_modules.append(package_name)
-                self.debug.debug(f"Module missing: {module_name}")
-
-        if missing_modules:
-            self.debug.warn(
-                f"Installing missing modules: {', '.join(missing_modules)}")
-            try:
-                import subprocess
-                subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install"] + missing_modules)
-                self.debug.success("Successfully installed missing modules")
-            except Exception as e:
-                self.debug.error(f"Failed to install modules: {e}")
-                return False
-
         return True
 
     @log_call

@@ -71,10 +71,10 @@ def show_system_info_table(console=None):
                 docker_volumes = data["Size"]
     except Exception:
         pass
-    # Hiển thị bảng
+    # Display table
     table = Table(title="System Information", show_header=True, header_style="bold magenta")
-    table.add_column("Thông tin", style="bold")
-    table.add_column("Giá trị", style="cyan")
+    table.add_column("Info", style="bold")
+    table.add_column("Value", style="cyan")
     table.add_row("CPU", cpu_name)
     table.add_row("CPU Frequency", cpu_freq)
     table.add_row("RAM", ram_str)

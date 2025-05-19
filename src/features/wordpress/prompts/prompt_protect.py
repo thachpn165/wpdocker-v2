@@ -22,9 +22,9 @@ def prompt_toggle_wp_login_protection() -> None:
     calling the CLI implementation to perform the actual change.
     """
     try:
-        domain = select_website("Chọn website cần thay đổi bảo vệ wp-login.php:")
+        domain = select_website("Select website to change wp-login.php protection:")
         if not domain:
-            info("Không có website nào hoặc thao tác bị hủy. Quay lại menu.")
+            info("No website found or operation cancelled. Returning to menu.")
             return False
             
         result = cli_toggle_wp_login_protection(domain, interactive=True)

@@ -34,18 +34,18 @@ class ConfigBootstrap(BaseBootstrap):
         """
         full_config = self.config_manager.get()
 
-        # Nếu không có key "core" nào trong config, chắc chắn cần bootstrap
+        # If there is no "core" key in config, definitely needs bootstrap
         if "core" not in full_config:
-            self.debug.info("Key 'core' không tồn tại trong config.json")
+            self.debug.info("Key 'core' does not exist in config.json")
             return False
 
         raw_core = full_config.get("core", {})
 
-        # Kiểm tra xem core config có đầy đủ các trường bắt buộc không
+        # Check if core config has all required fields
         required_fields = ["channel", "timezone", "webserver", "lang"]
         for field in required_fields:
             if field not in raw_core:
-                self.debug.info(f"Thiếu trường cấu hình {field} trong core config")
+                self.debug.info(f"Missing configuration field {field} in core config")
                 return False
 
         # Check if core configuration is valid
@@ -132,11 +132,12 @@ class ConfigBootstrap(BaseBootstrap):
             return True
         except Exception as e:
             self.debug.error(f"Failed to initialize core configuration: {e}")
-            # Không tạo cấu hình mặc định, yêu cầu người dùng thiết lập lại
-            self.debug.info("Người dùng cần thiết lập cấu hình thủ công")
+            # Do not create default configuration, require user to set up manually
+            self.debug.info("User needs to set up configuration manually")
             return False
 
     def mark_bootstrapped(self) -> None:
         """Mark configuration as bootstrapped."""
         # Configuration bootstrap is marked by the presence of valid core config
         pass
+

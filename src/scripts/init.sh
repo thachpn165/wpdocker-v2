@@ -2,30 +2,61 @@
 
 set -e
 
-INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Source message utils
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../bash/messages_utils.sh"
+
+# Fixed path for the installation directory
+FIXED_INSTALL_DIR="/opt/wp-docker"
+
+# Actual path to the installation directory (used to create symlink if needed)
+ACTUAL_INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Check and create symlink only if /opt/wp-docker does not exist
+if [ ! -e "$FIXED_INSTALL_DIR" ]; then
+    print_msg info "Directory $FIXED_INSTALL_DIR does not exist"
+    print_msg info "Creating symlink $FIXED_INSTALL_DIR -> $ACTUAL_INSTALL_DIR"
+    
+    # Check if parent directory exists
+    if [ ! -d "$(dirname "$FIXED_INSTALL_DIR")" ]; then
+        print_msg info "Creating directory $(dirname "$FIXED_INSTALL_DIR")"
+        mkdir -p "$(dirname "$FIXED_INSTALL_DIR")"
+    fi
+    
+    # Create symlink
+    ln -sf "$ACTUAL_INSTALL_DIR" "$FIXED_INSTALL_DIR"
+    print_msg success "Symlink created successfully"
+else
+    print_msg success "Directory $FIXED_INSTALL_DIR already exists, continuing to use it"
+fi
+
+# Use the fixed path
+INSTALL_DIR="$FIXED_INSTALL_DIR"
 VENV_DIR="$INSTALL_DIR/.venv"
 PYTHON_EXEC="$VENV_DIR/bin/python"
 MAIN_FILE="$INSTALL_DIR/src/main.py"
 
-# Kiểm tra và tạo file core.env từ core.env.sample nếu cần
+# Check and create core.env from core.env.sample if needed
 CORE_ENV="$INSTALL_DIR/core.env"
 CORE_ENV_SAMPLE="$INSTALL_DIR/core.env.sample"
 
 if [ ! -f "$CORE_ENV" ] && [ -f "$CORE_ENV_SAMPLE" ]; then
-    echo "📄 Creating core.env from sample..."
+    print_msg info "Creating core.env from sample..."
     cp "$CORE_ENV_SAMPLE" "$CORE_ENV"
-    echo "✅ Created core.env from sample template"
+    print_msg success "Created core.env from sample template"
 fi
 
-# Kiểm tra python3
+# Check python3 installation
 source "$(dirname "${BASH_SOURCE[0]}")/install_python.sh"
 install_python
 
-# Khởi tạo venv cho Python (tại thư mục .venv)
+# Initialize Python environment (create virtualenv and install dependencies)
 source "$(dirname "${BASH_SOURCE[0]}")/init_python.sh"
 init_python_env
 
-# Chạy backend
-echo "🚀 Launching WP Docker..."
+# Run backend
+print_msg run "Launching WP Docker..."
 
+# Run main program
+cd "$INSTALL_DIR"  # Ensure current directory is the install directory
 "$PYTHON_EXEC" "$MAIN_FILE"

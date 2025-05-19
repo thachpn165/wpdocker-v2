@@ -73,7 +73,10 @@ class GitUpdater:
         Returns:
             Dict with update information or None if no updates are available
         """
-        from src.version import VERSION, CHANNEL
+        from src.common.utils.version_helper import get_version, get_channel
+        
+        VERSION = get_version()
+        CHANNEL = get_channel()
         
         if CHANNEL == "dev":
             self.debug.info("Dev channel does not support automatic updates")
@@ -86,7 +89,7 @@ class GitUpdater:
             
         if CHANNEL == "stable":
             # For stable channel, check for newer version tags
-            self.debug.info("Checking for newer version tags")
+            self.debug.info(f"Checking for newer version tags (current version: {VERSION})")
             
             # Get all tags sorted by version (newest first)
             result = self._run_git_command(["git", "tag", "--sort=-v:refname"])
@@ -171,7 +174,9 @@ class GitUpdater:
         Returns:
             bool: True if successful, False otherwise
         """
-        from src.version import CHANNEL
+        from src.common.utils.version_helper import get_channel
+        
+        CHANNEL = get_channel()
         
         if CHANNEL == "dev":
             self.debug.info("Dev channel does not support automatic updates")

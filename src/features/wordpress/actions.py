@@ -74,8 +74,19 @@ def download_core(domain: str) -> bool:
 
     if is_empty:
         debug(f"📥 Downloading WordPress to {wordpress_path}...")
-        wpcli.exec(["wp", "core", "download"],
-                   workdir=f"/var/www/html/{domain}/wordpress")
+        
+        # First try to ensure the directory exists with proper permissions
+        wpcli.exec(["mkdir", "-p", f"/var/www/html/{domain}/wordpress"],
+                  user="www-data")
+        
+        # Run the core download command with www-data user
+        result = wpcli.exec(["wp", "core", "download"],
+                   workdir=f"/var/www/html/{domain}/wordpress",
+                   user="www-data")
+        
+        if result is None:
+            error(f"❌ Failed to download WordPress for {domain}")
+            return False
     else:
         warn(
             f"📂 WordPress is already installed at {wordpress_path}. Skipping download.")
@@ -110,8 +121,12 @@ def generate_config(domain: str) -> bool:
     """
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
     wordpress_path = f"/var/www/html/{domain}/wordpress"
-    wpcli.exec(["cp", "wp-config-sample.php", "wp-config.php"],
-               workdir=wordpress_path)
+    result = wpcli.exec(["cp", "wp-config-sample.php", "wp-config.php"],
+               workdir=wordpress_path,
+               user="www-data")
+    if result is None:
+        error(f"❌ Failed to create wp-config.php for {domain}")
+        return False
     return True
 
 
@@ -167,8 +182,11 @@ def configure_db(domain: str) -> bool:
     }
 
     for search, replace in replacements.items():
-        wpcli.exec(["sed", "-i", f"s/{search}/{replace}/g",
-                   "wp-config.php"], workdir=wordpress_path)
+        result = wpcli.exec(["sed", "-i", f"s/{search}/{replace}/g",
+                   "wp-config.php"], workdir=wordpress_path, user="www-data")
+        if result is None:
+            error(f"❌ Failed to configure database in wp-config.php for {domain}")
+            return False
 
     return True
 
@@ -233,7 +251,7 @@ def core_install(domain: str, site_url: str, title: str, admin_user: str,
     wordpress_path = f"/var/www/html/{domain}/wordpress"
 
     try:
-        wpcli.exec([
+        result = wpcli.exec([
             "wp", "core", "install",
             f"--url={site_url}",
             f"--title={title}",
@@ -241,7 +259,12 @@ def core_install(domain: str, site_url: str, title: str, admin_user: str,
             f"--admin_password={admin_pass}",
             f"--admin_email={admin_email}",
             "--skip-email",
-        ], workdir=wordpress_path)
+        ], workdir=wordpress_path, user="www-data")
+        
+        if result is None:
+            error(f"❌ WordPress core installation failed for {domain}")
+            return False
+            
         return True
     except Exception as e:
         error(f"❌ WordPress core installation failed: {e}")
@@ -297,7 +320,9 @@ def verify_installation(domain: str) -> bool:
     """
     wpcli = Container(env["WPCLI_CONTAINER_NAME"])
     wordpress_path = f"/var/www/html/{domain}/wordpress"
-    result = wpcli.exec(["wp", "core", "is-installed"], workdir=wordpress_path)
+    result = wpcli.exec(["wp", "core", "is-installed"], 
+                       workdir=wordpress_path, 
+                       user="www-data")
     return result is not None
 
 

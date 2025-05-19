@@ -37,7 +37,7 @@ def prompt_view_system_info() -> None:
     """Display system information."""
     console = Console()
     show_system_info_table(console)
-    input("\nNhấn Enter để quay lại...")
+    input("\nPress Enter to return...")
 
 
 def prompt_clean_docker() -> None:
