@@ -112,20 +112,24 @@ def build_package(channel: str = "stable") -> Optional[str]:
         # Create the output directory
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(script_dir)
-        dist_dir = os.path.join(project_root, "..", "dist")
+        project_parent = os.path.dirname(project_root)
+        dist_dir = os.path.join(project_parent, "dist")
         os.makedirs(dist_dir, exist_ok=True)
         
         # Determine the package filename
         if channel == "stable":
-            package_name = f"wpdocker-v2-{version}.zip"
+            package_name = f"wpdocker-v2-{version}"
         else:
             today = datetime.datetime.now().strftime("%Y%m%d")
-            package_name = f"wpdocker-v2-{channel}-{today}.zip"
-            
-        package_path = os.path.join(dist_dir, package_name)
+            package_name = f"wpdocker-v2-{channel}-{today}"
         
-        # Create the package
-        with zipfile.ZipFile(package_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        # Two build approaches:
+        # 1. Legacy ZIP package
+        # 2. Modern Python wheel package
+        
+        # 1. Legacy ZIP package for backward compatibility
+        zip_path = os.path.join(dist_dir, f"{package_name}.zip")
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Add all files from src, excluding src/config
             src_dir = os.path.join(project_root)
             for root, dirs, files in os.walk(src_dir):
@@ -136,21 +140,70 @@ def build_package(channel: str = "stable") -> Optional[str]:
                 for file in files:
                     file_path = os.path.join(root, file)
                     # Calculate the relative path for the archive
-                    rel_path = os.path.relpath(file_path, os.path.dirname(project_root))
+                    rel_path = os.path.relpath(file_path, project_parent)
                     zipf.write(file_path, rel_path)
                         
             # Add requirements.txt
-            req_file = os.path.join(project_root, "..", "requirements.txt")
+            req_file = os.path.join(project_parent, "requirements.txt")
             if os.path.exists(req_file):
                 zipf.write(req_file, "requirements.txt")
                 
             # Add README.md
-            readme_file = os.path.join(project_root, "..", "README.md")
+            readme_file = os.path.join(project_parent, "README.md")
             if os.path.exists(readme_file):
                 zipf.write(readme_file, "README.md")
+                
+            # Add installer scripts
+            install_dir = os.path.join(project_parent, "installers")
+            if os.path.exists(install_dir):
+                for root, dirs, files in os.walk(install_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, project_parent)
+                        zipf.write(file_path, rel_path)
+                        
+            # Add pyproject.toml
+            pyproject_file = os.path.join(project_parent, "pyproject.toml")
+            if os.path.exists(pyproject_file):
+                zipf.write(pyproject_file, "pyproject.toml")
         
-        print(f"Package created: {package_path}")
-        return package_path
+        print(f"ZIP package created: {zip_path}")
+        
+        # 2. Build Python wheel
+        try:
+            # Change to project directory
+            os.chdir(project_parent)
+            
+            # Run build command
+            build_cmd = [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", dist_dir, "."]
+            subprocess.run(build_cmd, check=True)
+            
+            # Check if wheel was created
+            wheels = [f for f in os.listdir(dist_dir) if f.endswith('.whl')]
+            if wheels:
+                wheel_path = os.path.join(dist_dir, wheels[0])
+                print(f"Wheel package created: {wheel_path}")
+                
+                # Rename wheel for channel-specific naming
+                if channel != "stable":
+                    # Extract parts of the wheel filename
+                    wheel_name_parts = wheels[0].split('-')
+                    new_wheel_name = f"{package_name}-{'-'.join(wheel_name_parts[1:])}"
+                    new_wheel_path = os.path.join(dist_dir, new_wheel_name)
+                    
+                    # Rename the wheel
+                    shutil.move(wheel_path, new_wheel_path)
+                    print(f"Renamed wheel to: {new_wheel_path}")
+                    wheel_path = new_wheel_path
+                
+                # Return the wheel path as the main package
+                return wheel_path
+        except Exception as e:
+            print(f"Error building wheel package: {str(e)}")
+            print("Falling back to ZIP package only")
+        
+        # Return the ZIP path if wheel building failed
+        return zip_path
     except Exception as e:
         print(f"Error building package: {str(e)}")
         return None
